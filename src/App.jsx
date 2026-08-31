@@ -1,16 +1,16 @@
-import React, { Suspense, lazy } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import CustomCursor from './components/CustomCursor';
 import ErrorBoundary from './components/ErrorBoundary';
 
-// Pages - Lazy Loaded for Performance
-const Login = lazy(() => import('./pages/Login'));
-const Register = lazy(() => import('./pages/Register'));
-const MerchantDashboard = lazy(() => import('./pages/MerchantDashboard'));
-const PublicShop = lazy(() => import('./pages/PublicShop'));
-const DriverDashboard = lazy(() => import('./pages/DriverDashboard'));
-const Landing = lazy(() => import('./pages/Landing'));
+// Static Imports (No more lazy loading to prevent ChunkLoadErrors on Vercel updates)
+import Login from './pages/Login';
+import Register from './pages/Register';
+import MerchantDashboard from './pages/MerchantDashboard';
+import PublicShop from './pages/PublicShop';
+import DriverDashboard from './pages/DriverDashboard';
+import Landing from './pages/Landing';
 
 // Loader Component
 const PageLoader = () => (
@@ -38,25 +38,23 @@ export default function App() {
       <Router>
         <CustomCursor />
         <ErrorBoundary>
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              
-              <Route 
-                path="/dashboard" 
-                element={
-                  <ProtectedRoute>
-                    <MerchantDashboard />
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route path="/boutique/:shopName" element={<PublicShop />} />
-              <Route path="/livreur/:shopName" element={<DriverDashboard />} />
-            </Routes>
-          </Suspense>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            
+            <Route 
+              path="/dashboard" 
+              element={
+                <ProtectedRoute>
+                  <MerchantDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route path="/boutique/:shopName" element={<PublicShop />} />
+            <Route path="/livreur/:shopName" element={<DriverDashboard />} />
+          </Routes>
         </ErrorBoundary>
       </Router>
     </AuthProvider>
