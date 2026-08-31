@@ -3,11 +3,11 @@ import React from 'react';
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, errorMessage: '' };
   }
 
   static getDerivedStateFromError(error) {
-    return { hasError: true };
+    return { hasError: true, errorMessage: error.message || error.toString() };
   }
 
   componentDidCatch(error, errorInfo) {
@@ -28,11 +28,18 @@ class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
-          <div className="text-center max-w-md">
+          <div className="text-center max-w-md break-words">
             <h2 className="text-2xl font-black text-gray-900 mb-4">Une petite erreur est survenue</h2>
-            <p className="text-gray-500 mb-6">Nous avons mis à jour l'application. Veuillez rafraîchir la page pour continuer.</p>
+            <p className="text-gray-500 mb-2">Message d'erreur pour débogage :</p>
+            <div className="bg-red-50 text-red-700 p-4 rounded-lg text-xs text-left mb-6 font-mono border border-red-200">
+              {this.state.errorMessage}
+            </div>
             <button 
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                // Clear localStorage in case of corrupt state
+                // localStorage.clear();
+                window.location.reload();
+              }}
               className="bg-indigo-600 text-white font-bold py-3 px-6 rounded-xl hover:bg-indigo-700 transition-colors"
             >
               Rafraîchir la page
