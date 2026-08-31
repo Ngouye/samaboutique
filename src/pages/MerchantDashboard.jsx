@@ -328,6 +328,22 @@ export default function MerchantDashboard() {
               </div>
             </div>
             
+            <div className="p-6 pb-0">
+              <div className="bg-white/80 rounded-2xl p-4 border border-white shadow-sm flex flex-col gap-2">
+                <a href={getShopUrl()} target="_blank" rel="noreferrer" className="w-full flex items-center justify-center gap-2 bg-[#4F46E5] text-white font-bold px-4 py-2.5 rounded-xl hover:shadow-xl hover:shadow-indigo-500/30 hover:scale-[1.02] transition-all text-sm relative overflow-hidden group animate-shine">
+                  <div className="bg-indigo-500 rounded-lg p-1"><Store className="w-4 h-4 text-white" /></div> Ma Vitrine
+                </a>
+                <div className="flex gap-2">
+                  <button onClick={() => { setShowQRModal(true); setIsMobileMenuOpen(false); }} className="flex-1 flex items-center justify-center gap-1 bg-indigo-50 text-indigo-700 font-bold px-2 py-2.5 rounded-xl hover:bg-indigo-100 transition-colors text-sm">
+                    <QrCode className="w-4 h-4" /> QR
+                  </button>
+                  <button onClick={() => { handleDriverLinkCopy(); setIsMobileMenuOpen(false); }} className="flex-1 flex items-center justify-center gap-1 bg-gray-100 text-gray-900 font-bold px-2 py-2.5 rounded-xl hover:bg-gray-200 transition-colors text-sm">
+                    <Truck className="w-4 h-4" /> Livreur
+                  </button>
+                </div>
+              </div>
+            </div>
+            
             <nav className="flex-1 p-6 space-y-2">
               <button onClick={() => { setActiveTab('analytics'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'analytics' ? 'bg-indigo-50 text-gray-900 border border-indigo-100 shadow-sm' : 'text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent'}`}>
                 <BarChart3 className="w-5 h-5 mr-3" /> Vue d'ensemble
