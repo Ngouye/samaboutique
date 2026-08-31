@@ -9,8 +9,15 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const navigate = useNavigate();
+
+  // If user is already authenticated (e.g. from local session), redirect to dashboard
+  React.useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,6 +26,8 @@ export default function Login() {
       setLoading(true);
       const { error: authError } = await login(email, password);
       if (authError) throw authError;
+      // We don't need to manually navigate here, the useEffect will catch the state change
+      // But we can keep it as a fallback in case state update is delayed
       navigate('/dashboard');
     } catch (err) {
       setError(err.message || 'Échec de la connexion');

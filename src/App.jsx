@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import CustomCursor from './components/CustomCursor';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Pages - Lazy Loaded for Performance
 const Login = lazy(() => import('./pages/Login'));
@@ -36,25 +37,27 @@ export default function App() {
     <AuthProvider>
       <Router>
         <CustomCursor />
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            
-            <Route 
-              path="/dashboard" 
-              element={
-                <ProtectedRoute>
-                  <MerchantDashboard />
-                </ProtectedRoute>
-              } 
-            />
-            
-            <Route path="/boutique/:shopName" element={<PublicShop />} />
-            <Route path="/livreur/:shopName" element={<DriverDashboard />} />
-          </Routes>
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Landing />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              
+              <Route 
+                path="/dashboard" 
+                element={
+                  <ProtectedRoute>
+                    <MerchantDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route path="/boutique/:shopName" element={<PublicShop />} />
+              <Route path="/livreur/:shopName" element={<DriverDashboard />} />
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
       </Router>
     </AuthProvider>
   );
