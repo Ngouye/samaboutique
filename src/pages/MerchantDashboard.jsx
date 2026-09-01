@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
-import { Plus, LogOut, Package, ShoppingBag, Store, Activity, X, Menu, QrCode, BarChart3, Truck, ExternalLink, Image as ImageIcon, Users, UserPlus, Trash2, BellRing, BellOff, Search, Filter, Settings } from 'lucide-react';
+import { Plus, LogOut, Package, ShoppingBag, Store, Activity, X, Menu, QrCode, BarChart3, Truck, ExternalLink, Image as ImageIcon, Users, UserPlus, Trash2, BellRing, BellOff, Search, Filter, Settings, CreditCard, AlertCircle, ShieldCheck } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 export default function MerchantDashboard() {
@@ -46,6 +46,56 @@ export default function MerchantDashboard() {
         theme_color: merchant.theme_color || '#4F46E5',
         isSaving: false
       });
+      
+      // Force Billing tab if expired
+      if (merchant.subscription_status === 'expired') {
+        setActiveTab('billing');
+      }
+    }
+  }, [merchant]);
+
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
+  const handlePaySubscription = async (plan) => {
+    setIsProcessingPayment(true);
+    try {
+      // VRAIE LOGIQUE PAYDUNYA (Activée !)
+      const { data, error: invokeError } = await supabase.functions.invoke('paydunya-checkout', {
+        body: { merchantId: user.id, email: user.email, shopName: merchant.shop_name, plan: plan }
+      });
+      
+      if (invokeError) {
+        throw invokeError;
+      }
+      
+      if (!data.success) {
+        throw new Error(data.error || "Erreur inconnue renvoyée par PayDunya");
+      }
+      
+      if (data && data.invoice_url) {
+        // Redirige vers la page sécurisée de PayDunya
+        window.location.href = data.invoice_url; 
+      } else {
+        alert("Erreur de communication avec PayDunya. Veuillez réessayer.");
+      }
+    } catch (err) {
+      console.error("Erreur de paiement PayDunya:", err);
+      alert(`Erreur de paiement : ${err.message || "Impossible de contacter PayDunya"}`);
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
+  useEffect(() => {
+    if (merchant) {
+      const params = new URLSearchParams(window.location.search);
+      const checkoutPlan = params.get('checkout');
+      if (checkoutPlan === 'pro' || checkoutPlan === 'premium') {
+        // Nettoyer l'URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        setActiveTab('billing');
+        handlePaySubscription(checkoutPlan);
+      }
     }
   }, [merchant]);
 
@@ -85,7 +135,30 @@ export default function MerchantDashboard() {
       navigate('/login');
       return;
     }
-    fetchData();
+    
+    // Vérification du retour PayDunya
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment') === 'success') {
+      const plan = params.get('plan') || 'pro';
+      
+      // On met à jour l'abonnement du marchand
+      supabase.from('merchants').update({
+        subscription_plan: plan,
+        subscription_status: 'active',
+        subscription_end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      }).eq('id', user.id).then(({ error }) => {
+        if (!error) {
+          alert(`Paiement réussi ! Bienvenue dans le forfait ${plan.toUpperCase()} 🎉`);
+          // Nettoyer l'URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+          // Forcer le rechargement des infos
+          fetchData();
+          window.location.reload(); // Pour recharger le contexte `merchant`
+        }
+      });
+    } else {
+      fetchData();
+    }
     
     // Subscribe to real-time orders
     const ordersSubscription = supabase.channel('custom-all-channel')
@@ -149,6 +222,15 @@ export default function MerchantDashboard() {
 
   const submitProduct = async (e) => {
     e.preventDefault();
+    
+    // VERIFICATION DES LIMITES
+    if (merchant?.subscription_plan === 'debutant' && products.length >= 10) {
+      alert("Vous avez atteint la limite de 10 produits du forfait Débutant. Veuillez passer au forfait Pro ou Premium pour ajouter plus de produits.");
+      setActiveTab('billing');
+      setShowProductModal(false);
+      return;
+    }
+
     setUploading(true);
     try {
       let image_url = null;
@@ -193,9 +275,25 @@ export default function MerchantDashboard() {
       setUploading(false);
     }
   };
+  
   const submitDriver = async (e) => {
     e.preventDefault();
     if (!newDriver.full_name) return;
+    
+    // VERIFICATION DES LIMITES
+    if (merchant?.subscription_plan === 'debutant' && team.length >= 1) {
+      alert("Le forfait Débutant est limité à 1 livreur. Passez au forfait Pro ou Premium pour agrandir votre équipe.");
+      setActiveTab('billing');
+      setShowDriverModal(false);
+      return;
+    }
+    if (merchant?.subscription_plan === 'pro' && team.length >= 5) {
+      alert("Le forfait Pro est limité à 5 livreurs. Passez au forfait Premium pour une équipe illimitée.");
+      setActiveTab('billing');
+      setShowDriverModal(false);
+      return;
+    }
+
     try {
       const { error } = await supabase.from('drivers').insert([{
         merchant_id: user.id,
@@ -363,6 +461,9 @@ export default function MerchantDashboard() {
               <button onClick={() => { setActiveTab('settings'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'settings' ? 'bg-indigo-50 text-gray-900 border border-indigo-100 shadow-sm' : 'text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent'}`}>
                 <Settings className="w-5 h-5 mr-3" /> Paramètres
               </button>
+              <button onClick={() => { setActiveTab('billing'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'billing' ? 'bg-orange-50 text-orange-600 border border-orange-100 shadow-sm' : 'text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent'}`}>
+                <CreditCard className="w-5 h-5 mr-3" /> Facturation
+              </button>
             </nav>
             <div className="p-6 border-t border-gray-100/50">
               <button onClick={handleLogout} className="w-full flex items-center px-4 py-3 text-red-500 hover:bg-red-50 hover:text-red-600 rounded-xl transition-all font-bold text-sm">
@@ -419,6 +520,9 @@ export default function MerchantDashboard() {
           </button>
           <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'settings' ? 'bg-indigo-50 text-gray-900 border border-indigo-100 shadow-sm' : 'text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent'}`}>
             <Settings className="w-5 h-5 mr-3" /> Paramètres
+          </button>
+          <button onClick={() => setActiveTab('billing')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'billing' ? 'bg-orange-50 text-orange-600 border border-orange-100 shadow-sm' : 'text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent'}`}>
+            <CreditCard className="w-5 h-5 mr-3" /> Facturation
           </button>
         </nav>
         <div className="p-6 border-t border-gray-100/50">
@@ -489,7 +593,26 @@ export default function MerchantDashboard() {
               </div>
             </div>
 
-            {/* Bilan Livreur */}
+            {/* Lock Overlay if Expired */}
+            {merchant?.subscription_status === 'expired' && activeTab !== 'billing' && (
+              <div className="absolute inset-0 z-40 bg-white/60 backdrop-blur-sm flex items-center justify-center p-6">
+                <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md text-center border border-gray-100">
+                  <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <AlertCircle className="w-8 h-8" />
+                  </div>
+                  <h2 className="text-2xl font-black text-gray-900 mb-2">Abonnement Expiré</h2>
+                  <p className="text-gray-500 mb-6">Votre abonnement à SamaBoutik est arrivé à expiration. Veuillez le renouveler pour retrouver l'accès à votre tableau de bord et rouvrir votre boutique.</p>
+                  <button 
+                    onClick={() => setActiveTab('billing')}
+                    className="w-full py-4 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition-colors"
+                  >
+                    Aller à la Facturation
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* TOP HEADER */}
             <div className="bg-white/90 backdrop-blur-xl rounded-[2.5rem] shadow-xl border border-white overflow-hidden">
               <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-indigo-900 px-8 py-6 flex items-center justify-between relative overflow-hidden">
                 <div className="absolute right-0 top-0 w-64 h-full bg-gradient-to-l from-indigo-500/20 to-transparent pointer-events-none"></div>
@@ -960,6 +1083,119 @@ export default function MerchantDashboard() {
                 {settingsForm.isSaving ? 'Enregistrement...' : 'Enregistrer les paramètres'}
               </button>
             </form>
+          </div>
+        ) : activeTab === 'billing' ? (
+          <div className="space-y-8 max-w-7xl mx-auto">
+            <div>
+              <h2 className="text-3xl font-black text-gray-900 tracking-tight">Abonnement & Facturation</h2>
+              <p className="text-gray-500 mt-2 font-medium text-lg">Choisissez le forfait qui correspond à vos besoins</p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {/* Plan Débutant */}
+              <div className={`bg-white p-8 rounded-[2rem] border-2 transition-all flex flex-col ${merchant?.subscription_plan === 'debutant' ? 'border-indigo-500 shadow-xl shadow-indigo-500/10' : 'border-gray-100 shadow-sm hover:shadow-lg'}`}>
+                {merchant?.subscription_plan === 'debutant' && (
+                  <span className="bg-indigo-100 text-indigo-700 font-bold px-3 py-1 rounded-full text-xs w-max mb-4">Plan Actuel</span>
+                )}
+                <h3 className="text-2xl font-black text-gray-900 mb-2">Débutant</h3>
+                <p className="text-gray-500 text-sm h-10">Pour lancer votre première boutique</p>
+                <div className="my-6">
+                  <span className="text-5xl font-black text-gray-900">0</span>
+                  <span className="text-gray-500 font-bold text-sm ml-2">FCFA / MOIS</span>
+                </div>
+                <ul className="space-y-4 mb-8 flex-1">
+                  <li className="flex items-center gap-3 text-gray-700 font-medium">
+                    <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600"><ShieldCheck className="w-4 h-4"/></div> Jusqu'à 10 produits
+                  </li>
+                  <li className="flex items-center gap-3 text-gray-700 font-medium">
+                    <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600"><ShieldCheck className="w-4 h-4"/></div> 1 Livreur
+                  </li>
+                  <li className="flex items-center gap-3 text-gray-700 font-medium">
+                    <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600"><ShieldCheck className="w-4 h-4"/></div> Vitrine basique
+                  </li>
+                </ul>
+                <button disabled className="w-full py-4 rounded-xl font-bold bg-gray-100 text-gray-500 cursor-not-allowed">
+                  {merchant?.subscription_plan === 'debutant' ? 'Déjà actif' : 'Gratuit à vie'}
+                </button>
+              </div>
+
+              {/* Plan Pro */}
+              <div className={`bg-gray-900 p-8 rounded-[2rem] border-2 transition-all flex flex-col relative overflow-hidden ${merchant?.subscription_plan === 'pro' ? 'border-purple-500 shadow-2xl shadow-purple-500/20' : 'border-gray-800 shadow-xl'}`}>
+                <div className="absolute -right-10 -top-10 w-32 h-32 bg-purple-500/30 blur-3xl rounded-full"></div>
+                <div className="flex justify-between items-start mb-4 relative z-10">
+                  {merchant?.subscription_plan === 'pro' ? (
+                    <span className="bg-purple-500 text-white font-bold px-3 py-1 rounded-full text-xs">Plan Actuel</span>
+                  ) : (
+                    <span className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-bold px-3 py-1 rounded-full text-xs">Le plus populaire</span>
+                  )}
+                </div>
+                <h3 className="text-2xl font-black text-white mb-2 relative z-10">Pro</h3>
+                <p className="text-gray-400 text-sm h-10 relative z-10">Pour les marchands réguliers</p>
+                <div className="my-6 relative z-10">
+                  <span className="text-5xl font-black text-white">5 000</span>
+                  <span className="text-gray-400 font-bold text-sm ml-2">FCFA / MOIS</span>
+                </div>
+                <ul className="space-y-4 mb-8 flex-1 relative z-10">
+                  <li className="flex items-center gap-3 text-gray-300 font-medium">
+                    <div className="w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400"><ShieldCheck className="w-4 h-4"/></div> Produits illimités
+                  </li>
+                  <li className="flex items-center gap-3 text-gray-300 font-medium">
+                    <div className="w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400"><ShieldCheck className="w-4 h-4"/></div> Jusqu'à 5 livreurs
+                  </li>
+                  <li className="flex items-center gap-3 text-gray-300 font-medium">
+                    <div className="w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400"><ShieldCheck className="w-4 h-4"/></div> Personnalisation avancée
+                  </li>
+                  <li className="flex items-center gap-3 text-gray-300 font-medium">
+                    <div className="w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400"><ShieldCheck className="w-4 h-4"/></div> Statistiques détaillées
+                  </li>
+                </ul>
+                <button 
+                  onClick={() => handlePaySubscription('pro')}
+                  disabled={merchant?.subscription_plan === 'pro' || isProcessingPayment}
+                  className={`relative z-10 w-full py-4 rounded-xl font-bold transition-all ${merchant?.subscription_plan === 'pro' ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-white text-gray-900 hover:bg-gray-100 hover:scale-[1.02]'}`}
+                >
+                  {isProcessingPayment ? 'Patientez...' : merchant?.subscription_plan === 'pro' ? 'Déjà actif' : 'Mettre à niveau (Pro)'}
+                </button>
+              </div>
+
+              {/* Plan Premium */}
+              <div className={`bg-white p-8 rounded-[2rem] border-2 transition-all flex flex-col ${merchant?.subscription_plan === 'premium' ? 'border-orange-500 shadow-xl shadow-orange-500/10' : 'border-gray-100 shadow-sm hover:shadow-lg'}`}>
+                {merchant?.subscription_plan === 'premium' && (
+                  <span className="bg-orange-100 text-orange-700 font-bold px-3 py-1 rounded-full text-xs w-max mb-4">Plan Actuel</span>
+                )}
+                <h3 className="text-2xl font-black text-gray-900 mb-2">Premium</h3>
+                <p className="text-gray-500 text-sm h-10">Pour les grandes boutiques</p>
+                <div className="my-6">
+                  <span className="text-5xl font-black text-gray-900">15 000</span>
+                  <span className="text-gray-500 font-bold text-sm ml-2">FCFA / MOIS</span>
+                </div>
+                <ul className="space-y-4 mb-8 flex-1">
+                  <li className="flex items-center gap-3 text-gray-700 font-medium">
+                    <div className="w-6 h-6 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-500"><ShieldCheck className="w-4 h-4"/></div> Tout du plan Pro
+                  </li>
+                  <li className="flex items-center gap-3 text-gray-700 font-medium">
+                    <div className="w-6 h-6 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-500"><ShieldCheck className="w-4 h-4"/></div> Livreurs illimités
+                  </li>
+                  <li className="flex items-center gap-3 text-gray-700 font-medium">
+                    <div className="w-6 h-6 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-500"><ShieldCheck className="w-4 h-4"/></div> Support prioritaire
+                  </li>
+                  <li className="flex items-center gap-3 text-gray-700 font-medium">
+                    <div className="w-6 h-6 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-500"><ShieldCheck className="w-4 h-4"/></div> Domaine personnalisé
+                  </li>
+                </ul>
+                <button 
+                  onClick={() => handlePaySubscription('premium')}
+                  disabled={merchant?.subscription_plan === 'premium' || isProcessingPayment}
+                  className={`w-full py-4 rounded-xl font-bold transition-all ${merchant?.subscription_plan === 'premium' ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-gray-100 text-gray-900 hover:bg-gray-200 hover:scale-[1.02]'}`}
+                >
+                  {isProcessingPayment ? 'Patientez...' : merchant?.subscription_plan === 'premium' ? 'Déjà actif' : 'Mettre à niveau (Premium)'}
+                </button>
+              </div>
+            </div>
+            
+            <p className="text-xs text-center text-gray-400 mt-8 flex items-center justify-center gap-2">
+              <ShieldCheck className="w-4 h-4" /> Paiements sécurisés par PayDunya (Wave, Orange Money, Carte Bancaire)
+            </p>
           </div>
         ) : null}
       </main>

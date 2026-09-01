@@ -375,8 +375,8 @@ export default function Landing() {
                 ))}
               </ul>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="relative z-10">
-                <Link to="/register" className="w-full block text-center bg-white text-gray-900 font-black py-4 rounded-2xl shadow-xl shadow-white/20">
-                  Démarrer l'essai
+                <Link to="/register?plan=pro" className="w-full block text-center bg-white text-gray-900 font-black py-4 rounded-2xl shadow-xl shadow-white/20">
+                  S'inscrire
                 </Link>
               </motion.div>
             </motion.div>
@@ -400,8 +400,8 @@ export default function Landing() {
                 ))}
               </ul>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Link to="/register" className="w-full block text-center bg-gray-100 text-gray-900 font-bold py-4 rounded-2xl shadow-md">
-                  Nous contacter
+                <Link to="/register?plan=premium" className="w-full block text-center bg-gray-100 text-gray-900 font-bold py-4 rounded-2xl shadow-md">
+                  S'inscrire
                 </Link>
               </motion.div>
             </motion.div>

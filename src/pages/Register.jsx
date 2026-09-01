@@ -33,7 +33,13 @@ export default function Register() {
       });
       
       setTimeout(() => {
-        navigate('/dashboard');
+        const searchParams = new URLSearchParams(window.location.search);
+        const plan = searchParams.get('plan');
+        if (plan === 'pro' || plan === 'premium') {
+          navigate(`/dashboard?checkout=${plan}`);
+        } else {
+          navigate('/dashboard');
+        }
       }, 1500);
       
     } catch (err) {

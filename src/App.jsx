@@ -11,6 +11,7 @@ import MerchantDashboard from './pages/MerchantDashboard';
 import PublicShop from './pages/PublicShop';
 import DriverDashboard from './pages/DriverDashboard';
 import Landing from './pages/Landing';
+import AdminDashboard from './pages/AdminDashboard';
 
 // Loader Component
 const PageLoader = () => (
@@ -24,10 +25,22 @@ const PageLoader = () => (
 
 // Protected Route wrapper
 const ProtectedRoute = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, isAdmin, loading } = useAuth();
   
   if (loading) return <PageLoader />;
   if (!user) return <Navigate to="/login" replace />;
+  if (isAdmin) return <Navigate to="/admin" replace />;
+  
+  return children;
+};
+
+// Admin Route wrapper
+const AdminRoute = ({ children }) => {
+  const { user, isAdmin, loading } = useAuth();
+  
+  if (loading) return <PageLoader />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!isAdmin) return <Navigate to="/dashboard" replace />;
   
   return children;
 };
@@ -49,6 +62,15 @@ export default function App() {
                 <ProtectedRoute>
                   <MerchantDashboard />
                 </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/admin" 
+              element={
+                <AdminRoute>
+                  <AdminDashboard />
+                </AdminRoute>
               } 
             />
             

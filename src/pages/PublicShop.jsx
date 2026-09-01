@@ -218,6 +218,21 @@ export default function PublicShop() {
     </div>
   );
 
+  if (merchant?.subscription_status === 'expired') return (
+    <div className="min-h-screen bg-[#F8F9FA] flex flex-col items-center justify-center p-4">
+      <div className="text-center p-8 bg-white rounded-3xl shadow-xl max-w-sm w-full mx-4 border border-gray-100">
+        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <Store className="w-10 h-10 text-gray-400" />
+        </div>
+        <h2 className="text-2xl font-black text-gray-900 mb-2">Boutique en pause</h2>
+        <p className="text-gray-500 mb-6">Cette boutique est momentanément indisponible. Veuillez repasser plus tard.</p>
+        <a href="/" className="inline-flex items-center gap-2 text-indigo-600 font-bold hover:text-indigo-700">
+          Créer ma propre boutique <ArrowRight className="w-4 h-4" />
+        </a>
+      </div>
+    </div>
+  );
+
   const themeColor = merchant?.theme_color || '#000000'; // Par défaut noir et blanc pour le style minimaliste premium
 
   return (
