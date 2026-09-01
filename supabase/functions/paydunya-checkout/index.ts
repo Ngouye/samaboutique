@@ -25,6 +25,9 @@ serve(async (req) => {
     let amount = 5000; // Pro par défaut
     if (plan === 'premium') amount = 15000;
 
+    // Récupérer l'URL du site (ex: https://monsite.vercel.app ou http://localhost:5173)
+    const origin = req.headers.get('origin') || 'http://localhost:5173';
+
     // 1. Préparation de la requête pour PayDunya (Création de la facture)
     const paydunyaPayload = {
       invoice: {
@@ -33,17 +36,17 @@ serve(async (req) => {
       },
       store: {
         name: "SamaBoutik SaaS",
-        website_url: "https://samaboutik.com"
+        website_url: origin
       },
       custom_data: {
         merchant_id: merchantId,
         plan: plan
       },
       actions: {
-        return_url: `http://localhost:5173/dashboard?payment=success&plan=${plan}`,
-        cancel_url: `http://localhost:5173/dashboard?payment=cancel`,
+        return_url: `${origin}/dashboard?payment=success&plan=${plan}`,
+        cancel_url: `${origin}/dashboard?payment=cancel`,
         // L'URL où PayDunya enverra la confirmation finale
-        callback_url: "https://votre-projet-supabase.functions.supabase.co/paydunya-webhook" 
+        callback_url: "https://kvtqcxyqjsodzdjshits.supabase.co/functions/v1/paydunya-webhook" 
       }
     };
 
