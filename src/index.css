@@ -126,3 +126,6 @@
 }
 .animate-aurora-1 { animation: aurora-1 15s ease-in-out infinite; }
 .animate-aurora-2 { animation: aurora-2 18s ease-in-out infinite alternate; }
+
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }

@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
-import { Plus, LogOut, Package, ShoppingBag, Store, Activity, X, Menu, QrCode, BarChart3, Truck, ExternalLink, Image as ImageIcon, Users, UserPlus, Trash2, BellRing, BellOff, Search, Filter, Settings, CreditCard, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Plus, LogOut, Package, ShoppingBag, Store, Activity, X, Menu, QrCode, BarChart3, Truck, ExternalLink, Image as ImageIcon, Users, UserPlus, Trash2, BellRing, BellOff, Search, Filter, Settings, CreditCard, AlertCircle, ShieldCheck, Edit2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { SHOP_CATEGORIES, CATEGORY_FEATURES } from '../utils/categories';
 
 export default function MerchantDashboard() {
   const { user, merchant, logout } = useAuth();
@@ -16,7 +17,8 @@ export default function MerchantDashboard() {
 
   // Modal State
   const [showProductModal, setShowProductModal] = useState(false);
-  const [newProduct, setNewProduct] = useState({ name: '', description: '', price_fcfa: '', stock: '', category: '', variants: '', image: null });
+  const [editingProductId, setEditingProductId] = useState(null);
+  const [newProduct, setNewProduct] = useState({ name: '', description: '', price_fcfa: '', stock: '', category: 'Vêtements', features: {}, image: null });
   const [uploading, setUploading] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
@@ -223,8 +225,8 @@ export default function MerchantDashboard() {
   const submitProduct = async (e) => {
     e.preventDefault();
     
-    // VERIFICATION DES LIMITES
-    if (merchant?.subscription_plan === 'debutant' && products.length >= 10) {
+    // VERIFICATION DES LIMITES (Seulement pour la création)
+    if (!editingProductId && merchant?.subscription_plan === 'debutant' && products.length >= 10) {
       alert("Vous avez atteint la limite de 10 produits du forfait Débutant. Veuillez passer au forfait Pro ou Premium pour ajouter plus de produits.");
       setActiveTab('billing');
       setShowProductModal(false);
@@ -249,30 +251,57 @@ export default function MerchantDashboard() {
         image_url = publicUrlData.publicUrl;
       }
 
-      const variantsArray = newProduct.variants 
-        ? newProduct.variants.split(',').map(v => v.trim()).filter(v => v)
-        : null;
+      let variantsArray = null;
+      if (newProduct.features && Object.keys(newProduct.features).length > 0) {
+        variantsArray = Object.entries(newProduct.features)
+          .filter(([_, val]) => val && val.trim() !== '')
+          .map(([key, val]) => `${key}: ${val.trim()}`);
+        if (variantsArray.length === 0) variantsArray = null;
+      }
 
-      const { error } = await supabase.from('products').insert([{
-        merchant_id: user.id,
+      const productData = {
         name: newProduct.name,
         description: newProduct.description,
         price_fcfa: parseInt(newProduct.price_fcfa),
         stock: parseInt(newProduct.stock),
         category: newProduct.category || null,
         variants: variantsArray,
-        image_url
-      }]);
+      };
 
-      if (error) throw error;
+      if (image_url) {
+        productData.image_url = image_url;
+      }
+
+      if (editingProductId) {
+        const { error } = await supabase.from('products').update(productData).eq('id', editingProductId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('products').insert([{
+          merchant_id: user.id,
+          ...productData
+        }]);
+        if (error) throw error;
+      }
       
       setShowProductModal(false);
-      setNewProduct({ name: '', description: '', price_fcfa: '', stock: '', category: '', variants: '', image: null });
+      setEditingProductId(null);
+      setNewProduct({ name: '', description: '', price_fcfa: '', stock: '', category: 'Vêtements', features: {}, image: null });
       fetchData();
     } catch (error) {
       alert("Erreur lors de l'ajout: " + error.message);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const deleteProduct = async (id) => {
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce produit ?")) return;
+    try {
+      const { error } = await supabase.from('products').delete().eq('id', id);
+      if (error) throw error;
+      fetchData();
+    } catch (err) {
+      alert("Erreur lors de la suppression : " + err.message);
     }
   };
   
@@ -614,18 +643,18 @@ export default function MerchantDashboard() {
 
             {/* TOP HEADER */}
             <div className="bg-white/90 backdrop-blur-xl rounded-[2.5rem] shadow-xl border border-white overflow-hidden">
-              <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-indigo-900 px-8 py-6 flex items-center justify-between relative overflow-hidden">
+              <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-indigo-900 px-5 py-4 sm:px-8 sm:py-6 flex items-center justify-between relative overflow-hidden">
                 <div className="absolute right-0 top-0 w-64 h-full bg-gradient-to-l from-indigo-500/20 to-transparent pointer-events-none"></div>
                 <div className="flex items-center gap-4 text-white relative z-10">
-                  <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-md">
-                    <Truck className="w-6 h-6 text-indigo-300" />
+                  <div className="p-2 sm:p-3 bg-white/10 rounded-2xl backdrop-blur-md">
+                    <Truck className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-300" />
                   </div>
-                  <h2 className="text-2xl font-black tracking-tight">Bilan Livreur du Jour</h2>
+                  <h2 className="text-xl sm:text-2xl font-black tracking-tight">Bilan Livreur</h2>
                 </div>
-                <span className="bg-white/10 text-white backdrop-blur-md text-xs font-bold px-4 py-2 rounded-full border border-white/20 relative z-10">Aujourd'hui</span>
+                <span className="bg-white/10 text-white backdrop-blur-md text-[10px] sm:text-xs font-bold px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border border-white/20 relative z-10">Aujourd'hui</span>
               </div>
               
-              <div className="p-8 grid grid-cols-1 sm:grid-cols-3 gap-8 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+              <div className="p-5 sm:p-8 grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
                 <div className="pt-4 sm:pt-0 flex flex-col items-center text-center group">
                   <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner border border-gray-100">
                      <span className="text-2xl">💰</span>
@@ -696,7 +725,11 @@ export default function MerchantDashboard() {
                 <p className="text-gray-500 mt-2 font-medium text-lg">Gérez votre inventaire et vos prix</p>
               </div>
               <button 
-                onClick={() => setShowProductModal(true)}
+                onClick={() => {
+                  setEditingProductId(null);
+                  setNewProduct({ name: '', description: '', price_fcfa: '', stock: '', category: 'Vêtements', features: {}, image: null });
+                  setShowProductModal(true);
+                }}
                 className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3.5 rounded-2xl flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-indigo-500/25 hover:scale-[1.02] transition-all font-bold"
               >
                 <Plus className="w-5 h-5" /> Ajouter un produit
@@ -714,13 +747,48 @@ export default function MerchantDashboard() {
                         <Package className="h-10 w-10 mb-2 opacity-50" />
                       </div>
                     )}
-                    <div className="absolute top-3 right-3">
+                    <div className="absolute top-3 right-3 flex gap-2">
+                      <button 
+                        onClick={() => {
+                          setEditingProductId(p.id);
+                          const existingFeatures = {};
+                          if (p.variants) {
+                            p.variants.forEach(v => {
+                              if (v.includes(':')) {
+                                const parts = v.split(':');
+                                existingFeatures[parts[0].trim()] = parts.slice(1).join(':').trim();
+                              }
+                            });
+                          }
+                          setNewProduct({ 
+                            name: p.name, 
+                            description: p.description, 
+                            price_fcfa: p.price_fcfa, 
+                            stock: p.stock, 
+                            category: p.category || 'Vêtements', 
+                            features: existingFeatures, 
+                            image: null 
+                          });
+                          setShowProductModal(true);
+                        }}
+                        className="w-8 h-8 bg-white/90 text-gray-700 hover:text-indigo-600 rounded-full flex items-center justify-center shadow-sm backdrop-blur-md transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => deleteProduct(p.id)}
+                        className="w-8 h-8 bg-white/90 text-gray-700 hover:text-red-500 rounded-full flex items-center justify-center shadow-sm backdrop-blur-md transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="p-5 flex-1 flex flex-col relative">
+                    <div className="absolute -top-4 right-4">
                       <span className={`px-3 py-1 text-xs font-black rounded-full shadow-sm backdrop-blur-md border border-white/20 ${p.stock > 0 ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
                         {p.stock > 0 ? `${p.stock} en stock` : 'Rupture'}
                       </span>
                     </div>
-                  </div>
-                  <div className="p-5 flex-1 flex flex-col">
                     <div className="mb-2">
                       <h3 className="font-bold text-gray-900 text-lg leading-tight line-clamp-1">{p.name}</h3>
                       <p className="text-sm text-gray-500 font-medium mt-1">{p.category || 'Sans catégorie'}</p>
@@ -1227,14 +1295,43 @@ export default function MerchantDashboard() {
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1">
                   <label className="block text-sm font-bold text-gray-700 mb-2">Catégorie</label>
-                  <input type="text" placeholder="Ex: Chaussures, Vêtements" className="w-full px-4 py-3 bg-gray-50/50 border border-gray-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all" value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})} />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Variantes (Tailles/Couleurs)</label>
-                  <input type="text" placeholder="Ex: S, M, L ou Rouge, Bleu" className="w-full px-4 py-3 bg-gray-50/50 border border-gray-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all" value={newProduct.variants} onChange={e => setNewProduct({...newProduct, variants: e.target.value})} />
-                  <p className="text-xs text-gray-400 mt-1">Séparez par des virgules.</p>
+                  <select 
+                    className="w-full px-4 py-3 bg-gray-50/50 border border-gray-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all cursor-pointer"
+                    value={newProduct.category} 
+                    onChange={e => setNewProduct({...newProduct, category: e.target.value, features: {}})}
+                  >
+                    {SHOP_CATEGORIES.map(cat => (
+                      <option key={cat.id} value={cat.name}>{cat.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
+              
+              {/* Dynamic Features based on Category */}
+              {(CATEGORY_FEATURES[newProduct.category] || []).length > 0 && (
+                <div className="bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100">
+                  <h4 className="text-sm font-bold text-indigo-900 mb-4 flex items-center gap-2">
+                    <Package className="w-4 h-4 text-indigo-500" /> Caractéristiques spécifiques (Optionnel)
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {(CATEGORY_FEATURES[newProduct.category] || []).map(feature => (
+                      <div key={feature}>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">{feature}</label>
+                        <input 
+                          type="text" 
+                          placeholder="Valeur..." 
+                          className="w-full px-4 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" 
+                          value={newProduct.features[feature] || ''} 
+                          onChange={e => setNewProduct({
+                            ...newProduct, 
+                            features: { ...newProduct.features, [feature]: e.target.value }
+                          })} 
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1">

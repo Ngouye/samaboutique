@@ -7,6 +7,8 @@ import {
   Phone, ChevronRight, ArrowRight, Search, Package, Heart, Star, 
   TrendingUp, Truck, ShieldCheck, Zap, Menu, User, Grid, Store
 } from 'lucide-react';
+import { SHOP_CATEGORIES } from '../utils/categories';
+import ProductCard from '../components/ProductCard';
 
 const DELIVERY_ZONES = [
   { name: 'Dakar Plateau / Medina', price: 1000 },
@@ -104,14 +106,39 @@ export default function PublicShop() {
   };
 
   const addToCart = (product, variantOverride = null) => {
-    const variant = variantOverride || productVariants[product.id] || (product.variants?.[0]) || '';
-    const cartKey = variant ? `${product.id}-${variant}` : product.id;
+    let variantStr = variantOverride;
+    
+    if (!variantStr) {
+      const selections = productVariants[product.id] || {};
+      const selectedParts = [];
+      
+      // Auto-select first option for comma-separated features if not selected
+      if (product.variants) {
+        product.variants.forEach(vString => {
+          if (vString.includes(':')) {
+            const parts = vString.split(':');
+            const key = parts[0].trim();
+            const vals = parts.slice(1).join(':').trim();
+            if (vals.includes(',')) {
+              const firstOpt = vals.split(',')[0].trim();
+              selectedParts.push(`${key}: ${selections[key] || firstOpt}`);
+            }
+          } else if (vString.includes(',')) {
+             const firstOpt = vString.split(',')[0].trim();
+             selectedParts.push(selections['Variante'] || firstOpt);
+          }
+        });
+      }
+      variantStr = selectedParts.join(' | ');
+    }
+
+    const cartKey = variantStr ? `${product.id}-${variantStr}` : product.id;
 
     setCart(prev => ({
       ...prev,
       [cartKey]: {
         product,
-        variant,
+        variant: variantStr,
         quantity: (prev[cartKey]?.quantity || 0) + 1
       }
     }));
@@ -193,7 +220,8 @@ export default function PublicShop() {
   };
 
   // Filtrage & Tri
-  const categories = ['Tous', ...new Set(products.map(p => p.category || 'Autres'))];
+  const activeCategoryNames = [...new Set(products.map(p => p.category || 'Autres'))];
+  const activeCategories = SHOP_CATEGORIES.filter(c => activeCategoryNames.includes(c.name));
   
   let processedProducts = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -266,16 +294,25 @@ export default function PublicShop() {
           
           {/* Menu Desktop */}
           <div className="hidden md:flex items-center gap-8">
-            {categories.slice(0, 4).map(cat => (
+            <button 
+              onClick={() => {
+                setSelectedCategory('Tous');
+                window.scrollTo({ top: document.getElementById('shop-section').offsetTop - 100, behavior: 'smooth' });
+              }}
+              className={`text-sm font-semibold uppercase tracking-widest transition-colors ${selectedCategory === 'Tous' ? 'text-black border-b-2 border-black' : 'text-gray-400 hover:text-black'}`}
+            >
+              Tous
+            </button>
+            {activeCategories.slice(0, 3).map(cat => (
               <button 
-                key={cat}
+                key={cat.id}
                 onClick={() => {
-                  setSelectedCategory(cat);
+                  setSelectedCategory(cat.name);
                   window.scrollTo({ top: document.getElementById('shop-section').offsetTop - 100, behavior: 'smooth' });
                 }}
-                className={`text-sm font-semibold uppercase tracking-widest transition-colors ${selectedCategory === cat ? 'text-black border-b-2 border-black' : 'text-gray-400 hover:text-black'}`}
+                className={`text-sm font-semibold uppercase tracking-widest transition-colors ${selectedCategory === cat.name ? 'text-black border-b-2 border-black' : 'text-gray-400 hover:text-black'}`}
               >
-                {cat}
+                {cat.name}
               </button>
             ))}
           </div>
@@ -381,7 +418,8 @@ export default function PublicShop() {
               value={selectedCategory}
               onChange={e => setSelectedCategory(e.target.value)}
             >
-              {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              <option value="Tous">Tous les produits</option>
+              {activeCategories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
             </select>
             
             <select 
@@ -393,6 +431,48 @@ export default function PublicShop() {
               <option value="price_asc">Prix: Croissant</option>
               <option value="price_desc">Prix: Décroissant</option>
             </select>
+          </div>
+        </div>
+
+        {/* Modern Categories Marquee */}
+        <div className="mb-12 overflow-hidden relative w-full max-w-full rounded-[1.5rem]">
+          <div className="absolute inset-y-0 left-0 w-8 sm:w-16 bg-gradient-to-r from-[#f8f9fa] to-transparent z-20 pointer-events-none"></div>
+          <div className="absolute inset-y-0 right-0 w-8 sm:w-16 bg-gradient-to-l from-[#f8f9fa] to-transparent z-20 pointer-events-none"></div>
+          
+          <div className="flex animate-marquee hover:[animation-play-state:paused] w-max py-2">
+            {[1, 2].map((setIndex) => (
+              <div key={setIndex} className="flex items-center gap-4 pr-4 shrink-0" aria-hidden={setIndex === 2 ? "true" : undefined}>
+                <button 
+                  onClick={() => setSelectedCategory('Tous')}
+                  className={`flex items-center gap-2 px-6 py-4 rounded-[1.5rem] font-bold transition-all shrink-0 ${selectedCategory === 'Tous' ? 'bg-black text-white shadow-xl scale-105' : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-100 hover:scale-105'}`}
+                >
+                  <Grid className="w-5 h-5" /> Tous les produits
+                </button>
+                
+                {SHOP_CATEGORIES.map(cat => {
+                   const count = products.filter(p => (p.category || 'Autres') === cat.name).length;
+                   if (count === 0) return null;
+
+                   const Icon = cat.icon;
+                   const isSelected = selectedCategory === cat.name;
+
+                   return (
+                     <button 
+                       key={`${setIndex}-${cat.id}`}
+                       onClick={() => setSelectedCategory(cat.name)}
+                       className={`flex items-center gap-3 px-6 py-4 rounded-[1.5rem] font-bold transition-all relative overflow-hidden group border shrink-0 ${isSelected ? 'border-transparent text-white shadow-xl scale-105' : 'bg-white text-gray-600 border-gray-100 hover:bg-gray-50 hover:scale-105'}`}
+                     >
+                       {isSelected && <div className={`absolute inset-0 bg-gradient-to-r ${cat.color} opacity-100`}></div>}
+                       <div className="relative z-10 flex items-center gap-3">
+                         <Icon className={`w-5 h-5 ${isSelected ? 'text-white' : ''}`} /> 
+                         <span>{cat.name}</span>
+                         <span className={`text-xs px-2 py-0.5 rounded-full ${isSelected ? 'bg-white/20' : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200'}`}>{count}</span>
+                       </div>
+                     </button>
+                   )
+                })}
+              </div>
+            ))}
           </div>
         </div>
 
@@ -410,91 +490,43 @@ export default function PublicShop() {
             </button>
           </div>
         ) : (
-          <motion.div layout className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8">
-            <AnimatePresence>
-              {processedProducts.map(p => (
-                <motion.div 
-                  layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  key={p.id} 
-                  className="group flex flex-col bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300"
-                >
-                  {/* Image Container */}
-                  <div className="relative aspect-[4/5] bg-gray-100 overflow-hidden cursor-pointer" onClick={() => setSelectedProduct(p)}>
-                    {p.image_url ? (
-                      <img src={p.image_url} alt={p.name} loading="lazy" className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <ImageIcon className="w-12 h-12 text-gray-300" />
-                      </div>
-                    )}
-                    
-                    {/* Badges */}
-                    <div className="absolute top-3 left-3 flex flex-col gap-2">
-                      {p.stock <= 0 ? (
-                         <span className="bg-black/80 backdrop-blur-md text-white px-3 py-1 text-[10px] font-bold rounded-full uppercase tracking-wider">Épuisé</span>
-                      ) : (
-                         <span className="bg-white/90 backdrop-blur-md text-black px-3 py-1 text-[10px] font-bold rounded-full uppercase tracking-wider shadow-sm">Nouveau</span>
-                      )}
-                    </div>
-                    
-                    {/* Fav Button */}
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); toggleFavorite(p.id); }}
-                      className="absolute top-3 right-3 w-8 h-8 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-sm hover:scale-110 transition-transform"
-                    >
-                      <Heart className={`w-4 h-4 ${favorites.includes(p.id) ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
-                    </button>
-                    
-                    {/* Quick Add Button (Desktop Overlay) */}
-                    <div className="absolute inset-x-0 bottom-0 p-4 opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition-all duration-300 hidden md:block">
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); addToCart(p); }}
-                        disabled={p.stock <= 0}
-                        className="w-full bg-black/90 backdrop-blur-md text-white font-bold py-3 rounded-2xl text-xs uppercase tracking-widest hover:bg-black transition-colors disabled:opacity-50"
-                      >
-                        Ajout Rapide
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Info Container */}
-                  <div className="p-4 flex flex-col flex-1">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">{p.category || 'Standard'}</p>
-                        <h3 className="font-bold text-gray-900 text-sm md:text-base leading-tight line-clamp-1 cursor-pointer hover:underline" onClick={() => setSelectedProduct(p)}>{p.name}</h3>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-1 mb-3">
-                      {[1,2,3,4,5].map(star => (
-                        <Star key={star} className={`w-3 h-3 ${star === 5 ? 'text-gray-200 fill-gray-200' : 'text-black fill-black'}`} />
-                      ))}
-                      <span className="text-xs text-gray-400 ml-1">(12)</span>
-                    </div>
-                    
-                    <div className="mt-auto flex items-center justify-between">
-                      <div className="flex flex-col">
-                        <span className="font-black text-gray-900 text-base">{p.price_fcfa.toLocaleString('fr-FR')} FCFA</span>
-                      </div>
-                      
-                      {/* Mobile Add Button */}
-                      <button 
-                        onClick={() => addToCart(p)}
-                        disabled={p.stock <= 0}
-                        className="md:hidden w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:scale-105 transition-transform disabled:opacity-50"
-                      >
-                        <ShoppingCart className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
+          <div className="space-y-16">
+            {selectedCategory === 'Tous' ? (
+               activeCategories.map(cat => {
+                 const catProducts = processedProducts.filter(p => (p.category || 'Autres') === cat.name);
+                 if (catProducts.length === 0) return null;
+                 const Icon = cat.icon;
+                 return (
+                   <div key={cat.id} className="space-y-6">
+                     <div className="flex items-center gap-4 border-b border-gray-200 pb-4">
+                       <div className={`p-4 rounded-[1.2rem] bg-gradient-to-br ${cat.color} text-white shadow-lg`}>
+                         <Icon className="w-7 h-7" />
+                       </div>
+                       <div>
+                         <h3 className="text-2xl font-black text-gray-900 leading-tight">{cat.name}</h3>
+                         <span className="text-sm font-bold text-gray-500">{catProducts.length} produits</span>
+                       </div>
+                     </div>
+                     <motion.div layout className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-8">
+                       <AnimatePresence>
+                         {catProducts.map(p => (
+                            <ProductCard key={p.id} p={p} toggleFavorite={toggleFavorite} favorites={favorites} setSelectedProduct={setSelectedProduct} addToCart={addToCart} />
+                         ))}
+                       </AnimatePresence>
+                     </motion.div>
+                   </div>
+                 )
+               })
+            ) : (
+               <motion.div layout className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-8">
+                 <AnimatePresence>
+                   {processedProducts.map(p => (
+                      <ProductCard key={p.id} p={p} toggleFavorite={toggleFavorite} favorites={favorites} setSelectedProduct={setSelectedProduct} addToCart={addToCart} />
+                   ))}
+                 </AnimatePresence>
+               </motion.div>
+            )}
+          </div>
         )}
       </main>
 
@@ -619,14 +651,14 @@ export default function PublicShop() {
         {selectedProduct && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6"
+            className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 md:p-6"
           >
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedProduct(null)}></div>
             <motion.div 
               initial={{ y: 50, opacity: 0, scale: 0.95 }}
               animate={{ y: 0, opacity: 1, scale: 1 }}
               exit={{ y: 50, opacity: 0, scale: 0.95 }}
-              className="bg-white w-full max-w-4xl max-h-[90vh] rounded-[2rem] shadow-2xl relative z-10 flex flex-col md:flex-row overflow-hidden"
+              className="bg-white w-full h-full sm:h-auto max-w-4xl max-h-[100vh] sm:max-h-[90vh] rounded-none sm:rounded-[2rem] shadow-2xl relative z-10 flex flex-col md:flex-row overflow-hidden"
             >
               <button onClick={() => setSelectedProduct(null)} className="absolute top-4 right-4 z-20 w-10 h-10 bg-white/50 backdrop-blur-md rounded-full flex items-center justify-center text-gray-900 hover:bg-gray-100 transition-colors">
                 <X className="w-5 h-5" />
@@ -654,7 +686,7 @@ export default function PublicShop() {
                   <span className="text-sm font-medium text-gray-500 text-underline">12 Avis</span>
                 </div>
                 
-                <p className="text-3xl font-black text-gray-900 mb-6">{selectedProduct.price_fcfa.toLocaleString('fr-FR')} FCFA</p>
+                <p className="text-3xl font-black text-gray-900 mb-6">{(selectedProduct.price_fcfa || 0).toLocaleString('fr-FR')} FCFA</p>
                 
                 <div className="prose prose-sm text-gray-500 mb-8 border-t border-b border-gray-100 py-6">
                   <p>{selectedProduct.description || "Un produit d'exception, conçu avec des matériaux de haute qualité pour garantir durabilité et style. Parfait pour toutes les occasions."}</p>
@@ -664,23 +696,57 @@ export default function PublicShop() {
                   </ul>
                 </div>
 
+                {/* Fiche Technique & Variantes */}
                 {selectedProduct.variants && selectedProduct.variants.length > 0 && (
                   <div className="mb-8">
-                    <label className="block text-sm font-bold text-gray-900 mb-3 uppercase tracking-wider">Taille / Variante</label>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedProduct.variants.map(v => (
-                        <button 
-                          key={v}
-                          onClick={() => setProductVariants({...productVariants, [selectedProduct.id]: v})}
-                          className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all ${
-                            (productVariants[selectedProduct.id] || selectedProduct.variants[0]) === v 
-                              ? 'border-black bg-black text-white' 
-                              : 'border-gray-200 bg-white text-gray-700 hover:border-gray-900'
-                          }`}
-                        >
-                          {v}
-                        </button>
-                      ))}
+                    <h3 className="block text-sm font-black text-gray-900 mb-4 uppercase tracking-wider">Fiche Technique</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {selectedProduct.variants.map((vString, idx) => {
+                        let key = `Spécification ${idx + 1}`;
+                        let valsStr = vString;
+                        if (vString.includes(':')) {
+                          const parts = vString.split(':');
+                          key = parts[0].trim();
+                          valsStr = parts.slice(1).join(':').trim();
+                        }
+
+                        const hasOptions = valsStr.includes(',');
+                        const options = valsStr.split(',').map(v => v.trim()).filter(v => v);
+
+                        return (
+                          <div key={idx} className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                            <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">{key}</label>
+                            {hasOptions ? (
+                              <div className="flex flex-wrap gap-2">
+                                {options.map(opt => {
+                                  const currentSelections = productVariants[selectedProduct.id] || {};
+                                  const isSelected = (currentSelections[key] || options[0]) === opt;
+                                  return (
+                                    <button 
+                                      key={opt}
+                                      onClick={() => setProductVariants({
+                                        ...productVariants, 
+                                        [selectedProduct.id]: { ...currentSelections, [key]: opt }
+                                      })}
+                                      className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${
+                                        isSelected 
+                                          ? 'border-black bg-black text-white' 
+                                          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-900'
+                                      }`}
+                                    >
+                                      {opt}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className="font-bold text-gray-900 text-sm">
+                                {valsStr}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -788,8 +854,8 @@ export default function PublicShop() {
                                 <h4 className="font-bold text-gray-900 leading-tight">
                                   {item.product.name}
                                 </h4>
-                                {item.variant && <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider block mt-1">Taille: {item.variant}</span>}
-                                <p className="font-black text-gray-900 mt-2">{item.product.price_fcfa.toLocaleString('fr-FR')} FCFA</p>
+                                {item.variant && <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider block mt-1 leading-tight">{item.variant}</span>}
+                                <p className="font-black text-gray-900 mt-2">{(item.product.price_fcfa || 0).toLocaleString('fr-FR')} FCFA</p>
                               </div>
                               <div className="flex items-center justify-between mt-4">
                                 <div className="flex items-center bg-gray-100 rounded-full p-1 border border-gray-200">
