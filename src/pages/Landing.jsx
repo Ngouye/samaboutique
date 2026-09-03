@@ -134,39 +134,59 @@ export default function Landing() {
           </motion.div>
         </motion.div>
 
-        {/* Floating iPhone Presentation */}
+        {/* Massive E-commerce 3D Composition */}
         <motion.div 
-          initial={{ opacity: 0, y: 100 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.6, type: "spring", bounce: 0.4 }}
-          className="relative max-w-sm mx-auto z-20 mt-4"
+          initial={{ opacity: 0, scale: 0.8, y: 80 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 1.5, delay: 0.4, type: "spring", bounce: 0.4 }}
+          className="relative max-w-6xl mx-auto z-20 mt-16 w-full group perspective-1000"
         >
-          <div className="absolute -inset-10 bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 rounded-full blur-[80px] opacity-40 animate-pulse"></div>
+          {/* Background Glows */}
+          <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 rounded-[4rem] blur-[100px] opacity-30 group-hover:opacity-60 transition-opacity duration-1000 animate-pulse"></div>
           
-          <Tilt tiltMaxAngleX={10} tiltMaxAngleY={10} perspective={1000} scale={1.02} transitionSpeed={1000} className="relative mx-auto w-[300px] sm:w-[320px] h-[600px] sm:h-[650px]">
-            <div className="w-full h-full bg-black rounded-[3rem] border-[8px] border-gray-900 shadow-[0_30px_60px_-15px_rgba(79,70,229,0.6)] animate-float overflow-hidden flex flex-col relative z-10">
-              {/* iPhone Notch */}
-              <div className="absolute top-0 inset-x-0 h-6 flex justify-center z-50">
-                <div className="w-32 h-6 bg-gray-900 rounded-b-2xl"></div>
-              </div>
-              
-              {/* Fake App Header */}
-              <div className="bg-white pt-10 pb-4 px-6 shadow-sm z-40 relative flex justify-between items-center">
-                <span className="text-xl font-black tracking-tight">SamaBoutik<span className="text-pink-500">.</span></span>
-                <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-                  <ShoppingBag className="w-4 h-4 text-gray-900"/>
+          <Tilt tiltMaxAngleX={4} tiltMaxAngleY={4} perspective={2000} scale={1.02} transitionSpeed={1500} className="relative mx-auto w-full aspect-[4/3] md:aspect-[21/9] rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-[0_40px_100px_-20px_rgba(79,70,229,0.6)] border-[8px] border-white/40 backdrop-blur-3xl transform-style-3d">
+             
+             {/* The E-Commerce 3D Image */}
+             <motion.img 
+               src="/hero-ecommerce.jpg" 
+               alt="SamaBoutik E-Commerce Multi-Catégories" 
+               className="w-full h-full object-cover scale-110"
+               animate={{ 
+                 scale: [1.1, 1.15, 1.1],
+                 rotateZ: [0, 1, -1, 0]
+               }}
+               transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+             />
+             
+             {/* Floating UI Elements Overlaying the Image */}
+             <motion.div 
+                animate={{ y: [-15, 15, -15], rotateX: [0, 10, 0] }}
+                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute top-10 right-10 md:top-20 md:right-20 bg-white/80 backdrop-blur-xl p-5 rounded-3xl shadow-2xl border border-white flex items-center gap-5 hidden sm:flex transform translate-z-50"
+             >
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/30">
+                   <ShoppingBag className="w-7 h-7" />
                 </div>
-              </div>
-              
-              {/* App Content (Scrolling Screenshot) */}
-              <div className="flex-1 bg-gray-50 overflow-hidden relative">
-               <img 
-                 src="/mobile-preview.png" 
-                 alt="Aperçu mobile du tableau de bord" 
-                 className="absolute top-0 left-0 w-full h-auto object-top animate-scroll-y"
-               />
-              </div>
-            </div>
+                <div>
+                   <p className="text-sm text-gray-500 font-bold uppercase tracking-wider">Nouvelle vente</p>
+                   <p className="text-2xl font-black text-gray-900">+ 145 000 FCFA</p>
+                </div>
+             </motion.div>
+             
+             <motion.div 
+                animate={{ y: [15, -15, 15], rotateY: [0, -10, 0] }}
+                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                className="absolute bottom-10 left-10 md:bottom-20 md:left-20 bg-white/80 backdrop-blur-xl p-5 rounded-3xl shadow-2xl border border-white flex items-center gap-5 hidden sm:flex transform translate-z-50"
+             >
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
+                   <Truck className="w-7 h-7" />
+                </div>
+                <div>
+                   <p className="text-sm text-gray-500 font-bold uppercase tracking-wider">Livreur en route</p>
+                   <p className="text-2xl font-black text-gray-900">Arrive dans 5 min</p>
+                </div>
+             </motion.div>
+             
           </Tilt>
         </motion.div>
       </section>
