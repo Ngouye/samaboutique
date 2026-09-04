@@ -50,7 +50,20 @@ serve(async (req) => {
       }
     };
 
-    // 2. Appel de l'API PayDunya
+    // 2. Appel de l'API PayDunya (ou Simulation si on n'a pas de vraies clés)
+    if (PAYDUNYA_MASTER_KEY.includes('votre_master_key')) {
+      // MODE DEMO / SIMULATION
+      console.log("Mode DEMO: Simulation de facture PayDunya");
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          invoice_url: `${origin}/dashboard?payment=success&plan=${plan}`, 
+          token: "demo_token_12345" 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
     const response = await fetch("https://app.paydunya.com/api/v1/checkout-invoice/create", {
       method: "POST",
       headers: {
