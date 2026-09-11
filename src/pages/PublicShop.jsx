@@ -395,7 +395,7 @@ export default function PublicShop() {
               <Link to={`/livreur/${encodeURIComponent(shopName)}`} title="Espace Livreur" className="bg-indigo-50 p-2 rounded-full text-indigo-700 hover:bg-indigo-100">
                 <Truck className="w-5 h-5" />
               </Link>
-              <button className="bg-gray-50 p-2 rounded-full theme-text hover:bg-orange-100">
+              <button onClick={() => setActiveTab('profile')} className="bg-gray-50 p-2 rounded-full theme-text hover:bg-orange-100">
                 <User className="w-5 h-5" />
               </button>
               <button onClick={() => setIsCartOpen(true)} className="relative theme-bg text-white p-2 rounded-full text-white">
@@ -1005,25 +1005,18 @@ export default function PublicShop() {
       </div>
 
       {/* PRODUCT QUICK VIEW MODAL */}
-      <AnimatePresence>
-        {selectedProduct && (
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6"
+      {selectedProduct && (
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="absolute inset-0" onClick={() => setSelectedProduct(null)}></div>
+          <div 
+            className="bg-white w-full max-w-4xl h-[90vh] md:h-auto md:max-h-[90vh] rounded-t-[2rem] md:rounded-[2rem] shadow-2xl relative z-10 flex flex-col md:flex-row overflow-hidden animate-in slide-in-from-bottom-full md:slide-in-from-bottom-0 md:zoom-in-95 duration-300"
           >
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedProduct(null)}></div>
-            <motion.div 
-              initial={{ y: 50, opacity: 0, scale: 0.95 }}
-              animate={{ y: 0, opacity: 1, scale: 1 }}
-              exit={{ y: 50, opacity: 0, scale: 0.95 }}
-              className="bg-white w-full max-w-4xl max-h-[90vh] rounded-[2rem] shadow-2xl relative z-10 flex flex-col md:flex-row overflow-hidden"
-            >
-              <button onClick={() => setSelectedProduct(null)} className="absolute top-4 right-4 z-20 w-10 h-10 bg-white/50 backdrop-blur-md rounded-full flex items-center justify-center text-gray-900 hover:bg-gray-100 transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-              
-              <div className="w-full md:w-1/2 h-[40vh] md:h-auto bg-gray-100 relative flex flex-col">
-                <div className="flex-1 relative">
+            <button onClick={() => setSelectedProduct(null)} className="absolute top-4 right-4 z-20 w-10 h-10 bg-white/50 backdrop-blur-md rounded-full flex items-center justify-center text-gray-900 hover:bg-gray-100 transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+            
+            <div className="w-full md:w-1/2 h-[35vh] md:h-auto bg-gray-100 relative flex flex-col shrink-0">
+              <div className="flex-1 relative">
                   {modalMainImage ? (
                     <img src={modalMainImage} alt={selectedProduct.name} className="w-full h-full object-cover absolute inset-0" />
                   ) : (
@@ -1155,26 +1148,25 @@ export default function PublicShop() {
                   </div>
                 )}
                 
-                <div className="mt-auto pt-4 flex gap-4">
+                <div className="mt-auto pt-4 pb-safe md:pb-0 flex gap-4">
                   <button 
                     onClick={() => addToCart(selectedProduct)}
                     disabled={selectedProduct.stock <= 0}
-                    className="flex-1 theme-bg text-white text-white py-4 rounded-2xl font-bold uppercase tracking-widest hover:theme-bg text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="flex-1 theme-bg text-white text-white py-4 rounded-2xl font-bold uppercase tracking-widest hover:theme-bg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     <ShoppingCart className="w-5 h-5" /> Ajouter au panier
                   </button>
                   <button 
                     onClick={() => toggleFavorite(selectedProduct.id)}
-                    className="w-14 h-14 border border-gray-200 rounded-2xl flex items-center justify-center text-gray-600 hover:border-black hover:text-black transition-colors"
+                    className="w-14 h-14 shrink-0 border border-gray-200 rounded-2xl flex items-center justify-center text-gray-600 hover:border-black hover:text-black transition-colors"
                   >
                     <Heart className={`w-6 h-6 ${favorites.includes(selectedProduct.id) ? 'fill-red-500 text-red-500 border-red-500' : ''}`} />
                   </button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </div>
+          </div>
+      )}
 
       {/* CART DRAWER */}
       <AnimatePresence>
