@@ -108,27 +108,26 @@ export default function AdminDashboard() {
 
   // TABS CONFIG
   const TABS = [
-    { id: 'overview', label: 'Vue d\'ensemble', icon: LayoutDashboard },
-    { id: 'merchants', label: 'Marchands', icon: Users },
-    { id: 'subscriptions', label: 'SaaS & Revenus', icon: CreditCard },
+    { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'merchants', label: 'Marchands', icon: Store },
+    { id: 'subscriptions', label: 'Finances', icon: CreditCard },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white selection:bg-indigo-500/30 flex flex-col md:flex-row">
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-blue-100 flex flex-col md:flex-row">
       
       {/* Sidebar Navigation */}
-      <aside className="w-full md:w-64 bg-gray-900 border-b md:border-b-0 md:border-r border-gray-800 flex flex-col md:fixed md:inset-y-0 z-20">
+      <aside className="w-full md:w-64 bg-white border-b md:border-b-0 md:border-r border-gray-100 flex flex-col md:fixed md:inset-y-0 z-20 shadow-sm">
         <div className="p-6 flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <ShieldCheck className="w-6 h-6 text-white" />
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/30">
+            <ShieldCheck className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight">SuperAdmin</h1>
-            <p className="text-xs text-indigo-400">SamaBoutik SaaS</p>
+            <h1 className="text-xl font-black tracking-tight text-slate-900">Shopeers</h1>
           </div>
         </div>
 
-        <nav className="flex-1 px-4 pb-4 space-y-2 overflow-y-auto">
+        <nav className="flex-1 px-4 py-2 space-y-1 overflow-y-auto">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -136,13 +135,13 @@ export default function AdminDashboard() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ${
                   isActive 
-                    ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-inner' 
-                    : 'text-gray-400 hover:bg-gray-800/50 hover:text-gray-200 border border-transparent'
+                    ? 'bg-blue-50 text-blue-600 font-semibold' 
+                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700 font-medium'
                 }`}
               >
-                <Icon className={`w-5 h-5 ${isActive ? 'text-indigo-400' : 'text-gray-500'}`} />
+                <Icon className={`w-5 h-5 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
                 {tab.label}
               </button>
             );
@@ -150,23 +149,56 @@ export default function AdminDashboard() {
         </nav>
 
         <div className="p-4 mt-auto">
+          {/* Upgrade Card inspired by design */}
+          <div className="bg-gradient-to-b from-blue-600 to-blue-800 rounded-2xl p-5 text-white mb-4 shadow-lg shadow-blue-900/20 text-left">
+            <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center mb-3">
+              <ShieldCheck className="w-4 h-4 text-white" />
+            </div>
+            <h4 className="font-bold text-sm mb-1">Upgrade to Premium!</h4>
+            <p className="text-[10px] text-blue-100 mb-4 opacity-90 leading-tight">Upgrade your account and unlock all of the benefits.</p>
+            <button className="w-full bg-blue-500 hover:bg-blue-400 text-white text-xs font-bold py-2 rounded-lg transition-colors border border-blue-400">
+              Upgrade premium
+            </button>
+          </div>
           <button 
             onClick={logout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-sm font-bold transition-colors border border-red-500/20"
+            className="w-full flex items-center gap-3 px-3 py-2 text-slate-500 hover:bg-slate-50 hover:text-red-500 rounded-lg text-sm font-medium transition-colors"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-5 h-5" />
             Déconnexion
           </button>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 md:ml-64 p-4 sm:p-6 lg:p-8 min-h-screen">
+      <main className="flex-1 md:ml-64 min-h-screen flex flex-col">
         
-        {/* Header mobile (invisible on desktop if we want, but nice for context) */}
-        <div className="md:hidden mb-6 flex items-center justify-between">
-          <h2 className="text-2xl font-black capitalize">{TABS.find(t => t.id === activeTab)?.label}</h2>
-        </div>
+        {/* Top Header */}
+        <header className="bg-slate-50 md:bg-transparent px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sticky top-0 z-10 backdrop-blur-sm">
+          <div className="flex-1 w-full md:max-w-md relative">
+            <input 
+              type="text" 
+              placeholder="Search anything..." 
+              className="w-full bg-white border border-gray-200 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 text-slate-600 shadow-sm"
+            />
+            <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
+          </div>
+          <div className="flex items-center gap-3 self-end md:self-auto">
+            <button className="hidden md:flex bg-white border border-gray-200 shadow-sm px-3 py-1.5 text-xs font-semibold text-slate-600 rounded-full items-center gap-2 hover:bg-gray-50">
+              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+              Oct 1, 2023 - Nov 1, 2023
+            </button>
+            <button className="bg-blue-600 hover:bg-blue-700 text-white shadow-md px-4 py-1.5 text-xs font-semibold rounded-full flex items-center gap-2 transition-colors">
+              <LogOut className="w-3 h-3 rotate-90" />
+              Export
+            </button>
+          </div>
+        </header>
+
+        <div className="p-4 sm:px-6 lg:px-8 pb-10 flex-1">
+          <div className="mb-6 flex items-center justify-between">
+            <h2 className="text-2xl font-black text-slate-800">{TABS.find(t => t.id === activeTab)?.label}</h2>
+          </div>
 
         <AnimatePresence mode="wait">
           {loading ? (
@@ -175,8 +207,8 @@ export default function AdminDashboard() {
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="flex flex-col items-center justify-center h-64 gap-4"
             >
-              <Activity className="w-10 h-10 animate-spin text-indigo-500" />
-              <p className="text-gray-400">Chargement des données critiques...</p>
+              <Activity className="w-10 h-10 animate-spin text-blue-500" />
+              <p className="text-slate-400">Chargement des données...</p>
             </motion.div>
           ) : (
             <motion.div
@@ -190,56 +222,88 @@ export default function AdminDashboard() {
               {/* TAB: OVERVIEW */}
               {activeTab === 'overview' && (
                 <div className="space-y-6">
-                  <div>
-                    <h2 className="text-3xl font-black text-white">Vue d'ensemble</h2>
-                    <p className="text-gray-400 mt-1">Les métriques clés de votre plateforme SaaS.</p>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <KPICard 
                       title="MRR Estimé" 
                       value={`${estimatedMRR.toLocaleString('fr-FR')} FCFA`} 
                       icon={TrendingUp} 
-                      color="emerald" 
+                      color="blue" 
                       delay={0.1}
                     />
                     <KPICard 
                       title="Boutiques Actives" 
                       value={activeMerchants.length} 
                       icon={Store} 
-                      color="indigo" 
+                      color="blue" 
                       delay={0.2}
                     />
                     <KPICard 
                       title="Total Produits" 
                       value={totalProducts} 
                       icon={Package} 
-                      color="purple" 
+                      color="blue" 
                       delay={0.3}
                     />
                     <KPICard 
                       title="Boutiques Suspendues" 
                       value={suspendedMerchants.length} 
                       icon={ShieldAlert} 
-                      color="red" 
+                      color="blue" 
                       delay={0.4}
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Graphique principal style Shopeers */}
+                    <div className="lg:col-span-2 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm flex flex-col">
+                      <div className="flex items-center justify-between mb-8">
+                        <div>
+                          <h3 className="text-sm font-semibold text-slate-500 mb-2">Total Revenus SaaS</h3>
+                          <div className="flex items-end gap-3">
+                            <span className="text-3xl font-black text-slate-900">{estimatedMRR > 0 ? (estimatedMRR * 12).toLocaleString('fr-FR') : '0'} FCFA</span>
+                          </div>
+                        </div>
+                        <button className="text-slate-400 hover:text-slate-600">
+                          <MoreVertical className="w-5 h-5" />
+                        </button>
+                      </div>
+                      
+                      {/* Fake Graph */}
+                      <div className="flex-1 min-h-[200px] flex items-end justify-between gap-2 relative mt-4">
+                        <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
+                          <path d="M0 100 L 0 80 C 20 80, 40 90, 60 50 S 80 40, 100 20 L 100 100 Z" fill="rgba(37, 99, 235, 0.1)" />
+                          <path d="M0 80 C 20 80, 40 90, 60 50 S 80 40, 100 20" fill="none" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                        {/* Axes X */}
+                        <div className="absolute -bottom-6 w-full flex justify-between text-[10px] text-slate-400 pt-2 border-t border-slate-100">
+                          <span>S1</span>
+                          <span>S2</span>
+                          <span>S3</span>
+                          <span>S4</span>
+                          <span>S5</span>
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Distribution des offres */}
-                    <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6 relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+                    <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-base font-bold text-slate-900">Abonnements</h3>
+                        <button className="text-slate-400 hover:text-slate-600"><MoreVertical className="w-4 h-4" /></button>
+                      </div>
                       
-                      <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-                        <CreditCard className="w-5 h-5 text-indigo-400" />
-                        Répartition des Abonnements
-                      </h3>
+                      <div className="space-y-6">
+                        <TierBar label="Débutant (Free)" count={tierDistribution.free} total={merchants.length} color="bg-slate-200" textClass="text-slate-600" />
+                        <TierBar label="Pro" count={tierDistribution.pro} total={merchants.length} color="bg-blue-500" textClass="text-blue-600" />
+                        <TierBar label="Premium" count={tierDistribution.premium} total={merchants.length} color="bg-amber-400" textClass="text-amber-500" />
+                      </div>
                       
-                      <div className="space-y-4">
-                        <TierBar label="Débutant" count={tierDistribution.free} total={merchants.length} color="bg-gray-500" />
-                        <TierBar label="Pro" count={tierDistribution.pro} total={merchants.length} color="bg-indigo-500" />
-                        <TierBar label="Premium" count={tierDistribution.premium} total={merchants.length} color="bg-amber-500" />
+                      <div className="mt-8 pt-6 border-t border-gray-100">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-slate-500">Total Marchands</span>
+                          <span className="font-bold text-slate-900">{merchants.length}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -252,31 +316,31 @@ export default function AdminDashboard() {
                 <div className="space-y-6">
                   <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                     <div>
-                      <h2 className="text-3xl font-black text-white">Marchands</h2>
-                      <p className="text-gray-400 mt-1">Gérez tous les utilisateurs inscrits sur la plateforme.</p>
+                      <h2 className="text-2xl font-black text-slate-800">Marchands</h2>
+                      <p className="text-slate-500 mt-1 text-sm">Gérez tous les utilisateurs inscrits sur la plateforme.</p>
                     </div>
                   </div>
 
-                  <div className="bg-gray-900 border border-gray-800 rounded-3xl overflow-hidden flex flex-col">
+                  <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden flex flex-col">
                     {/* Table Filters */}
-                    <div className="p-4 border-b border-gray-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gray-900/50">
+                    <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
                       <div className="relative flex-1 max-w-md">
-                        <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input 
                           type="text" 
                           placeholder="Rechercher par nom ou téléphone..." 
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="pl-10 pr-4 py-2 bg-gray-950 border border-gray-800 rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 w-full"
+                          className="pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 w-full text-slate-600 shadow-sm"
                         />
                       </div>
                       
                       <div className="flex items-center gap-2">
-                        <Filter className="w-4 h-4 text-gray-500" />
+                        <Filter className="w-4 h-4 text-slate-400" />
                         <select 
                           value={tierFilter}
                           onChange={(e) => setTierFilter(e.target.value)}
-                          className="bg-gray-950 border border-gray-800 text-gray-300 text-sm rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500"
+                          className="bg-white border border-gray-200 text-slate-600 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400 shadow-sm"
                         >
                           <option value="all">Tous les forfaits</option>
                           <option value="free">Débutant</option>
@@ -288,8 +352,8 @@ export default function AdminDashboard() {
 
                     {/* Table */}
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm text-gray-400">
-                        <thead className="bg-gray-950/50 text-gray-500 uppercase text-xs font-bold">
+                      <table className="w-full text-left text-sm text-slate-600">
+                        <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold tracking-wider border-b border-gray-100">
                           <tr>
                             <th className="px-6 py-4">Boutique</th>
                             <th className="px-6 py-4">Contact</th>
@@ -298,53 +362,53 @@ export default function AdminDashboard() {
                             <th className="px-6 py-4 text-right">Actions</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-800">
+                        <tbody className="divide-y divide-gray-100">
                           {filteredMerchants.length === 0 ? (
                             <tr>
-                              <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
+                              <td colSpan="5" className="px-6 py-12 text-center text-slate-400">
                                 <div className="flex flex-col items-center justify-center gap-2">
-                                  <Users className="w-8 h-8 text-gray-600 mb-2" />
+                                  <Users className="w-8 h-8 text-slate-300 mb-2" />
                                   <p>Aucun marchand trouvé.</p>
                                 </div>
                               </td>
                             </tr>
                           ) : (
                             filteredMerchants.map((merchant) => (
-                              <tr key={merchant.id} className="hover:bg-gray-800/50 transition-colors">
+                              <tr key={merchant.id} className="hover:bg-slate-50/50 transition-colors group">
                                 <td className="px-6 py-4">
                                   <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-300 font-bold">
+                                    <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold">
                                       {merchant.shop_name?.charAt(0).toUpperCase() || '?'}
                                     </div>
                                     <div>
-                                      <div className="font-bold text-white">{merchant.shop_name || 'Sans Nom'}</div>
-                                      <div className="text-xs text-gray-500">Inscrit le {new Date(merchant.created_at).toLocaleDateString('fr-FR')}</div>
+                                      <div className="font-bold text-slate-800">{merchant.shop_name || 'Sans Nom'}</div>
+                                      <div className="text-[11px] text-slate-400 font-medium">ID: #{merchant.id.substring(0, 5)}</div>
                                     </div>
                                   </div>
                                 </td>
-                                <td className="px-6 py-4 font-medium text-gray-300">
+                                <td className="px-6 py-4 font-medium text-slate-600">
                                   {merchant.phone_number || "Non renseigné"}
                                 </td>
                                 <td className="px-6 py-4">
                                   <TierBadge tier={merchant.tier} />
                                 </td>
                                 <td className="px-6 py-4">
-                                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
+                                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
                                     merchant.is_suspended 
-                                      ? 'bg-red-500/10 text-red-400 border border-red-500/20' 
-                                      : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                      ? 'bg-red-50 text-red-600' 
+                                      : 'bg-emerald-50 text-emerald-600'
                                   }`}>
-                                    <span className={`w-1.5 h-1.5 rounded-full ${merchant.is_suspended ? 'bg-red-400' : 'bg-emerald-400'}`}></span>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${merchant.is_suspended ? 'bg-red-500' : 'bg-emerald-500'}`}></span>
                                     {merchant.is_suspended ? 'Suspendu' : 'Actif'}
                                   </span>
                                 </td>
                                 <td className="px-6 py-4 text-right">
                                   <button 
                                     onClick={() => toggleMerchantSuspension(merchant.id, merchant.is_suspended)}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 ${
                                       merchant.is_suspended
-                                        ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
-                                        : 'bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20'
+                                        ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm'
+                                        : 'bg-red-50 hover:bg-red-100 text-red-600 border border-red-100'
                                     }`}
                                   >
                                     {merchant.is_suspended ? 'Débloquer' : 'Suspendre'}
@@ -365,8 +429,8 @@ export default function AdminDashboard() {
               {activeTab === 'subscriptions' && (
                 <div className="space-y-6">
                   <div>
-                    <h2 className="text-3xl font-black text-white">Abonnements SaaS</h2>
-                    <p className="text-gray-400 mt-1">Gérez la monétisation et vérifiez l'état des forfaits marchands.</p>
+                    <h2 className="text-2xl font-black text-slate-800">Abonnements SaaS</h2>
+                    <p className="text-slate-500 mt-1 text-sm">Gérez la monétisation et vérifiez l'état des forfaits marchands.</p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -382,36 +446,36 @@ export default function AdminDashboard() {
                       count={tierDistribution.pro} 
                       price={`${TIER_PRICES.pro.toLocaleString('fr-FR')} FCFA/mois`} 
                       features={['Produits illimités', 'Jusqu\'à 5 livreurs', 'Personnalisation avancée', 'Statistiques détaillées']} 
-                      color="indigo"
+                      color="blue"
                       isPopular
                     />
                     <PlanSummaryCard 
                       tier="Premium" 
                       count={tierDistribution.premium} 
                       price={`${TIER_PRICES.premium.toLocaleString('fr-FR')} FCFA/mois`} 
-                      features={['Tout du plan Pro', 'Livreurs illimités', 'Support prioritaire WhatsApp', 'Domaine personnalisé']} 
+                      features={['Tout du plan Pro', 'Livreurs illimités', 'Support prioritaire', 'Domaine personnalisé']} 
                       color="amber"
                     />
                   </div>
 
                   {/* Future enhancements placeholder */}
-                  <div className="bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border border-indigo-500/20 rounded-3xl p-8 text-center mt-8">
-                    <div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <TrendingUp className="w-8 h-8 text-indigo-400" />
+                  <div className="bg-blue-50 border border-blue-100 rounded-2xl p-8 text-center mt-8 shadow-sm">
+                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-blue-100">
+                      <TrendingUp className="w-6 h-6 text-blue-600" />
                     </div>
-                    <h3 className="text-xl font-bold text-white mb-2">Paiements Automatiques à venir</h3>
-                    <p className="text-indigo-200 max-w-lg mx-auto">
+                    <h3 className="text-lg font-bold text-slate-800 mb-2">Paiements Automatiques à venir</h3>
+                    <p className="text-slate-500 text-sm max-w-lg mx-auto">
                       Bientôt, vous pourrez voir l'historique complet des paiements PayDunya des abonnements marchands directement ici. 
                       Les factures seront générées automatiquement.
                     </p>
                   </div>
-
                 </div>
               )}
 
             </motion.div>
           )}
         </AnimatePresence>
+        </div>
       </main>
     </div>
   );
@@ -419,45 +483,51 @@ export default function AdminDashboard() {
 
 // Subcomponents
 
-function KPICard({ title, value, icon: Icon, color, delay }) {
+function KPICard({ title, value, icon: Icon, color, delay, trend }) {
   const colorMap = {
-    indigo: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/20',
-    emerald: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/20',
-    purple: 'bg-purple-500/20 text-purple-400 border-purple-500/20',
-    red: 'bg-red-500/20 text-red-400 border-red-500/20',
+    blue: 'bg-blue-50 text-blue-600',
+    emerald: 'bg-emerald-50 text-emerald-600',
+    purple: 'bg-purple-50 text-purple-600',
+    red: 'bg-red-50 text-red-600',
   };
+
+  const isPositive = trend?.startsWith('+');
 
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }} 
       animate={{ opacity: 1, y: 0 }} 
       transition={{ delay, duration: 0.3 }}
-      className="bg-gray-900 border border-gray-800 rounded-2xl p-6 relative overflow-hidden group hover:border-gray-700 transition-colors"
+      className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5 relative overflow-hidden group hover:border-gray-200 hover:shadow-md transition-all"
     >
-      <div className="flex items-center justify-between mb-4 relative z-10">
-        <h3 className="text-gray-400 font-medium text-sm">{title}</h3>
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${colorMap[color]}`}>
-          <Icon className="w-5 h-5" />
+      <div className="flex items-center justify-between mb-3 relative z-10">
+        <h3 className="text-slate-500 font-semibold text-sm">{title}</h3>
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${colorMap[color]}`}>
+          <Icon className="w-4 h-4" />
         </div>
       </div>
-      <p className="text-3xl font-black text-white relative z-10">{value}</p>
-      
-      {/* Glow effect on hover */}
-      <div className={`absolute -bottom-10 -right-10 w-32 h-32 rounded-full blur-3xl opacity-0 group-hover:opacity-20 transition-opacity duration-500 ${colorMap[color].split(' ')[0]}`}></div>
+      <div className="flex items-end gap-2 relative z-10">
+        <p className="text-2xl font-black text-slate-800">{value}</p>
+        {trend && (
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full mb-1 ${isPositive ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+            {trend}
+          </span>
+        )}
+      </div>
     </motion.div>
   );
 }
 
-function TierBar({ label, count, total, color }) {
+function TierBar({ label, count, total, color, textClass = "text-slate-500" }) {
   const percentage = total === 0 ? 0 : Math.round((count / total) * 100);
   return (
     <div>
-      <div className="flex justify-between text-sm mb-1">
-        <span className="text-gray-300 font-medium">{label}</span>
-        <span className="text-gray-500">{count} boutique(s) - {percentage}%</span>
+      <div className="flex justify-between text-xs font-semibold mb-2">
+        <span className={textClass}>{label}</span>
+        <span className="text-slate-400">{count} boutique(s) - {percentage}%</span>
       </div>
-      <div className="w-full bg-gray-800 rounded-full h-2">
-        <div className={`h-2 rounded-full ${color}`} style={{ width: `${percentage}%` }}></div>
+      <div className="w-full bg-slate-100 rounded-full h-1.5">
+        <div className={`h-1.5 rounded-full ${color}`} style={{ width: `${percentage}%` }}></div>
       </div>
     </div>
   );
@@ -467,20 +537,20 @@ function TierBadge({ tier }) {
   const t = tier || 'free';
   if (t === 'premium' || t === 'elite') {
     return (
-      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-gradient-to-r from-amber-500/20 to-yellow-600/20 text-amber-400 border border-amber-500/30">
+      <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-100 uppercase tracking-wider">
         Premium
       </span>
     );
   }
   if (t === 'pro') {
     return (
-      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+      <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100 uppercase tracking-wider">
         Pro
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-gray-800 text-gray-400 border border-gray-700">
+    <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 uppercase tracking-wider">
       Débutant
     </span>
   );
@@ -488,26 +558,26 @@ function TierBadge({ tier }) {
 
 function PlanSummaryCard({ tier, count, price, features, color, isPopular }) {
   const colorStyles = {
-    gray: 'border-gray-800 bg-gray-900',
-    indigo: 'border-indigo-500/50 bg-indigo-900/10 shadow-xl shadow-indigo-500/5',
-    amber: 'border-amber-500/30 bg-amber-900/10',
+    gray: 'border-slate-200 bg-white shadow-sm',
+    blue: 'border-blue-200 bg-blue-50/50 shadow-md ring-1 ring-blue-500/10',
+    amber: 'border-amber-200 bg-amber-50/50 shadow-sm',
   };
 
   return (
-    <div className={`border rounded-3xl p-6 relative flex flex-col ${colorStyles[color]}`}>
+    <div className={`border rounded-2xl p-6 relative flex flex-col ${colorStyles[color]}`}>
       {isPopular && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
-          Plus Populaire
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full shadow-sm">
+          Populaire
         </div>
       )}
       
-      <h3 className="text-xl font-bold text-white">{tier}</h3>
-      <div className="mt-2 text-2xl font-black text-white">{price}</div>
-      <div className="text-sm text-gray-400 mt-1">{count} abonnés actifs</div>
+      <h3 className="text-lg font-bold text-slate-800">{tier}</h3>
+      <div className="mt-2 text-2xl font-black text-slate-900">{price}</div>
+      <div className="text-xs text-slate-500 mt-1 font-medium">{count} abonnés actifs</div>
       
       <div className="mt-6 flex-1 space-y-3">
         {features.map((f, i) => (
-          <div key={i} className="flex items-start gap-2 text-sm text-gray-300">
+          <div key={i} className="flex items-start gap-2 text-sm text-slate-600">
             <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
             <span>{f}</span>
           </div>

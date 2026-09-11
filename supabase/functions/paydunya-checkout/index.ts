@@ -19,35 +19,48 @@ serve(async (req) => {
   }
 
   try {
-    const { merchantId, email, shopName, plan } = await req.json()
+    const { merchantId, email, shopName, plan, type, orderId, amount, customerName } = await req.json()
     
-    // Déterminer le montant en fonction du plan choisi
-    let amount = 5000; // Pro par défaut
-    if (plan === 'premium') amount = 15000;
-
-    // Récupérer l'URL du site (ex: https://monsite.vercel.app ou http://localhost:5173)
     const origin = req.headers.get('origin') || 'http://localhost:5173';
+
+    let finalAmount = 5000;
+    let description = '';
+    let customData = {};
+    let actions = {};
+
+    if (type === 'order') {
+      finalAmount = amount;
+      description = `Commande ${shopName} - Client: ${customerName}`;
+      customData = { type: 'order', order_id: orderId, merchant_id: merchantId };
+      actions = {
+        return_url: `${origin}/boutique/${encodeURIComponent(shopName)}?payment=success&orderId=${orderId}`,
+        cancel_url: `${origin}/boutique/${encodeURIComponent(shopName)}?payment=cancel&orderId=${orderId}`,
+        callback_url: "https://kvtqcxyqjsodzdjshits.supabase.co/functions/v1/paydunya-webhook"
+      };
+    } else {
+      // Logic for subscription
+      if (plan === 'premium') finalAmount = 15000;
+      description = `Abonnement SaaS - Forfait ${plan.toUpperCase()} - ${shopName}`;
+      customData = { type: 'subscription', merchant_id: merchantId, plan: plan };
+      actions = {
+        return_url: `${origin}/dashboard?payment=success&plan=${plan}`,
+        cancel_url: `${origin}/dashboard?payment=cancel`,
+        callback_url: "https://kvtqcxyqjsodzdjshits.supabase.co/functions/v1/paydunya-webhook"
+      };
+    }
 
     // 1. Préparation de la requête pour PayDunya (Création de la facture)
     const paydunyaPayload = {
       invoice: {
-        total_amount: amount,
-        description: `Abonnement SaaS - Forfait ${plan.toUpperCase()} - ${shopName}`
+        total_amount: finalAmount,
+        description: description
       },
       store: {
         name: "SamaBoutik SaaS",
         website_url: origin
       },
-      custom_data: {
-        merchant_id: merchantId,
-        plan: plan
-      },
-      actions: {
-        return_url: `${origin}/dashboard?payment=success&plan=${plan}`,
-        cancel_url: `${origin}/dashboard?payment=cancel`,
-        // L'URL où PayDunya enverra la confirmation finale
-        callback_url: "https://kvtqcxyqjsodzdjshits.supabase.co/functions/v1/paydunya-webhook" 
-      }
+      custom_data: customData,
+      actions: actions
     };
 
     // 2. Appel de l'API PayDunya (ou Simulation si on n'a pas de vraies clés)
@@ -57,7 +70,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true, 
-          invoice_url: `${origin}/dashboard?payment=success&plan=${plan}`, 
+          invoice_url: actions.return_url, 
           token: "demo_token_12345" 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }

@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
-import { Plus, LogOut, Package, ShoppingBag, Store, Activity, X, Menu, QrCode, BarChart3, Truck, ExternalLink, Image as ImageIcon, Users, UserPlus, Trash2, BellRing, BellOff, Search, Filter, Settings, CreditCard, AlertCircle, ShieldCheck, Edit2 } from 'lucide-react';
+import { Plus, LogOut, Package, ShoppingBag, Store, Activity, X, Menu, QrCode, BarChart3, Truck, ExternalLink, Image as ImageIcon, Users, UserPlus, Trash2, BellRing, BellOff, Search, Filter, Settings, CreditCard, AlertCircle, ShieldCheck, Edit2, ArrowRight, Bell } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { SHOP_CATEGORIES, CATEGORY_FEATURES } from '../utils/categories';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function MerchantDashboard() {
   const { user, merchant, logout } = useAuth();
@@ -33,19 +34,54 @@ export default function MerchantDashboard() {
   const [soundEnabled, setSoundEnabled] = useState(false);
   const audioContextRef = useRef(null);
 
+  // Toast Notification
+  const [toastMessage, setToastMessage] = useState(null);
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
   // Search & Filters for Orders
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
 
   // Settings State
-  const [settingsForm, setSettingsForm] = useState({ description: '', theme_color: '#4F46E5', isSaving: false });
+  const [settingsForm, setSettingsForm] = useState({ 
+    shop_name: '',
+    phone_number: '',
+    description: '', 
+    theme_color: '#4F46E5', 
+    email: '',
+    address: '',
+    logo_url: '',
+    logoFile: null,
+    banner_url: '',
+    bannerFile: null,
+    layout_style: 'modern',
+    social_facebook: '',
+    social_instagram: '',
+    social_tiktok: '',
+    isSaving: false 
+  });
 
   // Initialize Settings Form when merchant loads
   useEffect(() => {
     if (merchant) {
       setSettingsForm({
+        shop_name: merchant.shop_name || '',
+        phone_number: merchant.phone_number || '',
         description: merchant.description || '',
-        theme_color: merchant.theme_color || '#4F46E5',
+        theme_color: merchant.theme_color || '#ff6b00',
+        email: merchant.email || '',
+        address: merchant.address || '',
+        logo_url: merchant.logo_url || '',
+        logoFile: null,
+        banner_url: merchant.banner_url || '',
+        bannerFile: null,
+        layout_style: merchant.layout_style || 'modern',
+        social_facebook: merchant.social_links?.facebook || '',
+        social_instagram: merchant.social_links?.instagram || '',
+        social_tiktok: merchant.social_links?.tiktok || '',
         isSaving: false
       });
       
@@ -197,16 +233,61 @@ export default function MerchantDashboard() {
     e.preventDefault();
     setSettingsForm(prev => ({ ...prev, isSaving: true }));
     try {
+      let finalLogoUrl = settingsForm.logo_url;
+      let finalBannerUrl = settingsForm.banner_url;
+      
+      if (settingsForm.logoFile) {
+        const fileExt = settingsForm.logoFile.name.split('.').pop();
+        const fileName = `logo_${Math.random()}.${fileExt}`;
+        const filePath = `${user.id}/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('product-images')
+          .upload(filePath, settingsForm.logoFile);
+          
+        if (uploadError) throw uploadError;
+        
+        const { data: publicUrlData } = supabase.storage.from('product-images').getPublicUrl(filePath);
+        finalLogoUrl = publicUrlData.publicUrl;
+      }
+
+      if (settingsForm.bannerFile) {
+        const fileExt = settingsForm.bannerFile.name.split('.').pop();
+        const fileName = `banner_${Math.random()}.${fileExt}`;
+        const filePath = `${user.id}/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('product-images')
+          .upload(filePath, settingsForm.bannerFile);
+          
+        if (uploadError) throw uploadError;
+        
+        const { data: publicUrlData } = supabase.storage.from('product-images').getPublicUrl(filePath);
+        finalBannerUrl = publicUrlData.publicUrl;
+      }
+
       const { error } = await supabase.from('merchants').update({
+        shop_name: settingsForm.shop_name,
+        phone_number: settingsForm.phone_number,
         description: settingsForm.description,
-        theme_color: settingsForm.theme_color
+        theme_color: settingsForm.theme_color,
+        email: settingsForm.email,
+        address: settingsForm.address,
+        logo_url: finalLogoUrl,
+        banner_url: finalBannerUrl,
+        layout_style: settingsForm.layout_style,
+        social_links: {
+          facebook: settingsForm.social_facebook,
+          instagram: settingsForm.social_instagram,
+          tiktok: settingsForm.social_tiktok
+        }
       }).eq('id', user.id);
       
       if (error) throw error;
-      alert("Paramètres enregistrés avec succès !");
+      showToast("Paramètres enregistrés avec succès !");
     } catch (err) {
       console.error(err);
-      alert("Erreur lors de l'enregistrement des paramètres.");
+      showToast("Erreur lors de l'enregistrement des paramètres.");
     }
     setSettingsForm(prev => ({ ...prev, isSaving: false }));
   };
@@ -422,13 +503,23 @@ export default function MerchantDashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-mesh flex flex-col md:flex-row font-sans selection:bg-indigo-200 relative overflow-hidden">
-      {/* Background Decoratives (Aurora) */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500/20 rounded-full blur-[120px] pointer-events-none animate-aurora-1"></div>
-      <div className="absolute top-[20%] right-[-10%] w-[30%] h-[40%] bg-purple-500/20 rounded-full blur-[120px] pointer-events-none animate-aurora-2"></div>
-      <div className="absolute top-[40%] left-[20%] w-[20%] h-[30%] bg-pink-500/10 rounded-full blur-[100px] pointer-events-none animate-aurora-1" style={{animationDelay: '2s'}}></div>
-      
-      {/* Mobile Top Bar */}
+    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row font-sans selection:bg-indigo-200 relative overflow-hidden">
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.9 }}
+            className="fixed bottom-6 right-6 z-[100] bg-gray-900 text-white px-6 py-4 rounded-2xl shadow-2xl font-bold flex items-center gap-3"
+          >
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            {toastMessage}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Mobile Sidebar Overlay */}
       <div className="md:hidden bg-white/70 backdrop-blur-xl border-b border-white/50 p-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
         <div className="flex items-center gap-2 text-gray-900">
           <div className="w-10 h-10 flex items-center justify-center overflow-hidden">
@@ -504,17 +595,18 @@ export default function MerchantDashboard() {
       )}
 
       {/* Sidebar Desktop */}
-      <aside className="w-64 bg-white/70 backdrop-blur-2xl border-r border-white/50 flex flex-col hidden md:flex shadow-[4px_0_30px_rgba(79,70,229,0.05)] z-10 relative">
-        <div className="p-8 border-b border-gray-100/50">
+      <aside className="w-64 bg-white flex flex-col hidden md:flex z-10 relative shadow-sm">
+        <div className="p-8">
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-16 h-16 flex items-center justify-center overflow-hidden">
-              <img src="/logo.jpg" alt="SamaBoutik" className="w-full h-full object-cover mix-blend-multiply" />
+            <div className="w-10 h-10 flex items-center justify-center overflow-hidden rounded-xl bg-indigo-600 shadow-md shadow-indigo-500/20">
+              <Store className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-xl font-black text-gray-900 tracking-tight">Admin</h1>
+            <h1 className="text-xl font-black text-gray-900 tracking-tight">SamaBoutik</h1>
           </div>
-          <div className="bg-white/80 rounded-2xl p-4 border border-white shadow-sm flex flex-col gap-2">
-            <a href={getShopUrl()} target="_blank" rel="noreferrer" className="w-full flex items-center justify-center gap-2 bg-[#4F46E5] text-white font-bold px-4 py-2.5 rounded-xl hover:shadow-xl hover:shadow-indigo-500/30 hover:scale-[1.02] transition-all text-sm relative overflow-hidden group animate-shine">
-              <div className="bg-indigo-500 rounded-lg p-1"><Store className="w-4 h-4 text-white" /></div> Ma Vitrine
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Aperçu</p>
+          <div className="bg-white rounded-2xl flex flex-col gap-2 mb-4">
+            <a href={getShopUrl()} target="_blank" rel="noreferrer" className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white font-bold px-4 py-2.5 rounded-xl hover:shadow-lg hover:shadow-indigo-500/30 hover:scale-[1.02] transition-all text-sm relative overflow-hidden group">
+              <Store className="w-4 h-4 text-indigo-200" /> Ma Vitrine
             </a>
             <div className="flex gap-2">
               <button onClick={() => setShowQRModal(true)} className="flex-1 flex items-center justify-center bg-indigo-50 text-indigo-700 font-bold px-2 py-2.5 rounded-xl hover:bg-[#4338CA] transition-colors text-sm">
@@ -526,32 +618,34 @@ export default function MerchantDashboard() {
             </div>
           </div>
         </div>
-        <nav className="flex-1 p-6 space-y-2">
-          <button onClick={() => setActiveTab('analytics')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'analytics' ? 'bg-indigo-50 text-gray-900 border border-indigo-100 shadow-sm' : 'text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent'}`}>
-            <BarChart3 className="w-5 h-5 mr-3" /> Vue d'ensemble
+        <nav className="flex-1 px-6 space-y-1 mt-4">
+          <button onClick={() => setActiveTab('analytics')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'analytics' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}>
+            <BarChart3 className={`w-5 h-5 mr-3 ${activeTab === 'analytics' ? 'text-indigo-600' : 'text-gray-400'}`} /> Vue d'ensemble
           </button>
-          <button onClick={() => setActiveTab('products')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'products' ? 'bg-indigo-50 text-gray-900 border border-indigo-100 shadow-sm' : 'text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent'}`}>
-            <Package className="w-5 h-5 mr-3" /> Mes Produits
+          <button onClick={() => setActiveTab('products')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'products' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}>
+            <Package className={`w-5 h-5 mr-3 ${activeTab === 'products' ? 'text-indigo-600' : 'text-gray-400'}`} /> Mes Produits
           </button>
-          <button onClick={() => setActiveTab('orders')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'orders' ? 'bg-indigo-50 text-gray-900 border border-indigo-100 shadow-sm' : 'text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent'}`}>
-            <ShoppingBag className="w-5 h-5 mr-3" /> Commandes
+          <button onClick={() => setActiveTab('orders')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'orders' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}>
+            <ShoppingBag className={`w-5 h-5 mr-3 ${activeTab === 'orders' ? 'text-indigo-600' : 'text-gray-400'}`} /> Commandes
             {orders.filter(o => o.status === 'PENDING').length > 0 && (
-              <span className="ml-auto bg-emerald-100 text-emerald-700 text-[11px] px-2 py-0.5 rounded-full font-bold">
+              <span className="ml-auto bg-indigo-100 text-indigo-700 text-[11px] px-2 py-0.5 rounded-full font-bold">
                 {orders.filter(o => o.status === 'PENDING').length}
               </span>
             )}
           </button>
-          <button onClick={() => setActiveTab('drivers')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'drivers' ? 'bg-indigo-50 text-gray-900 border border-indigo-100 shadow-sm' : 'text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent'}`}>
-            <Truck className="w-5 h-5 mr-3" /> Historique Livraisons
+          <button onClick={() => setActiveTab('drivers')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'drivers' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}>
+            <Truck className={`w-5 h-5 mr-3 ${activeTab === 'drivers' ? 'text-indigo-600' : 'text-gray-400'}`} /> Livraisons
           </button>
-          <button onClick={() => setActiveTab('team')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'team' ? 'bg-indigo-50 text-gray-900 border border-indigo-100 shadow-sm' : 'text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent'}`}>
-            <Users className="w-5 h-5 mr-3" /> Mon Équipe
+          <button onClick={() => setActiveTab('team')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'team' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}>
+            <Users className={`w-5 h-5 mr-3 ${activeTab === 'team' ? 'text-indigo-600' : 'text-gray-400'}`} /> Mon Équipe
           </button>
-          <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'settings' ? 'bg-indigo-50 text-gray-900 border border-indigo-100 shadow-sm' : 'text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent'}`}>
-            <Settings className="w-5 h-5 mr-3" /> Paramètres
+
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pt-6 pb-2 px-4">Paramètres</p>
+          <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'settings' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}>
+            <Settings className={`w-5 h-5 mr-3 ${activeTab === 'settings' ? 'text-indigo-600' : 'text-gray-400'}`} /> Boutique
           </button>
-          <button onClick={() => setActiveTab('billing')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'billing' ? 'bg-orange-50 text-orange-600 border border-orange-100 shadow-sm' : 'text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent'}`}>
-            <CreditCard className="w-5 h-5 mr-3" /> Facturation
+          <button onClick={() => setActiveTab('billing')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'billing' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}>
+            <CreditCard className={`w-5 h-5 mr-3 ${activeTab === 'billing' ? 'text-indigo-600' : 'text-gray-400'}`} /> Facturation
           </button>
         </nav>
         <div className="p-6 border-t border-gray-100/50">
@@ -562,7 +656,7 @@ export default function MerchantDashboard() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-4 md:p-10 relative bg-mesh">
+      <main className="flex-1 overflow-y-auto p-4 md:p-8 relative bg-gray-50 w-full">
         
         {/* Mobile Quick Actions (Visible directly without menu) */}
         <div className="md:hidden mb-6 bg-white/80 rounded-2xl p-4 border border-white shadow-sm flex flex-col gap-2">
@@ -583,138 +677,263 @@ export default function MerchantDashboard() {
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-indigo-600"></div>
           </div>
         ) : activeTab === 'analytics' ? (
-          <div className="max-w-6xl mx-auto">
-            <div className="mb-10">
-              <h1 className="text-4xl font-black text-gray-900 tracking-tight">Vue d'ensemble</h1>
-              <p className="text-gray-500 mt-2 font-medium text-lg">Vos statistiques de vente et performances</p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-              <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-[2rem] p-8 text-white shadow-xl shadow-indigo-500/20 relative overflow-hidden group">
-                <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700 pointer-events-none"></div>
-                <div className="flex items-center gap-3 mb-6 relative z-10">
-                  <div className="p-3 bg-white/20 rounded-xl backdrop-blur-md">
-                    <Activity className="w-6 h-6 text-white" />
-                  </div>
-                  <span className="font-bold text-indigo-50 tracking-wider uppercase text-xs">Revenus (Livrés)</span>
-                </div>
-                <div className="text-4xl sm:text-5xl font-black relative z-10 tracking-tight">{stats.revenue.toLocaleString('fr-FR')} <span className="text-xl font-bold text-white/70">FCFA</span></div>
-              </div>
+          <div className="max-w-[1400px] mx-auto flex flex-col xl:flex-row gap-8 w-full">
+            {/* Center Content */}
+            <div className="flex-1 flex flex-col gap-8">
               
-              <div className="bg-white/80 backdrop-blur-md p-8 rounded-[2rem] flex flex-col justify-center cursor-pointer hover:-translate-y-1 hover:shadow-2xl hover:shadow-orange-500/10 transition-all duration-300 border border-white/60 group" onClick={() => setActiveTab('orders')}>
-                <div className="flex items-center gap-3 text-gray-900 mb-6">
-                  <div className="p-3 bg-orange-100 rounded-xl text-orange-600 group-hover:scale-110 transition-transform">
-                    <ShoppingBag className="w-6 h-6" />
-                  </div>
-                  <span className="font-bold text-gray-500 tracking-wider uppercase text-xs">Commandes à traiter</span>
+              {/* Top Header (Search & Profile) */}
+              <div className="hidden md:flex justify-between items-center bg-white rounded-full px-6 py-3 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-gray-100">
+                <div className="flex items-center gap-3 text-gray-400">
+                  <Search className="w-5 h-5" />
+                  <input type="text" placeholder="Rechercher..." className="bg-transparent border-none outline-none text-sm w-64 text-gray-700 placeholder-gray-400" />
                 </div>
-                <div className="text-4xl sm:text-5xl font-black text-gray-900 tracking-tight">{stats.pending}</div>
-              </div>
-              
-              <div className="bg-white/80 backdrop-blur-md p-8 rounded-[2rem] flex flex-col justify-center cursor-pointer hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 border border-white/60 group" onClick={() => setActiveTab('products')}>
-                <div className="flex items-center gap-3 text-gray-900 mb-6">
-                  <div className="p-3 bg-blue-100 rounded-xl text-blue-600 group-hover:scale-110 transition-transform">
-                    <Package className="w-6 h-6" />
-                  </div>
-                  <span className="font-bold text-gray-500 tracking-wider uppercase text-xs">Produits en vitrine</span>
-                </div>
-                <div className="text-4xl sm:text-5xl font-black text-gray-900 tracking-tight">{stats.totalProducts}</div>
-              </div>
-            </div>
-
-            {/* Lock Overlay if Expired */}
-            {merchant?.subscription_status === 'expired' && activeTab !== 'billing' && (
-              <div className="absolute inset-0 z-40 bg-white/60 backdrop-blur-sm flex items-center justify-center p-6">
-                <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md text-center border border-gray-100">
-                  <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <AlertCircle className="w-8 h-8" />
-                  </div>
-                  <h2 className="text-2xl font-black text-gray-900 mb-2">Abonnement Expiré</h2>
-                  <p className="text-gray-500 mb-6">Votre abonnement à SamaBoutik est arrivé à expiration. Veuillez le renouveler pour retrouver l'accès à votre tableau de bord et rouvrir votre boutique.</p>
-                  <button 
-                    onClick={() => setActiveTab('billing')}
-                    className="w-full py-4 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition-colors"
-                  >
-                    Aller à la Facturation
+                <div className="flex items-center gap-4">
+                  <button className="p-2 text-gray-400 hover:text-indigo-600 transition-colors relative">
+                    <Bell className="w-5 h-5" />
+                    <span className="absolute top-1.5 right-2 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
                   </button>
-                </div>
-              </div>
-            )}
-
-            {/* TOP HEADER */}
-            <div className="bg-white/90 backdrop-blur-xl rounded-[2.5rem] shadow-xl border border-white overflow-hidden">
-              <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-indigo-900 px-5 py-4 sm:px-8 sm:py-6 flex items-center justify-between relative overflow-hidden">
-                <div className="absolute right-0 top-0 w-64 h-full bg-gradient-to-l from-indigo-500/20 to-transparent pointer-events-none"></div>
-                <div className="flex items-center gap-4 text-white relative z-10">
-                  <div className="p-2 sm:p-3 bg-white/10 rounded-2xl backdrop-blur-md">
-                    <Truck className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-300" />
+                  <div className="flex items-center gap-3 pl-4 border-l border-gray-100">
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-gray-900">{merchant?.shop_name || 'Boutique'}</p>
+                      <p className="text-[10px] text-gray-500 uppercase tracking-widest">Marchand</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+                      {merchant?.shop_name?.charAt(0).toUpperCase() || 'M'}
+                    </div>
                   </div>
-                  <h2 className="text-xl sm:text-2xl font-black tracking-tight">Bilan Livreur</h2>
-                </div>
-                <span className="bg-white/10 text-white backdrop-blur-md text-[10px] sm:text-xs font-bold px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border border-white/20 relative z-10">Aujourd'hui</span>
-              </div>
-              
-              <div className="p-5 sm:p-8 grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
-                <div className="pt-4 sm:pt-0 flex flex-col items-center text-center group">
-                  <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner border border-gray-100">
-                     <span className="text-2xl">💰</span>
-                  </div>
-                  <p className="text-gray-500 font-bold text-xs mb-1 uppercase tracking-widest">Total Encaissé</p>
-                  <p className="text-gray-400 text-xs mb-5 font-medium">Argent physique avec le livreur</p>
-                  <p className="text-4xl font-black text-gray-800 tracking-tight">{totalEnbaisse.toLocaleString('fr-FR')} <span className="text-xl font-bold opacity-40">F</span></p>
-                </div>
-                
-                <div className="pt-8 sm:pt-0 flex flex-col items-center text-center group">
-                  <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner border border-orange-100/50">
-                     <span className="text-2xl">🛵</span>
-                  </div>
-                  <p className="text-gray-500 font-bold text-xs mb-1 uppercase tracking-widest">Frais Livreur</p>
-                  <p className="text-gray-400 text-xs mb-5 font-medium">Sa part pour les livraisons</p>
-                  <p className="text-4xl font-black text-orange-500 tracking-tight">- {partLivreur.toLocaleString('fr-FR')} <span className="text-xl font-bold opacity-50">F</span></p>
-                </div>
-                
-                <div className="pt-8 sm:pt-0 flex flex-col items-center text-center relative group">
-                  <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner border border-indigo-100/50">
-                     <span className="text-2xl">💎</span>
-                  </div>
-                  <p className="text-indigo-600 font-bold text-xs mb-1 uppercase tracking-widest">À vous reverser</p>
-                  <p className="text-indigo-400 text-xs mb-5 font-medium">Prix de vos produits</p>
-                  <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 tracking-tight">{partMarchand.toLocaleString('fr-FR')} <span className="text-2xl font-bold text-indigo-400">F</span></p>
                 </div>
               </div>
 
-              {/* Détail par livreur */}
-              {driverBalances.length > 0 && (
-                <div className="bg-gray-50/50 p-6 sm:p-8 border-t border-gray-100/50">
-                  <h3 className="text-lg font-black text-gray-900 mb-6 flex items-center gap-2">
-                    <Users className="w-5 h-5 text-indigo-500" />
-                    Détail par livreur
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {driverBalances.map(d => (
-                      <div 
-                        key={d.id} 
-                        onClick={() => setSelectedDriverForStats(d)}
-                        className="flex items-center justify-between p-5 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-md hover:border-indigo-200 transition-all cursor-pointer group"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 text-indigo-700 flex items-center justify-center font-black text-xl border border-indigo-100/50 group-hover:scale-110 transition-transform">
-                            {d.full_name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-bold text-gray-900 text-base">{d.full_name}</p>
-                            <p className="text-xs text-gray-500 font-medium">{d.count} course(s) aujourd'hui</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[10px] uppercase font-bold tracking-widest text-indigo-400 mb-1">À reverser</p>
-                          <p className="font-black text-indigo-600 text-xl">{d.dPartMarchand.toLocaleString('fr-FR')} <span className="text-xs font-bold opacity-60">F</span></p>
-                        </div>
-                      </div>
-                    ))}
+              {/* Ultra Modern Hero Banner for E-Commerce */}
+              <div className="relative rounded-[2.5rem] p-8 sm:p-12 flex justify-between items-center shadow-2xl overflow-hidden group bg-[#0F172A]">
+                {/* Animated Background Mesh */}
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-purple-600 to-fuchsia-600 opacity-90 group-hover:scale-105 transition-transform duration-1000"></div>
+                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay opacity-20"></div>
+                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/40 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3 animate-pulse"></div>
+                <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-pink-500/40 rounded-full blur-[100px] translate-y-1/3 -translate-x-1/4 animate-pulse" style={{animationDelay: '1s'}}></div>
+                
+                {/* Floating E-commerce Elements */}
+                <div className="absolute top-10 right-[20%] w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center rotate-12 animate-[bounce_4s_infinite] shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+                  <ShoppingBag className="w-8 h-8 text-white" />
+                </div>
+                <div className="absolute bottom-12 right-[35%] w-12 h-12 bg-white/10 backdrop-blur-md rounded-full border border-white/20 flex items-center justify-center -rotate-12 animate-[bounce_5s_infinite_0.5s] shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+                  <Package className="w-6 h-6 text-fuchsia-200" />
+                </div>
+                
+                <div className="relative z-10 max-w-2xl">
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs font-bold mb-6 tracking-widest uppercase">
+                    <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> E-Commerce Pro
+                  </div>
+                  <h2 className="text-4xl sm:text-5xl lg:text-6xl font-black mb-6 tracking-tighter leading-[1.1] text-transparent bg-clip-text bg-gradient-to-r from-white via-indigo-100 to-purple-200">
+                    Boostez vos ventes.<br/>Dominez le marché.
+                  </h2>
+                  <p className="text-indigo-100/90 mb-8 font-medium text-lg sm:text-xl max-w-lg leading-relaxed">
+                    Votre tableau de bord intelligent. Suivez vos commandes en temps réel et développez votre empire.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <a href={getShopUrl()} target="_blank" rel="noreferrer" className="bg-white text-indigo-900 font-black px-8 py-4 rounded-2xl hover:shadow-[0_0_40px_rgba(255,255,255,0.3)] hover:scale-105 transition-all inline-flex items-center gap-3 text-base">
+                      Ouvrir ma vitrine <ArrowRight className="w-5 h-5" />
+                    </a>
+                  </div>
+                </div>
+                
+                {/* Large Decorative Icon */}
+                <div className="hidden lg:flex relative z-10 w-64 h-64 mr-10">
+                   <div className="absolute inset-0 bg-white/5 rounded-[3rem] rotate-12 backdrop-blur-sm border border-white/10"></div>
+                   <div className="absolute inset-0 flex items-center justify-center">
+                     <Store className="w-32 h-32 text-white drop-shadow-[0_10px_20px_rgba(0,0,0,0.3)]" />
+                   </div>
+                </div>
+              </div>
+
+              {/* Lock Overlay if Expired (Kept for logic) */}
+              {merchant?.subscription_status === 'expired' && (
+                <div className="bg-red-50 p-6 rounded-2xl border border-red-100 flex items-start gap-4">
+                  <div className="w-12 h-12 bg-red-100 text-red-500 rounded-full flex items-center justify-center shrink-0">
+                    <AlertCircle className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-red-900 mb-1">Abonnement Expiré</h3>
+                    <p className="text-red-700 text-sm mb-4">Votre boutique est actuellement fermée au public. Veuillez renouveler votre abonnement.</p>
+                    <button onClick={() => setActiveTab('billing')} className="bg-red-600 text-white font-bold px-4 py-2 rounded-lg hover:bg-red-700 text-sm">
+                      Gérer la facturation
+                    </button>
                   </div>
                 </div>
               )}
+
+              {/* Ultra Modern KPI Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                {/* Revenu */}
+                <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(79,70,229,0.15)] hover:-translate-y-2 transition-all duration-300 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:bg-indigo-500/20 transition-colors"></div>
+                  <div className="flex justify-between items-start mb-4 relative z-10">
+                    <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm">
+                      <Activity className="w-6 h-6" />
+                    </div>
+                    <span className="bg-emerald-50 text-emerald-600 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">+12% ce mois</span>
+                  </div>
+                  <div className="relative z-10">
+                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">Revenus Générés</p>
+                    <p className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-700 tracking-tight">{stats.revenue.toLocaleString('fr-FR')} <span className="text-lg font-bold text-gray-400">FCFA</span></p>
+                  </div>
+                </div>
+
+                {/* Commandes */}
+                <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(249,115,22,0.15)] hover:-translate-y-2 transition-all duration-300 relative overflow-hidden group cursor-pointer" onClick={() => setActiveTab('orders')}>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:bg-orange-500/20 transition-colors"></div>
+                  <div className="flex justify-between items-start mb-4 relative z-10">
+                    <div className="w-14 h-14 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center group-hover:scale-110 group-hover:bg-orange-500 group-hover:text-white transition-all shadow-sm">
+                      <ShoppingBag className="w-6 h-6" />
+                    </div>
+                    {stats.pending > 0 && <span className="flex h-3 w-3 relative"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-orange-500"></span></span>}
+                  </div>
+                  <div className="relative z-10">
+                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">Commandes en cours</p>
+                    <p className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-700 tracking-tight">{stats.pending} <span className="text-lg font-bold text-gray-400">À traiter</span></p>
+                  </div>
+                </div>
+
+                {/* Produits */}
+                <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(59,130,246,0.15)] hover:-translate-y-2 transition-all duration-300 relative overflow-hidden group cursor-pointer" onClick={() => setActiveTab('products')}>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:bg-blue-500/20 transition-colors"></div>
+                  <div className="flex justify-between items-start mb-4 relative z-10">
+                    <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center group-hover:scale-110 group-hover:bg-blue-500 group-hover:text-white transition-all shadow-sm">
+                      <Package className="w-6 h-6" />
+                    </div>
+                  </div>
+                  <div className="relative z-10">
+                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">Catalogue Produits</p>
+                    <p className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-700 tracking-tight">{stats.totalProducts} <span className="text-lg font-bold text-gray-400">En ligne</span></p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent Orders */}
+              <div>
+                <div className="flex justify-between items-end mb-4">
+                  <h3 className="text-lg font-black text-gray-900 tracking-tight">Commandes Récentes</h3>
+                  <button onClick={() => setActiveTab('orders')} className="text-sm font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">Voir tout <ArrowRight className="w-4 h-4"/></button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {orders.slice(0, 3).map(order => (
+                    <div key={order.id} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-4 hover:shadow-md hover:border-indigo-100 transition-all cursor-pointer" onClick={() => setActiveTab('orders')}>
+                      <div className="flex justify-between items-start">
+                        <span className="text-xs font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-md">#{order.id.slice(0, 6)}</span>
+                        <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider ${
+                          order.status === 'DELIVERED' ? 'bg-emerald-50 text-emerald-600' :
+                          order.status === 'CANCELLED' ? 'bg-red-50 text-red-600' :
+                          'bg-orange-50 text-orange-600'
+                        }`}>
+                          {order.status === 'DELIVERED' ? 'LIVRÉ' : order.status === 'CANCELLED' ? 'ANNULÉ' : 'EN COURS'}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-bold text-gray-900 text-sm mb-1">{order.customer_name}</p>
+                        <p className="text-xs text-gray-500 truncate">{order.delivery_address}</p>
+                      </div>
+                      <div className="pt-3 border-t border-gray-50 flex justify-between items-center">
+                        <p className="text-xs text-gray-400 font-medium">{new Date(order.created_at).toLocaleDateString('fr-FR')}</p>
+                        <p className="text-base font-black text-indigo-600 tracking-tight">{order.total_amount_fcfa.toLocaleString('fr-FR')} F</p>
+                      </div>
+                    </div>
+                  ))}
+                  {orders.length === 0 && (
+                    <div className="col-span-full bg-white p-8 rounded-2xl border border-gray-100 border-dashed text-center">
+                       <ShoppingBag className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                       <p className="text-gray-500 font-medium">Aucune commande pour le moment.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Bilan Livreur (Legacy) modified to fit center column */}
+              <div className="bg-white rounded-[2rem] p-6 sm:p-8 border border-gray-100 shadow-sm mt-4">
+                <div className="flex items-center gap-3 mb-8">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                    <Truck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-gray-900 tracking-tight">Bilan Financier Livreur</h3>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Aujourd'hui</p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+                  <div className="bg-gray-50 p-5 rounded-2xl">
+                    <p className="text-gray-500 font-bold text-[10px] mb-1 uppercase tracking-widest">Total Encaissé</p>
+                    <p className="text-2xl font-black text-gray-900 tracking-tight mb-2">{totalEnbaisse.toLocaleString('fr-FR')} <span className="text-sm font-bold opacity-40">F</span></p>
+                    <p className="text-gray-400 text-xs font-medium">Argent physique avec le livreur</p>
+                  </div>
+                  
+                  <div className="bg-orange-50/50 p-5 rounded-2xl border border-orange-50">
+                    <p className="text-orange-600 font-bold text-[10px] mb-1 uppercase tracking-widest">Frais Livreur</p>
+                    <p className="text-2xl font-black text-orange-600 tracking-tight mb-2">- {partLivreur.toLocaleString('fr-FR')} <span className="text-sm font-bold opacity-50">F</span></p>
+                    <p className="text-orange-400/80 text-xs font-medium">Sa part pour les livraisons</p>
+                  </div>
+                  
+                  <div className="bg-indigo-50/50 p-5 rounded-2xl border border-indigo-50">
+                    <p className="text-indigo-600 font-bold text-[10px] mb-1 uppercase tracking-widest">À vous reverser</p>
+                    <p className="text-3xl font-black text-indigo-600 tracking-tight mb-2">{partMarchand.toLocaleString('fr-FR')} <span className="text-sm font-bold opacity-50">F</span></p>
+                    <p className="text-indigo-400 text-xs font-medium">Prix de vos produits</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Sidebar */}
+            <div className="w-full xl:w-80 flex flex-col gap-6">
+              
+              {/* Profile / Goal Card */}
+              <div className="bg-white rounded-[2rem] p-6 sm:p-8 border border-gray-100 shadow-sm flex flex-col items-center text-center relative overflow-hidden group">
+                <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-indigo-50 to-white pointer-events-none"></div>
+                <div className="w-24 h-24 rounded-full bg-white text-indigo-600 flex items-center justify-center text-3xl font-black mb-4 border-4 border-white shadow-xl relative z-10">
+                  {merchant?.shop_name?.charAt(0).toUpperCase() || 'M'}
+                </div>
+                <h3 className="text-xl font-black text-gray-900 tracking-tight relative z-10">Bonjour, {merchant?.shop_name || 'Marchand'}</h3>
+                <p className="text-sm text-gray-500 mb-8 relative z-10">Prêt pour une belle journée de ventes !</p>
+                
+                <div className="w-full bg-gray-50 rounded-2xl p-5 text-left relative z-10 border border-gray-100">
+                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex justify-between items-center">
+                     Objectif Ventes 
+                     <span className="text-indigo-600">65%</span>
+                   </p>
+                   <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-indigo-500 rounded-full" style={{width: '65%'}}></div>
+                   </div>
+                </div>
+              </div>
+
+              {/* Team / Mentors (Détail par livreur) */}
+              <div className="bg-white rounded-[2rem] p-6 sm:p-8 border border-gray-100 shadow-sm flex-1">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="font-black text-gray-900 tracking-tight">Mon Équipe</h3>
+                  <button onClick={() => setActiveTab('team')} className="text-indigo-600 text-xs font-bold hover:underline">Gérer</button>
+                </div>
+                <div className="flex flex-col gap-4">
+                  {driverBalances.slice(0, 5).map(d => (
+                     <div key={d.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-xl transition-colors cursor-pointer" onClick={() => setSelectedDriverForStats(d)}>
+                       <div className="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-sm shrink-0">
+                         {d.full_name.charAt(0).toUpperCase()}
+                       </div>
+                       <div className="flex-1 min-w-0">
+                         <p className="text-sm font-bold text-gray-900 truncate">{d.full_name}</p>
+                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{d.count} course(s)</p>
+                       </div>
+                       <div className="text-right shrink-0">
+                         <p className="text-sm font-black text-indigo-600">{d.dPartMarchand.toLocaleString('fr-FR')} <span className="text-[10px]">F</span></p>
+                       </div>
+                     </div>
+                  ))}
+                  {driverBalances.length === 0 && (
+                     <div className="text-center py-8">
+                       <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                       <p className="text-xs text-gray-500 font-medium">Aucun livreur actif aujourd'hui.</p>
+                     </div>
+                  )}
+                </div>
+              </div>
+
             </div>
           </div>
         ) : activeTab === 'products' ? (
@@ -878,6 +1097,21 @@ export default function MerchantDashboard() {
                           {order.delivery_pin && (
                             <span className="bg-orange-100/80 text-orange-800 text-[10px] font-black px-2 py-0.5 rounded-md border border-orange-200/50 leading-none">
                               PIN: {order.delivery_pin}
+                            </span>
+                          )}
+                          {order.payment_method === 'ON_DELIVERY' && (
+                            <span className="bg-gray-100/80 text-gray-800 text-[10px] font-black px-2 py-0.5 rounded-md border border-gray-200/50 leading-none flex items-center gap-1">
+                              🚚 À la livraison
+                            </span>
+                          )}
+                          {order.payment_method === 'DEPOSIT' && (
+                            <span className="bg-indigo-100/80 text-indigo-800 text-[10px] font-black px-2 py-0.5 rounded-md border border-indigo-200/50 leading-none flex items-center gap-1">
+                              💳 Acompte: {order.payment_deposit_amount} FCFA
+                            </span>
+                          )}
+                          {order.payment_method === 'FULL_UPFRONT' && (
+                            <span className="bg-emerald-100/80 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-md border border-emerald-200/50 leading-none flex items-center gap-1">
+                              💳 Intégral Payé
                             </span>
                           )}
                           {order.driver_name && order.status === 'IN_TRANSIT' && (
@@ -1111,6 +1345,31 @@ export default function MerchantDashboard() {
             </div>
             
             <form onSubmit={handleSaveSettings} className="glass-panel p-6 border-white/60 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Nom de la boutique</label>
+                  <input 
+                    type="text" 
+                    value={settingsForm.shop_name}
+                    onChange={e => setSettingsForm({...settingsForm, shop_name: e.target.value})}
+                    className="w-full p-4 bg-white/80 border border-white/60 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 font-medium shadow-sm"
+                    placeholder="Ma Super Boutique"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Téléphone (WhatsApp)</label>
+                  <input 
+                    type="tel" 
+                    value={settingsForm.phone_number}
+                    onChange={e => setSettingsForm({...settingsForm, phone_number: e.target.value})}
+                    className="w-full p-4 bg-white/80 border border-white/60 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 font-medium shadow-sm"
+                    placeholder="+221 77..."
+                    required
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">Description de la boutique</label>
                 <textarea 
@@ -1122,23 +1381,131 @@ export default function MerchantDashboard() {
                 />
               </div>
               
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Couleur principale</label>
-                <div className="flex items-center gap-4">
-                  <input 
-                    type="color" 
-                    value={settingsForm.theme_color}
-                    onChange={e => setSettingsForm({...settingsForm, theme_color: e.target.value})}
-                    className="w-16 h-16 rounded-xl cursor-pointer bg-white/80 border border-white/60 p-1 shadow-sm"
-                  />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-500 mb-1">Code couleur (Hex)</p>
+              <div className="pt-6 border-t border-gray-100">
+                <h3 className="text-xl font-bold text-gray-900 mb-6">Apparence de la vitrine</h3>
+                
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Style d'affichage (Layout)</label>
+                    <select 
+                      value={settingsForm.layout_style}
+                      onChange={e => setSettingsForm({...settingsForm, layout_style: e.target.value})}
+                      className="w-full p-4 bg-white/80 border border-white/60 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 font-medium shadow-sm appearance-none"
+                    >
+                      <option value="modern">Moderne (Formes obliques, très visuel)</option>
+                      <option value="classic">Classique (Bannière droite, rassurant)</option>
+                      <option value="minimalist">Minimaliste (Epuré, focus sur les produits)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Bannière d'accueil (Hero Image)</label>
+                    {settingsForm.banner_url && !settingsForm.bannerFile && (
+                      <div className="mb-4 relative group">
+                        <img src={settingsForm.banner_url} alt="Bannière" className="w-full h-40 object-cover rounded-xl border border-gray-200" />
+                        <button 
+                          type="button" 
+                          onClick={() => setSettingsForm({...settingsForm, banner_url: '', bannerFile: null})}
+                          className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full shadow-lg hover:bg-red-600 transition-colors"
+                          title="Supprimer la bannière"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                     <input 
-                      type="text" 
-                      value={settingsForm.theme_color}
-                      onChange={e => setSettingsForm({...settingsForm, theme_color: e.target.value})}
-                      className="w-full p-3 bg-white/80 border border-white/60 rounded-xl font-mono text-sm text-gray-900 shadow-sm"
+                      type="file" 
+                      accept="image/*"
+                      onChange={e => setSettingsForm({...settingsForm, bannerFile: e.target.files[0]})}
+                      className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                     />
+                    <p className="text-xs text-gray-400 mt-2">Format paysage recommandé (ex: 1920x1080px).</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Couleur principale</label>
+                    <div className="flex items-center gap-4">
+                      <input 
+                        type="color" 
+                        value={settingsForm.theme_color}
+                        onChange={e => setSettingsForm({...settingsForm, theme_color: e.target.value})}
+                        className="w-16 h-16 rounded-xl cursor-pointer bg-white/80 border border-white/60 p-1 shadow-sm"
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-500 mb-1">Code couleur (Hex)</p>
+                        <input 
+                          type="text" 
+                          value={settingsForm.theme_color}
+                          onChange={e => setSettingsForm({...settingsForm, theme_color: e.target.value})}
+                          className="w-full p-3 bg-white/80 border border-white/60 rounded-xl font-mono text-sm text-gray-900 shadow-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gray-100">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Email de contact</label>
+                  <input 
+                    type="email" 
+                    value={settingsForm.email}
+                    onChange={e => setSettingsForm({...settingsForm, email: e.target.value})}
+                    className="w-full p-3 bg-white/80 border border-white/60 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 shadow-sm"
+                    placeholder="contact@maboutique.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Adresse physique</label>
+                  <input 
+                    type="text" 
+                    value={settingsForm.address}
+                    onChange={e => setSettingsForm({...settingsForm, address: e.target.value})}
+                    className="w-full p-3 bg-white/80 border border-white/60 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 shadow-sm"
+                    placeholder="Dakar, Sénégal"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Logo de la boutique</label>
+                {settingsForm.logo_url && !settingsForm.logoFile && (
+                  <div className="mb-4 relative inline-block group">
+                    <img src={settingsForm.logo_url} alt="Logo" className="w-24 h-24 object-contain rounded-xl border border-gray-200 bg-white" />
+                    <button 
+                      type="button" 
+                      onClick={() => setSettingsForm({...settingsForm, logo_url: '', logoFile: null})}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full shadow-lg hover:bg-red-600 transition-colors"
+                      title="Supprimer le logo"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={e => setSettingsForm({...settingsForm, logoFile: e.target.files[0]})}
+                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                />
+                <p className="text-xs text-gray-400 mt-2">Format carré recommandé. Le fond transparent (PNG) est idéal.</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Réseaux Sociaux</label>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <span className="w-24 text-sm text-gray-600 font-medium">Facebook</span>
+                    <input type="url" value={settingsForm.social_facebook} onChange={e => setSettingsForm({...settingsForm, social_facebook: e.target.value})} placeholder="https://facebook.com/..." className="flex-1 p-3 bg-white/80 border border-white/60 rounded-xl text-sm shadow-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="w-24 text-sm text-gray-600 font-medium">Instagram</span>
+                    <input type="url" value={settingsForm.social_instagram} onChange={e => setSettingsForm({...settingsForm, social_instagram: e.target.value})} placeholder="https://instagram.com/..." className="flex-1 p-3 bg-white/80 border border-white/60 rounded-xl text-sm shadow-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="w-24 text-sm text-gray-600 font-medium">TikTok</span>
+                    <input type="url" value={settingsForm.social_tiktok} onChange={e => setSettingsForm({...settingsForm, social_tiktok: e.target.value})} placeholder="https://tiktok.com/@..." className="flex-1 p-3 bg-white/80 border border-white/60 rounded-xl text-sm shadow-sm outline-none focus:ring-2 focus:ring-indigo-500" />
                   </div>
                 </div>
               </div>

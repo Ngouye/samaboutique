@@ -1,9 +1,15 @@
 import React, { useEffect, useState } from 'react';
+import { motion, useSpring } from 'framer-motion';
 
 export default function CustomCursor() {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isPointer, setIsPointer] = useState(false);
   const [isHidden, setIsHidden] = useState(false);
+
+  // Smooth springs for the outer circle
+  const springConfig = { damping: 25, stiffness: 400, mass: 0.5 };
+  const cursorX = useSpring(0, springConfig);
+  const cursorY = useSpring(0, springConfig);
 
   useEffect(() => {
     // Disable on touch devices
@@ -14,6 +20,8 @@ export default function CustomCursor() {
 
     const onMouseMove = (e) => {
       setPosition({ x: e.clientX, y: e.clientY });
+      cursorX.set(e.clientX);
+      cursorY.set(e.clientY);
     };
 
     const onMouseOver = (e) => {
@@ -21,7 +29,8 @@ export default function CustomCursor() {
       if (
         window.getComputedStyle(target).cursor === 'pointer' ||
         target.tagName.toLowerCase() === 'a' ||
-        target.tagName.toLowerCase() === 'button'
+        target.tagName.toLowerCase() === 'button' ||
+        target.closest('button') || target.closest('a')
       ) {
         setIsPointer(true);
       } else {
@@ -36,24 +45,43 @@ export default function CustomCursor() {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseover', onMouseOver);
     };
-  }, []);
+  }, [cursorX, cursorY]);
 
   if (isHidden) return null;
 
   return (
     <>
-      <div 
-        className="fixed top-0 left-0 w-4 h-4 bg-indigo-500 rounded-full mix-blend-difference pointer-events-none z-[9999] transition-transform duration-75 ease-out"
-        style={{ 
-          transform: `translate(${position.x - 8}px, ${position.y - 8}px) scale(${isPointer ? 1.5 : 1})`,
+      {/* Inner Dot - Instant Follow */}
+      <motion.div 
+        className="fixed top-0 left-0 w-3 h-3 bg-orange-500 rounded-full pointer-events-none z-[9999] shadow-[0_0_10px_rgba(249,115,22,0.8)]"
+        style={{
+          x: position.x - 6,
+          y: position.y - 6,
         }}
+        animate={{
+          scale: isPointer ? 0 : 1,
+          opacity: isPointer ? 0 : 1,
+        }}
+        transition={{ duration: 0.15 }}
       />
-      <div 
-        className="fixed top-0 left-0 w-10 h-10 border border-indigo-300 rounded-full mix-blend-difference pointer-events-none z-[9998] transition-transform duration-300 ease-out"
+      
+      {/* Outer Ring - Spring Follow */}
+      <motion.div 
+        className="fixed top-0 left-0 pointer-events-none z-[9998] flex items-center justify-center border-2 border-orange-500/50 rounded-full shadow-[0_0_20px_rgba(249,115,22,0.4)]"
         style={{ 
-          transform: `translate(${position.x - 20}px, ${position.y - 20}px) scale(${isPointer ? 1.5 : 1})`,
-          opacity: isPointer ? 0.5 : 0.8
+          x: cursorX,
+          y: cursorY,
+          translateX: "-50%",
+          translateY: "-50%"
         }}
+        animate={{
+          width: isPointer ? 64 : 40,
+          height: isPointer ? 64 : 40,
+          backgroundColor: isPointer ? "rgba(249, 115, 22, 0.1)" : "rgba(249, 115, 22, 0)",
+          borderColor: isPointer ? "rgba(249, 115, 22, 0)" : "rgba(249, 115, 22, 0.6)",
+          backdropFilter: isPointer ? "blur(4px)" : "blur(0px)",
+        }}
+        transition={{ type: "spring", stiffness: 300, damping: 20 }}
       />
     </>
   );
