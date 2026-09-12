@@ -324,31 +324,25 @@ export default function PublicShop() {
       `}} />
 
       {/* Toast Notification */}
-      <AnimatePresence>
+      <div className="z-50">
         {toastMessage && (
-          <motion.div 
-            initial={{ opacity: 0, y: 50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 50, scale: 0.9 }}
-            className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3"
+          <div 
+            className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300"
           >
             <CheckCircle className="w-5 h-5 text-emerald-400" />
             <span className="text-sm font-medium">{toastMessage}</span>
-          </motion.div>
+          </div>
         )}
         {paymentStatusMessage && (
-          <motion.div 
-            initial={{ opacity: 0, y: 50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 50, scale: 0.9 }}
-            className="fixed bottom-36 md:bottom-20 left-1/2 -translate-x-1/2 z-50 theme-bg text-white text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3"
+          <div 
+            className="fixed bottom-36 md:bottom-20 left-1/2 -translate-x-1/2 z-50 theme-bg text-white text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300"
           >
             <Bell className="w-5 h-5 text-white" />
             <span className="text-sm font-medium">{paymentStatusMessage}</span>
             <button onClick={() => setPaymentStatusMessage(null)} className="ml-2 bg-white/20 rounded-full p-1"><X className="w-4 h-4"/></button>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
+      </div>
 
       {/* TOP PROMO BAR (MAGICAL MARQUEE) */}
       <motion.div 
@@ -436,59 +430,54 @@ export default function PublicShop() {
               <Search className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
               
               {/* LIVE SEARCH DROPDOWN */}
-              <AnimatePresence>
-                {isSearchFocused && searchQuery.trim() !== '' && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 max-h-[400px] overflow-y-auto"
-                  >
-                    {products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 5).map(p => (
-                      <div 
-                        key={p.id} 
-                        onClick={() => {
-                          setSelectedProduct(p);
-                          setSearchQuery('');
-                          setIsSearchFocused(false);
-                        }}
-                        className="flex items-center gap-4 p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors"
-                      >
-                        <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden shrink-0">
-                          {p.image_url ? (
-                            <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <Package className="w-full h-full p-2 text-gray-400" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-bold text-gray-900 truncate">{p.name}</h4>
-                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full mt-1 inline-block">{p.category || 'Autres'}</span>
-                        </div>
-                        <div className="font-black theme-text text-sm whitespace-nowrap">
-                          {p.price_fcfa.toLocaleString('fr-FR')} FCFA
-                        </div>
+              {isSearchFocused && searchQuery.trim() !== '' && (
+                <div 
+                  className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 max-h-[400px] overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200"
+                >
+                  {products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 5).map(p => (
+                    <div 
+                      key={p.id} 
+                      onClick={() => {
+                        setSelectedProduct(p);
+                        setSearchQuery('');
+                        setIsSearchFocused(false);
+                      }}
+                      className="flex items-center gap-4 p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors"
+                    >
+                      <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden shrink-0">
+                        {p.image_url ? (
+                          <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <Package className="w-full h-full p-2 text-gray-400" />
+                        )}
                       </div>
-                    ))}
-                    {products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
-                      <div className="p-6 text-center text-gray-500 text-sm">
-                        Aucun produit trouvé pour "{searchQuery}"
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-bold text-gray-900 truncate">{p.name}</h4>
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full mt-1 inline-block">{p.category || 'Autres'}</span>
                       </div>
-                    )}
-                    {products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).length > 5 && (
-                      <div 
-                        onClick={() => {
-                          document.getElementById('shop-section')?.scrollIntoView({behavior: 'smooth'});
-                          setIsSearchFocused(false);
-                        }}
-                        className="p-3 bg-gray-50 text-center text-sm font-bold theme-text hover:bg-gray-100 cursor-pointer transition-colors"
-                      >
-                        Voir tous les résultats
+                      <div className="font-black theme-text text-sm whitespace-nowrap">
+                        {p.price_fcfa.toLocaleString('fr-FR')} FCFA
                       </div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                    </div>
+                  ))}
+                  {products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                    <div className="p-6 text-center text-gray-500 text-sm">
+                      Aucun produit trouvé pour "{searchQuery}"
+                    </div>
+                  )}
+                  {products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).length > 5 && (
+                    <div 
+                      onClick={() => {
+                        document.getElementById('shop-section')?.scrollIntoView({behavior: 'smooth'});
+                        setIsSearchFocused(false);
+                      }}
+                      className="p-3 bg-gray-50 text-center text-sm font-bold theme-text hover:bg-gray-100 cursor-pointer transition-colors"
+                    >
+                      Voir tous les résultats
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -845,21 +834,19 @@ export default function PublicShop() {
                 </button>
               </div>
             ) : (
-              <motion.div layout className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8">
-                <AnimatePresence>
-                  {processedProducts.map((p, index) => (
-                    <ProductCard 
-                      key={p.id} 
-                      p={p} 
-                      index={index}
-                      favorites={favorites} 
-                      toggleFavorite={toggleFavorite} 
-                      setSelectedProduct={setSelectedProduct} 
-                      addToCart={addToCart} 
-                    />
-                  ))}
-                </AnimatePresence>
-              </motion.div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8 animate-in fade-in duration-500">
+                {processedProducts.map((p, index) => (
+                  <ProductCard 
+                    key={p.id} 
+                    p={p} 
+                    index={index}
+                    favorites={favorites} 
+                    toggleFavorite={toggleFavorite} 
+                    setSelectedProduct={setSelectedProduct} 
+                    addToCart={addToCart} 
+                  />
+                ))}
+              </div>
             )}
           </main>
         </>
@@ -1169,19 +1156,15 @@ export default function PublicShop() {
       )}
 
       {/* CART DRAWER */}
-      <AnimatePresence>
-        {isCartOpen && (
-          <div className="fixed inset-0 z-50 overflow-hidden">
-            <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
-              onClick={() => setIsCartOpen(false)} 
-            />
-            <motion.div 
-              initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-              transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-              className="absolute inset-y-0 right-0 max-w-md w-full flex bg-white shadow-2xl flex-col"
-            >
+      {isCartOpen && (
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          <div 
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300" 
+            onClick={() => setIsCartOpen(false)} 
+          />
+          <div 
+            className="absolute inset-y-0 right-0 max-w-md w-full flex bg-white shadow-2xl flex-col animate-in slide-in-from-right duration-300"
+          >
               <div className="flex items-center justify-between p-6 border-b border-gray-100">
                 <h2 className="text-xl font-black uppercase tracking-wider flex items-center gap-2">
                   <ShoppingCart className="w-5 h-5" /> Mon Panier
@@ -1236,35 +1219,33 @@ export default function PublicShop() {
                 <>
                   <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
                     <ul className="space-y-6">
-                      <AnimatePresence>
-                        {Object.entries(cart).map(([cartKey, item]) => (
-                          <motion.li layout initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, scale: 0.9 }} key={cartKey} className="flex gap-4">
-                            <div className="w-24 h-32 rounded-2xl bg-gray-100 overflow-hidden shrink-0 border border-gray-200">
-                               {item.product.image_url ? 
-                                <img src={item.product.image_url} alt="" loading="lazy" className="w-full h-full object-cover" /> :
-                                <ImageIcon className="w-8 h-8 m-auto mt-12 text-gray-300" />
-                               }
+                      {Object.entries(cart).map(([cartKey, item]) => (
+                        <li key={cartKey} className="flex gap-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                          <div className="w-24 h-32 rounded-2xl bg-gray-100 overflow-hidden shrink-0 border border-gray-200">
+                             {item.product.image_url ? 
+                              <img src={item.product.image_url} alt="" loading="lazy" className="w-full h-full object-cover" /> :
+                              <ImageIcon className="w-8 h-8 m-auto mt-12 text-gray-300" />
+                             }
+                          </div>
+                          <div className="flex-1 flex flex-col justify-between py-1">
+                            <div>
+                              <h4 className="font-bold text-gray-900 leading-tight">
+                                {item.product.name}
+                              </h4>
+                              {item.variant && <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider block mt-1">Taille: {item.variant}</span>}
+                              <p className="font-black text-gray-900 mt-2">{item.product.price_fcfa.toLocaleString('fr-FR')} FCFA</p>
                             </div>
-                            <div className="flex-1 flex flex-col justify-between py-1">
-                              <div>
-                                <h4 className="font-bold text-gray-900 leading-tight">
-                                  {item.product.name}
-                                </h4>
-                                {item.variant && <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider block mt-1">Taille: {item.variant}</span>}
-                                <p className="font-black text-gray-900 mt-2">{item.product.price_fcfa.toLocaleString('fr-FR')} FCFA</p>
+                            <div className="flex items-center justify-between mt-4">
+                              <div className="flex items-center bg-gray-100 rounded-full p-1 border border-gray-200">
+                                <button onClick={() => updateQuantity(cartKey, -1)} className="w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-white hover:shadow-sm rounded-full font-bold transition-all">-</button>
+                                <span className="font-bold text-sm w-8 text-center">{item.quantity}</span>
+                                <button onClick={() => updateQuantity(cartKey, 1)} className="w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-white hover:shadow-sm rounded-full font-bold transition-all">+</button>
                               </div>
-                              <div className="flex items-center justify-between mt-4">
-                                <div className="flex items-center bg-gray-100 rounded-full p-1 border border-gray-200">
-                                  <button onClick={() => updateQuantity(cartKey, -1)} className="w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-white hover:shadow-sm rounded-full font-bold transition-all">-</button>
-                                  <span className="font-bold text-sm w-8 text-center">{item.quantity}</span>
-                                  <button onClick={() => updateQuantity(cartKey, 1)} className="w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-white hover:shadow-sm rounded-full font-bold transition-all">+</button>
-                                </div>
-                                <button onClick={() => updateQuantity(cartKey, -item.quantity)} className="text-xs font-bold text-red-500 uppercase tracking-wider hover:underline">Supprimer</button>
-                              </div>
+                              <button onClick={() => updateQuantity(cartKey, -item.quantity)} className="text-xs font-bold text-red-500 uppercase tracking-wider hover:underline">Supprimer</button>
                             </div>
-                          </motion.li>
-                        ))}
-                      </AnimatePresence>
+                          </div>
+                        </li>
+                      ))}
                     </ul>
 
                     {/* Checkout Form */}
@@ -1317,10 +1298,9 @@ export default function PublicShop() {
                   </div>
                 </>
               )}
-            </motion.div>
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
 
       {/* FLOATING WHATSAPP BUTTON */}
       {merchant?.phone_number && (
