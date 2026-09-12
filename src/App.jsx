@@ -4,21 +4,24 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import CustomCursor from './components/CustomCursor';
 import ErrorBoundary from './components/ErrorBoundary';
 
-// Static Imports (No more lazy loading to prevent ChunkLoadErrors on Vercel updates)
-import Login from './pages/Login';
-import Register from './pages/Register';
-import MerchantDashboard from './pages/MerchantDashboard';
-import PublicShop from './pages/PublicShop';
-import DriverDashboard from './pages/DriverDashboard';
-import Landing from './pages/Landing';
-import AdminDashboard from './pages/AdminDashboard';
+import { lazyWithRetry } from './utils/lazyWithRetry';
+import { Suspense } from 'react';
+
+// Lazy loading sécurisé pour empêcher les erreurs "ChunkLoadError" de Vercel
+const Login = lazyWithRetry(() => import('./pages/Login'));
+const Register = lazyWithRetry(() => import('./pages/Register'));
+const MerchantDashboard = lazyWithRetry(() => import('./pages/MerchantDashboard'));
+const PublicShop = lazyWithRetry(() => import('./pages/PublicShop'));
+const DriverDashboard = lazyWithRetry(() => import('./pages/DriverDashboard'));
+const Landing = lazyWithRetry(() => import('./pages/Landing'));
+const AdminDashboard = lazyWithRetry(() => import('./pages/AdminDashboard'));
 
 // Loader Component
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50">
     <div className="flex flex-col items-center gap-4">
       <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-      <p className="text-gray-500 font-medium">Chargement...</p>
+      <p className="text-gray-500 font-medium">Chargement rapide...</p>
     </div>
   </div>
 );
@@ -51,32 +54,34 @@ export default function App() {
       <Router>
         <CustomCursor />
         <ErrorBoundary>
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            
-            <Route 
-              path="/dashboard" 
-              element={
-                <ProtectedRoute>
-                  <MerchantDashboard />
-                </ProtectedRoute>
-              } 
-            />
-            
-            <Route 
-              path="/admin" 
-              element={
-                <AdminRoute>
-                  <AdminDashboard />
-                </AdminRoute>
-              } 
-            />
-            
-            <Route path="/boutique/:shopName" element={<PublicShop />} />
-            <Route path="/livreur/:shopName" element={<DriverDashboard />} />
-          </Routes>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Landing />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              
+              <Route 
+                path="/dashboard" 
+                element={
+                  <ProtectedRoute>
+                    <MerchantDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/admin" 
+                element={
+                  <AdminRoute>
+                    <AdminDashboard />
+                  </AdminRoute>
+                } 
+              />
+              
+              <Route path="/boutique/:shopName" element={<PublicShop />} />
+              <Route path="/livreur/:shopName" element={<DriverDashboard />} />
+            </Routes>
+          </Suspense>
         </ErrorBoundary>
       </Router>
     </AuthProvider>
