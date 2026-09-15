@@ -48,6 +48,9 @@ router.post('/create', async (req, res) => {
     const commissionPlatform = Math.floor(orderDetails.totalAmount * 0.05);
     const amountMerchant = orderDetails.totalAmount - commissionPlatform;
 
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+
     // Configuration de la requête PayDunya API
     const paydunyaPayload = {
       invoice: {
@@ -62,13 +65,13 @@ router.post('/create', async (req, res) => {
       },
       store: {
         name: "Samaboutik",
-        website_url: "http://localhost:5173" // L'URL de notre frontend
+        website_url: frontendUrl // L'URL de notre frontend
       },
       // Configuration des actions d'URL (redirections et webhook)
       actions: {
-        cancel_url: `http://localhost:5173/${merchantInfo.shop_name}?payment=cancel`,
-        return_url: `http://localhost:5173/${merchantInfo.shop_name}?payment=success&orderId=${order.id}`,
-        callback_url: `http://localhost:3000/api/payments/webhook` // Le webhook que PayDunya appellera
+        cancel_url: `${frontendUrl}/${merchantInfo.shop_name}?payment=cancel`,
+        return_url: `${frontendUrl}/${merchantInfo.shop_name}?payment=success&orderId=${order.id}`,
+        callback_url: `${backendUrl}/api/payments/webhook` // Le webhook que PayDunya appellera
       }
     };
 
