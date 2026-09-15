@@ -61,6 +61,8 @@ export default function MerchantDashboard() {
     social_facebook: '',
     social_instagram: '',
     social_tiktok: '',
+    payout_provider: 'WAVE',
+    payout_phone_number: '',
     isSaving: false 
   });
 
@@ -82,6 +84,8 @@ export default function MerchantDashboard() {
         social_facebook: merchant.social_links?.facebook || '',
         social_instagram: merchant.social_links?.instagram || '',
         social_tiktok: merchant.social_links?.tiktok || '',
+        payout_provider: merchant.payout_provider || 'WAVE',
+        payout_phone_number: merchant.payout_phone_number || '',
         isSaving: false
       });
       
@@ -276,6 +280,8 @@ export default function MerchantDashboard() {
         logo_url: finalLogoUrl,
         banner_url: finalBannerUrl,
         layout_style: settingsForm.layout_style,
+        payout_provider: settingsForm.payout_provider,
+        payout_phone_number: settingsForm.payout_phone_number,
         social_links: {
           facebook: settingsForm.social_facebook,
           instagram: settingsForm.social_instagram,
@@ -1465,6 +1471,32 @@ export default function MerchantDashboard() {
                     className="w-full p-3 bg-white/80 border border-white/60 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 shadow-sm"
                     placeholder="Dakar, Sénégal"
                   />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gray-100">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Méthode de réception des paiements</label>
+                  <select 
+                    value={settingsForm.payout_provider}
+                    onChange={e => setSettingsForm({...settingsForm, payout_provider: e.target.value})}
+                    className="w-full p-4 bg-white/80 border border-white/60 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 font-medium shadow-sm appearance-none"
+                  >
+                    <option value="WAVE">Wave</option>
+                    <option value="ORANGE_MONEY">Orange Money</option>
+                    <option value="FREE_MONEY">Free Money</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Numéro de téléphone (Wave/OM)</label>
+                  <input 
+                    type="tel" 
+                    value={settingsForm.payout_phone_number}
+                    onChange={e => setSettingsForm({...settingsForm, payout_phone_number: e.target.value})}
+                    className="w-full p-4 bg-white/80 border border-white/60 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 font-medium shadow-sm"
+                    placeholder="Ex: 77 123 45 67"
+                  />
+                  <p className="text-xs text-gray-500 mt-2 font-medium">Vous recevrez l'argent de vos ventes sur ce compte (moins la commission de 5%).</p>
                 </div>
               </div>
 

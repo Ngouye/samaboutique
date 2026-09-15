@@ -75,7 +75,7 @@ export default function PublicShop() {
   const [activeTab, setActiveTab] = useState('home'); // home, categories, cart, profile
   
   // Checkout States
-  const [checkoutData, setCheckoutData] = useState({ name: '', phone: '', address: '', zone: DELIVERY_ZONES[0].name });
+  const [checkoutData, setCheckoutData] = useState({ name: '', phone: '', address: '', zone: DELIVERY_ZONES[0].name, paymentMethod: 'ON_DELIVERY' });
   const [orderFinalized, setOrderFinalized] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentStatusMessage, setPaymentStatusMessage] = useState(null);
@@ -232,8 +232,6 @@ export default function PublicShop() {
     setIsSubmitting(true);
     try {
       const totalAmount = getCartTotal() + getDeliveryPrice();
-      const pinCode = Math.floor(1000 + Math.random() * 9000).toString();
-
       const cartItemsArray = Object.values(cart).map(item => ({
         product_id: item.product.id,
         name: item.variant ? `${item.product.name} (${item.variant})` : item.product.name,
@@ -241,23 +239,61 @@ export default function PublicShop() {
         quantity: item.quantity
       }));
 
-      const { data, error } = await supabase.from('orders').insert([{
-        merchant_id: merchant.id,
-        customer_name: checkoutData.name,
-        customer_phone: checkoutData.phone,
-        customer_address: checkoutData.address,
-        delivery_zone: checkoutData.zone,
-        total_amount_fcfa: totalAmount,
-        cart_items: cartItemsArray,
-        delivery_pin: pinCode,
-        payment_method: 'ON_DELIVERY',
-        status: 'PENDING'
-      }]).select().single();
+      if (checkoutData.paymentMethod === 'MOBILE_MONEY') {
+        // Logique de paiement en ligne via le Backend Node.js
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const response = await fetch(`${apiUrl}/api/payments/create`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            orderDetails: {
+              merchant_id: merchant.id,
+              name: checkoutData.name,
+              phone: checkoutData.phone,
+              address: checkoutData.address,
+              zone: checkoutData.zone,
+              totalAmount: totalAmount,
+              cartItems: cartItemsArray
+            },
+            merchantInfo: {
+              shop_name: merchant.shop_name,
+              payout_provider: merchant.payout_provider,
+              payout_phone: merchant.payout_phone_number
+            }
+          })
+        });
 
-      if (error) throw error;
-      
-      setOrderFinalized(data);
-      setCart({});
+        const result = await response.json();
+        
+        if (result.success && result.paymentUrl) {
+          // Rediriger vers l'URL PayDunya
+          window.location.href = result.paymentUrl;
+        } else {
+          throw new Error(result.error || "Erreur lors de l'initialisation du paiement");
+        }
+      } else {
+        // Logique de Paiement à la livraison classique
+        const pinCode = Math.floor(1000 + Math.random() * 9000).toString();
+        const { data, error } = await supabase.from('orders').insert([{
+          merchant_id: merchant.id,
+          customer_name: checkoutData.name,
+          customer_phone: checkoutData.phone,
+          customer_address: checkoutData.address,
+          delivery_zone: checkoutData.zone,
+          total_amount_fcfa: totalAmount,
+          cart_items: cartItemsArray,
+          delivery_pin: pinCode,
+          payment_method: 'ON_DELIVERY',
+          status: 'PENDING'
+        }]).select().single();
+
+        if (error) throw error;
+        
+        setOrderFinalized(data);
+        setCart({});
+      }
     } catch (err) {
       console.error(err);
       alert(err.message || "Erreur lors de la validation de la commande");
@@ -1263,6 +1299,30 @@ export default function PublicShop() {
                             <option key={z.name} value={z.name}>{z.name} (+{z.price} FCFA)</option>
                           ))}
                         </select>
+                        
+                        <div className="pt-4 border-t border-gray-100">
+                          <h4 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wider">Mode de Paiement</h4>
+                          <div className="space-y-3">
+                            <label className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${checkoutData.paymentMethod === 'ON_DELIVERY' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-orange-300'}`}>
+                              <input type="radio" name="paymentMethod" value="ON_DELIVERY" checked={checkoutData.paymentMethod === 'ON_DELIVERY'} onChange={() => setCheckoutData({...checkoutData, paymentMethod: 'ON_DELIVERY'})} className="hidden" />
+                              <div className={`w-5 h-5 rounded-full border-2 flex flex-shrink-0 items-center justify-center ${checkoutData.paymentMethod === 'ON_DELIVERY' ? 'border-orange-500' : 'border-gray-300'}`}>
+                                {checkoutData.paymentMethod === 'ON_DELIVERY' && <div className="w-2.5 h-2.5 bg-orange-500 rounded-full"></div>}
+                              </div>
+                              <span className="font-bold text-gray-900 text-sm">Payer à la livraison</span>
+                            </label>
+
+                            <label className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${checkoutData.paymentMethod === 'MOBILE_MONEY' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}>
+                              <input type="radio" name="paymentMethod" value="MOBILE_MONEY" checked={checkoutData.paymentMethod === 'MOBILE_MONEY'} onChange={() => setCheckoutData({...checkoutData, paymentMethod: 'MOBILE_MONEY'})} className="hidden" />
+                              <div className={`w-5 h-5 rounded-full border-2 flex flex-shrink-0 items-center justify-center ${checkoutData.paymentMethod === 'MOBILE_MONEY' ? 'border-blue-500' : 'border-gray-300'}`}>
+                                {checkoutData.paymentMethod === 'MOBILE_MONEY' && <div className="w-2.5 h-2.5 bg-blue-500 rounded-full"></div>}
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="font-bold text-gray-900 text-sm">Payer en ligne (Wave / Orange Money)</span>
+                                <span className="text-[10px] text-gray-500 font-medium">Paiement 100% sécurisé</span>
+                              </div>
+                            </label>
+                          </div>
+                        </div>
                       </form>
                     </div>
                   </div>
