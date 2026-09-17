@@ -9,6 +9,7 @@ import {
   Phone, Image as ImageIcon, TrendingUp, Truck, ShieldCheck, Zap, Mail, Globe, ChevronDown
 } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
+import { StarRating } from '../components/StarRating';
 
 const DELIVERY_ZONES = [
   { name: 'Dakar Plateau / Medina', price: 1000 },
@@ -59,6 +60,10 @@ export default function PublicShop() {
 
   // UI States
   const [selectedProduct, setSelectedProduct] = useState(null); // Pour le Quick View Modal
+  const [productReviews, setProductReviews] = useState([]);
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [reviewData, setReviewData] = useState({ rating: 5, comment: '', customer_name: '', product_id: null });
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
   useEffect(() => {
     if (selectedProduct) {
@@ -67,6 +72,12 @@ export default function PublicShop() {
       setSelectedSize(isObj ? (v.sizes?.[0] || null) : (Array.isArray(v) ? v[0] : null));
       setSelectedColor(isObj ? (v.colors?.[0] || null) : null);
       setModalMainImage(selectedProduct.image_url);
+
+      const fetchReviews = async () => {
+         const { data } = await supabase.from('reviews').select('*').eq('product_id', selectedProduct.id).order('created_at', { ascending: false });
+         if (data) setProductReviews(data);
+      };
+      fetchReviews();
     }
   }, [selectedProduct]);
 
@@ -317,6 +328,30 @@ export default function PublicShop() {
     text += `🔐 *Code Secret de Livraison :* ${orderFinalized.delivery_pin}`;
     
     return `https://wa.me/${merchant.phone_number.replace(/\+/g, '')}?text=${encodeURIComponent(text)}`;
+  };
+
+  const submitReview = async (e) => {
+    e.preventDefault();
+    if (!reviewData.product_id) return;
+    setReviewSubmitting(true);
+    try {
+      const { error } = await supabase.from('reviews').insert([{
+        product_id: reviewData.product_id,
+        order_id: orderFinalized?.id || null,
+        rating: reviewData.rating,
+        comment: reviewData.comment,
+        customer_name: reviewData.customer_name || 'Client anonyme'
+      }]);
+      if (error) throw error;
+      showToast("Merci pour votre avis !");
+      setReviewModalOpen(false);
+      setReviewData({ rating: 5, comment: '', customer_name: '', product_id: null });
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de l'envoi de l'avis");
+    } finally {
+      setReviewSubmitting(false);
+    }
   };
 
   // Filtrage & Tri
@@ -1079,11 +1114,9 @@ export default function PublicShop() {
                 <h2 className="text-3xl font-black text-gray-900 mb-2">{selectedProduct.name}</h2>
                 <div className="flex items-center gap-2 mb-6">
                   <div className="flex theme-text">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className={`w-4 h-4 ${i < Math.round(selectedProduct.rating || 5) ? 'fill-orange-500' : 'fill-gray-200 text-gray-200'}`} />
-                    ))}
+                    <StarRating rating={productReviews.length > 0 ? (productReviews.reduce((a,b)=>a+b.rating,0)/productReviews.length) : 5} />
                   </div>
-                  <span className="text-sm font-medium text-gray-500 text-underline">{selectedProduct.reviews_count || 12} Avis</span>
+                  <span className="text-sm font-medium text-gray-500 text-underline">{productReviews.length} Avis</span>
                 </div>
                 
                 <p className="text-3xl font-black text-gray-900 mb-6">{selectedProduct.price_fcfa.toLocaleString('fr-FR')} FCFA</p>
@@ -1094,6 +1127,26 @@ export default function PublicShop() {
                     <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-500" /> Disponible immédiatement</li>
                     <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-500" /> Livraison sous 24h</li>
                   </ul>
+                </div>
+
+                {/* Avis Clients */}
+                <div className="mb-8">
+                  <h3 className="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wider">Avis Clients</h3>
+                  {productReviews.length === 0 ? (
+                    <p className="text-xs text-gray-500 italic">Aucun avis pour le moment.</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {productReviews.map(rev => (
+                         <div key={rev.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                           <div className="flex items-center justify-between mb-2">
+                             <span className="font-bold text-sm text-gray-900">{rev.customer_name || 'Client'}</span>
+                             <StarRating rating={rev.rating} size={12} />
+                           </div>
+                           {rev.comment && <p className="text-sm text-gray-600">{rev.comment}</p>}
+                         </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Variantes Intelligentes (Tailles & Couleurs) */}
@@ -1234,11 +1287,24 @@ export default function PublicShop() {
                     href={getWhatsAppCheckoutLink()} 
                     target="_blank" 
                     rel="noreferrer"
-                    className="w-full flex items-center justify-center gap-3 theme-bg text-white text-white py-5 px-6 rounded-2xl font-bold text-sm uppercase tracking-widest hover:theme-bg text-white hover:scale-[1.02] transition-all"
+                    className="w-full flex items-center justify-center gap-3 theme-bg text-white text-white py-5 px-6 rounded-2xl font-bold text-sm uppercase tracking-widest hover:theme-bg text-white hover:scale-[1.02] transition-all mb-3"
                   >
                     Confirmer via WhatsApp
                     <ChevronRight className="w-5 h-5" />
                   </a>
+
+                  {orderFinalized.cart_items && orderFinalized.cart_items.length > 0 && (
+                    <button 
+                      onClick={() => {
+                         setReviewData({...reviewData, product_id: orderFinalized.cart_items[0].product_id, customer_name: orderFinalized.customer_name});
+                         setReviewModalOpen(true);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 bg-gray-100 text-gray-700 py-4 px-6 rounded-2xl font-bold text-sm uppercase tracking-widest hover:bg-gray-200 transition-all"
+                    >
+                      <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                      Donner un avis
+                    </button>
+                  )}
                 </div>
               ) : Object.keys(cart).length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
@@ -1373,6 +1439,56 @@ export default function PublicShop() {
           <div className="absolute inset-0 bg-[#25D366] rounded-full animate-ping opacity-20 group-hover:opacity-40 transition-opacity"></div>
           <svg className="w-8 h-8 relative z-10" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824zm-3.425-10.416c-4.289 0-7.774 3.486-7.776 7.774-.001 1.368.358 2.705 1.042 3.882l-1.107 4.041 4.135-1.085c1.135.619 2.417.945 3.704.945h.003c4.286 0 7.772-3.485 7.774-7.774.002-4.288-3.485-7.783-7.775-7.783z"/></svg>
         </a>
+      )}
+
+      {/* REVIEW MODAL */}
+      {reviewModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+           <div className="bg-white rounded-[2rem] shadow-2xl p-6 md:p-8 w-full max-w-md relative animate-in zoom-in-95 duration-300">
+              <button onClick={() => setReviewModalOpen(false)} className="absolute top-4 right-4 w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200">
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+              
+              <h2 className="text-2xl font-black text-gray-900 mb-2">Votre avis compte</h2>
+              <p className="text-gray-500 text-sm mb-6">Comment s'est passée votre expérience avec ce produit ?</p>
+              
+              <form onSubmit={submitReview} className="space-y-4">
+                <div className="flex justify-center mb-6">
+                  <StarRating 
+                     rating={reviewData.rating} 
+                     size={32} 
+                     interactive={true} 
+                     onRate={(r) => setReviewData({...reviewData, rating: r})} 
+                  />
+                </div>
+                
+                <input 
+                  type="text" 
+                  placeholder="Votre prénom" 
+                  required
+                  value={reviewData.customer_name}
+                  onChange={(e) => setReviewData({...reviewData, customer_name: e.target.value})}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:border-black focus:ring-1 outline-none"
+                />
+                
+                <textarea 
+                  placeholder="Écrivez votre commentaire (optionnel)" 
+                  rows={4}
+                  value={reviewData.comment}
+                  onChange={(e) => setReviewData({...reviewData, comment: e.target.value})}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:border-black focus:ring-1 outline-none resize-none"
+                />
+                
+                <button 
+                  type="submit" 
+                  disabled={reviewSubmitting}
+                  className="w-full bg-black text-white py-4 rounded-xl font-bold uppercase tracking-widest hover:bg-gray-800 disabled:opacity-50"
+                >
+                  {reviewSubmitting ? 'Envoi...' : 'Envoyer mon avis'}
+                </button>
+              </form>
+           </div>
+        </div>
       )}
 
     </div>
