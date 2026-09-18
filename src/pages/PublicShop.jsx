@@ -493,11 +493,14 @@ export default function PublicShop() {
           </div>
 
           {/* Mobile Actions */}
-          <div className="flex md:hidden items-center gap-3">
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 text-gray-600 bg-gray-50 rounded-full">
-              <Menu className="w-6 h-6" />
+          <div className="flex md:hidden items-center gap-2">
+            <Link to={`/livreur/${encodeURIComponent(shopName)}`} className="p-2 text-gray-600 bg-gray-50 rounded-full hover:bg-gray-100 transition-colors" title="Accès Livreur">
+              <Truck className="w-5 h-5" />
+            </Link>
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 text-gray-600 bg-gray-50 rounded-full hover:bg-gray-100 transition-colors">
+              <Menu className="w-5 h-5" />
             </button>
-            <button onClick={() => setIsCartOpen(true)} className="relative bg-gray-900 text-white p-2.5 rounded-full">
+            <button onClick={() => setIsCartOpen(true)} className="relative bg-gray-900 text-white p-2 rounded-full">
               <ShoppingCart className="w-5 h-5" />
               {cartItemsCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 theme-bg text-white text-[10px] font-black rounded-full h-5 w-5 flex items-center justify-center border-2 border-white">
@@ -727,6 +730,16 @@ export default function PublicShop() {
                           <p className="text-gray-500 text-xs mb-2 truncate">{p.category || 'Standard'}</p>
                           <div className="flex items-center justify-between">
                             <span className="font-black text-gray-900 text-base md:text-lg">{p.price_fcfa.toLocaleString('fr-FR')} FCFA</span>
+                            <button 
+                              onClick={(e) => { 
+                                e.stopPropagation(); 
+                                addToCart(p); 
+                              }}
+                              className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-full transition-colors flex-shrink-0"
+                              title="Ajouter au panier"
+                            >
+                              <ShoppingCart className="w-4 h-4 md:w-5 md:h-5" />
+                            </button>
                           </div>
                         </div>
                       </motion.div>
