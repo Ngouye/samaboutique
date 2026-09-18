@@ -7,6 +7,17 @@ import { QRCodeSVG } from 'qrcode.react';
 import { SHOP_CATEGORIES, CATEGORY_FEATURES } from '../utils/categories';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const pageVariants = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.4, staggerChildren: 0.1 } },
+  exit: { opacity: 0, y: -20, transition: { duration: 0.2 } }
+};
+
+const itemVariants = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+};
+
 export default function MerchantDashboard() {
   const { user, merchant, logout } = useAuth();
   const navigate = useNavigate();
@@ -560,7 +571,12 @@ Merci de votre confiance ! 🙏`;
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row font-sans selection:bg-indigo-200 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans selection:bg-indigo-200 relative overflow-hidden">
+      {/* Subtle Background Elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[40rem] h-[40rem] bg-indigo-300/20 rounded-full blur-3xl mix-blend-multiply"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40rem] h-[40rem] bg-fuchsia-300/20 rounded-full blur-3xl mix-blend-multiply"></div>
+      </div>
       {/* Toast Notification */}
       <AnimatePresence>
         {toastMessage && (
@@ -619,32 +635,53 @@ Merci de votre confiance ! 🙏`;
               </div>
             </div>
             
-            <nav className="flex-1 p-6 space-y-2">
-              <button onClick={() => { setActiveTab('analytics'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'analytics' ? 'bg-indigo-50 text-gray-900 border border-indigo-100 shadow-sm' : 'text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent'}`}>
-                <BarChart3 className="w-5 h-5 mr-3" /> Vue d'ensemble
+            <nav className="flex-1 p-4 space-y-1 mt-2">
+              <button onClick={() => { setActiveTab('analytics'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm group relative overflow-hidden ${activeTab === 'analytics' ? 'text-indigo-700 bg-white shadow-sm border border-indigo-100/50' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50 border border-transparent'}`}>
+                {activeTab === 'analytics' && <span className="absolute inset-0 bg-indigo-50/50 z-0"></span>}
+                <BarChart3 className={`w-5 h-5 mr-3 relative z-10 transition-transform group-hover:scale-110 ${activeTab === 'analytics' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-400'}`} />
+                <span className="relative z-10">Vue d'ensemble</span>
               </button>
-              <button onClick={() => { setActiveTab('products'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'products' ? 'bg-indigo-50 text-gray-900 border border-indigo-100 shadow-sm' : 'text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent'}`}>
-                <Package className="w-5 h-5 mr-3" /> Mes Produits
+              <button onClick={() => { setActiveTab('products'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm group relative overflow-hidden ${activeTab === 'products' ? 'text-indigo-700 bg-white shadow-sm border border-indigo-100/50' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50 border border-transparent'}`}>
+                {activeTab === 'products' && <span className="absolute inset-0 bg-indigo-50/50 z-0"></span>}
+                <Package className={`w-5 h-5 mr-3 relative z-10 transition-transform group-hover:scale-110 ${activeTab === 'products' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-400'}`} />
+                <span className="relative z-10">Mes Produits</span>
               </button>
-              <button onClick={() => { setActiveTab('orders'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'orders' ? 'bg-indigo-50 text-gray-900 border border-indigo-100 shadow-sm' : 'text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent'}`}>
-                <ShoppingBag className="w-5 h-5 mr-3" /> Commandes
+              <button onClick={() => { setActiveTab('orders'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm group relative overflow-hidden ${activeTab === 'orders' ? 'text-indigo-700 bg-white shadow-sm border border-indigo-100/50' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50 border border-transparent'}`}>
+                {activeTab === 'orders' && <span className="absolute inset-0 bg-indigo-50/50 z-0"></span>}
+                <ShoppingBag className={`w-5 h-5 mr-3 relative z-10 transition-transform group-hover:scale-110 ${activeTab === 'orders' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-400'}`} />
+                <span className="relative z-10">Commandes</span>
               </button>
-              <button onClick={() => { setActiveTab('drivers'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'drivers' ? 'bg-indigo-50 text-gray-900 border border-indigo-100 shadow-sm' : 'text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent'}`}>
-                <Truck className="w-5 h-5 mr-3" /> Historique Livraisons
+              <button onClick={() => { setActiveTab('drivers'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm group relative overflow-hidden ${activeTab === 'drivers' ? 'text-indigo-700 bg-white shadow-sm border border-indigo-100/50' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50 border border-transparent'}`}>
+                {activeTab === 'drivers' && <span className="absolute inset-0 bg-indigo-50/50 z-0"></span>}
+                <Truck className={`w-5 h-5 mr-3 relative z-10 transition-transform group-hover:scale-110 ${activeTab === 'drivers' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-400'}`} />
+                <span className="relative z-10">Livraisons</span>
               </button>
-              <button onClick={() => { setActiveTab('team'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'team' ? 'bg-indigo-50 text-gray-900 border border-indigo-100 shadow-sm' : 'text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent'}`}>
-                <Users className="w-5 h-5 mr-3" /> Mon Équipe
+              <button onClick={() => { setActiveTab('team'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm group relative overflow-hidden ${activeTab === 'team' ? 'text-indigo-700 bg-white shadow-sm border border-indigo-100/50' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50 border border-transparent'}`}>
+                {activeTab === 'team' && <span className="absolute inset-0 bg-indigo-50/50 z-0"></span>}
+                <Users className={`w-5 h-5 mr-3 relative z-10 transition-transform group-hover:scale-110 ${activeTab === 'team' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-400'}`} />
+                <span className="relative z-10">Mon Équipe</span>
               </button>
-              <button onClick={() => { setActiveTab('settings'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'settings' ? 'bg-indigo-50 text-gray-900 border border-indigo-100 shadow-sm' : 'text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent'}`}>
-                <Settings className="w-5 h-5 mr-3" /> Paramètres
+              
+              <div className="pt-4 pb-2 px-4 flex items-center gap-2">
+                 <div className="h-px bg-gray-200 flex-1"></div>
+                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Paramètres</p>
+                 <div className="h-px bg-gray-200 flex-1"></div>
+              </div>
+              
+              <button onClick={() => { setActiveTab('settings'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm group relative overflow-hidden ${activeTab === 'settings' ? 'text-indigo-700 bg-white shadow-sm border border-indigo-100/50' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50 border border-transparent'}`}>
+                {activeTab === 'settings' && <span className="absolute inset-0 bg-indigo-50/50 z-0"></span>}
+                <Settings className={`w-5 h-5 mr-3 relative z-10 transition-transform group-hover:rotate-90 ${activeTab === 'settings' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-400'}`} />
+                <span className="relative z-10">Paramètres</span>
               </button>
-              <button onClick={() => { setActiveTab('billing'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'billing' ? 'bg-orange-50 text-orange-600 border border-orange-100 shadow-sm' : 'text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent'}`}>
-                <CreditCard className="w-5 h-5 mr-3" /> Facturation
+              <button onClick={() => { setActiveTab('billing'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm group relative overflow-hidden ${activeTab === 'billing' ? 'text-indigo-700 bg-white shadow-sm border border-indigo-100/50' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50 border border-transparent'}`}>
+                {activeTab === 'billing' && <span className="absolute inset-0 bg-indigo-50/50 z-0"></span>}
+                <CreditCard className={`w-5 h-5 mr-3 relative z-10 transition-transform group-hover:scale-110 ${activeTab === 'billing' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-400'}`} />
+                <span className="relative z-10">Facturation</span>
               </button>
             </nav>
-            <div className="p-6 border-t border-gray-100/50">
-              <button onClick={handleLogout} className="w-full flex items-center px-4 py-3 text-red-500 hover:bg-red-50 hover:text-red-600 rounded-xl transition-all font-bold text-sm">
-                <LogOut className="w-5 h-5 mr-3" /> Déconnexion
+            <div className="p-4 m-4 mt-0 bg-red-50/50 rounded-2xl border border-red-100/50 backdrop-blur-sm">
+              <button onClick={handleLogout} className="w-full flex items-center justify-center px-4 py-2.5 text-red-600 hover:bg-red-50 rounded-xl transition-all font-bold text-sm group">
+                <LogOut className="w-5 h-5 mr-2 transition-transform group-hover:-translate-x-1" /> Déconnexion
               </button>
             </div>
           </aside>
@@ -652,69 +689,97 @@ Merci de votre confiance ! 🙏`;
       )}
 
       {/* Sidebar Desktop */}
-      <aside className="w-64 bg-white flex flex-col hidden md:flex z-10 relative shadow-sm">
+      <aside className="w-64 bg-white/80 backdrop-blur-3xl border-r border-white/60 flex flex-col hidden md:flex z-20 relative shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
         <div className="p-8">
           <div className="flex items-center justify-center mb-8">
-            <img src="/logo.png" alt="SamaBoutik" className="h-24 md:h-32 object-contain" />
+            <img src="/logo.png" alt="SamaBoutik" className="h-24 md:h-32 object-contain hover:scale-105 transition-transform duration-500" />
           </div>
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Aperçu</p>
-          <div className="bg-white rounded-2xl flex flex-col gap-2 mb-4">
-            <a href={getShopUrl()} target="_blank" rel="noreferrer" className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white font-bold px-4 py-2.5 rounded-xl hover:shadow-lg hover:shadow-indigo-500/30 hover:scale-[1.02] transition-all text-sm relative overflow-hidden group">
-              <Store className="w-4 h-4 text-indigo-200" /> Ma Vitrine
+          <div className="bg-white/60 backdrop-blur-sm rounded-2xl flex flex-col gap-2 mb-4 border border-white shadow-sm p-1">
+            <a href={getShopUrl()} target="_blank" rel="noreferrer" className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white font-bold px-4 py-2.5 rounded-xl hover:shadow-lg hover:shadow-indigo-500/30 hover:scale-[1.02] transition-all text-sm relative overflow-hidden group">
+              <Store className="w-4 h-4 text-indigo-100" /> Ma Vitrine
             </a>
             <div className="flex gap-2">
-              <button onClick={() => setShowQRModal(true)} className="flex-1 flex items-center justify-center bg-indigo-50 text-indigo-700 font-bold px-2 py-2.5 rounded-xl hover:bg-[#4338CA] transition-colors text-sm">
+              <button onClick={() => setShowQRModal(true)} className="flex-1 flex items-center justify-center bg-indigo-50/80 text-indigo-700 font-bold px-2 py-2.5 rounded-xl hover:bg-indigo-100 transition-colors text-sm border border-indigo-100/50">
                 <QrCode className="w-4 h-4" /> QR
               </button>
-              <button onClick={handleDriverLinkCopy} className="flex-1 flex items-center justify-center gap-1 bg-gray-100 text-gray-900 font-bold px-2 py-2.5 rounded-xl hover:bg-gray-200 transition-colors text-sm">
+              <button onClick={handleDriverLinkCopy} className="flex-1 flex items-center justify-center gap-1 bg-white text-gray-900 font-bold px-2 py-2.5 rounded-xl hover:bg-gray-50 transition-colors text-sm border border-gray-100">
                 <Truck className="w-4 h-4" /> Livreur
               </button>
             </div>
           </div>
         </div>
-        <nav className="flex-1 px-6 space-y-1 mt-4">
-          <button onClick={() => setActiveTab('analytics')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'analytics' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}>
-            <BarChart3 className={`w-5 h-5 mr-3 ${activeTab === 'analytics' ? 'text-indigo-600' : 'text-gray-400'}`} /> Vue d'ensemble
+        <nav className="flex-1 px-4 space-y-1 mt-2">
+          <button onClick={() => setActiveTab('analytics')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm group relative overflow-hidden ${activeTab === 'analytics' ? 'text-indigo-700 bg-white shadow-sm border border-indigo-100/50' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50 border border-transparent'}`}>
+            {activeTab === 'analytics' && <span className="absolute inset-0 bg-indigo-50/50 z-0"></span>}
+            <BarChart3 className={`w-5 h-5 mr-3 relative z-10 transition-transform group-hover:scale-110 ${activeTab === 'analytics' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-400'}`} />
+            <span className="relative z-10">Vue d'ensemble</span>
           </button>
-          <button onClick={() => setActiveTab('products')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'products' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}>
-            <Package className={`w-5 h-5 mr-3 ${activeTab === 'products' ? 'text-indigo-600' : 'text-gray-400'}`} /> Mes Produits
+          <button onClick={() => setActiveTab('products')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm group relative overflow-hidden ${activeTab === 'products' ? 'text-indigo-700 bg-white shadow-sm border border-indigo-100/50' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50 border border-transparent'}`}>
+            {activeTab === 'products' && <span className="absolute inset-0 bg-indigo-50/50 z-0"></span>}
+            <Package className={`w-5 h-5 mr-3 relative z-10 transition-transform group-hover:scale-110 ${activeTab === 'products' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-400'}`} />
+            <span className="relative z-10">Mes Produits</span>
           </button>
-          <button onClick={() => setActiveTab('orders')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'orders' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}>
-            <ShoppingBag className={`w-5 h-5 mr-3 ${activeTab === 'orders' ? 'text-indigo-600' : 'text-gray-400'}`} /> Commandes
+          <button onClick={() => setActiveTab('orders')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm group relative overflow-hidden ${activeTab === 'orders' ? 'text-indigo-700 bg-white shadow-sm border border-indigo-100/50' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50 border border-transparent'}`}>
+            {activeTab === 'orders' && <span className="absolute inset-0 bg-indigo-50/50 z-0"></span>}
+            <ShoppingBag className={`w-5 h-5 mr-3 relative z-10 transition-transform group-hover:scale-110 ${activeTab === 'orders' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-400'}`} />
+            <span className="relative z-10">Commandes</span>
             {orders.filter(o => o.status === 'PENDING').length > 0 && (
-              <span className="ml-auto bg-indigo-100 text-indigo-700 text-[11px] px-2 py-0.5 rounded-full font-bold">
+              <span className="ml-auto bg-indigo-100 text-indigo-700 text-[11px] px-2 py-0.5 rounded-full font-black relative z-10 shadow-sm border border-indigo-200">
                 {orders.filter(o => o.status === 'PENDING').length}
               </span>
             )}
           </button>
-          <button onClick={() => setActiveTab('drivers')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'drivers' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}>
-            <Truck className={`w-5 h-5 mr-3 ${activeTab === 'drivers' ? 'text-indigo-600' : 'text-gray-400'}`} /> Livraisons
+          <button onClick={() => setActiveTab('drivers')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm group relative overflow-hidden ${activeTab === 'drivers' ? 'text-indigo-700 bg-white shadow-sm border border-indigo-100/50' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50 border border-transparent'}`}>
+            {activeTab === 'drivers' && <span className="absolute inset-0 bg-indigo-50/50 z-0"></span>}
+            <Truck className={`w-5 h-5 mr-3 relative z-10 transition-transform group-hover:scale-110 ${activeTab === 'drivers' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-400'}`} />
+            <span className="relative z-10">Livraisons</span>
           </button>
-          <button onClick={() => setActiveTab('team')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'team' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}>
-            <Users className={`w-5 h-5 mr-3 ${activeTab === 'team' ? 'text-indigo-600' : 'text-gray-400'}`} /> Mon Équipe
+          <button onClick={() => setActiveTab('team')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm group relative overflow-hidden ${activeTab === 'team' ? 'text-indigo-700 bg-white shadow-sm border border-indigo-100/50' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50 border border-transparent'}`}>
+            {activeTab === 'team' && <span className="absolute inset-0 bg-indigo-50/50 z-0"></span>}
+            <Users className={`w-5 h-5 mr-3 relative z-10 transition-transform group-hover:scale-110 ${activeTab === 'team' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-400'}`} />
+            <span className="relative z-10">Mon Équipe</span>
           </button>
-
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pt-6 pb-2 px-4">Paramètres</p>
-          <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'settings' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}>
-            <Settings className={`w-5 h-5 mr-3 ${activeTab === 'settings' ? 'text-indigo-600' : 'text-gray-400'}`} /> Boutique
+          
+          <div className="pt-6 pb-2 px-4 flex items-center gap-2">
+             <div className="h-px bg-gray-200 flex-1"></div>
+             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Paramètres</p>
+             <div className="h-px bg-gray-200 flex-1"></div>
+          </div>
+          
+          <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm group relative overflow-hidden ${activeTab === 'settings' ? 'text-indigo-700 bg-white shadow-sm border border-indigo-100/50' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50 border border-transparent'}`}>
+            {activeTab === 'settings' && <span className="absolute inset-0 bg-indigo-50/50 z-0"></span>}
+            <Settings className={`w-5 h-5 mr-3 relative z-10 transition-transform group-hover:rotate-90 ${activeTab === 'settings' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-400'}`} />
+            <span className="relative z-10">Boutique</span>
           </button>
-          <button onClick={() => setActiveTab('billing')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'billing' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}>
-            <CreditCard className={`w-5 h-5 mr-3 ${activeTab === 'billing' ? 'text-indigo-600' : 'text-gray-400'}`} /> Facturation
+          <button onClick={() => setActiveTab('billing')} className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold text-sm group relative overflow-hidden ${activeTab === 'billing' ? 'text-indigo-700 bg-white shadow-sm border border-indigo-100/50' : 'text-gray-500 hover:text-gray-900 hover:bg-white/50 border border-transparent'}`}>
+            {activeTab === 'billing' && <span className="absolute inset-0 bg-indigo-50/50 z-0"></span>}
+            <CreditCard className={`w-5 h-5 mr-3 relative z-10 transition-transform group-hover:scale-110 ${activeTab === 'billing' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-400'}`} />
+            <span className="relative z-10">Facturation</span>
           </button>
         </nav>
-        <div className="p-6 border-t border-gray-100/50">
-          <button onClick={handleLogout} className="w-full flex items-center px-4 py-3 text-red-500 hover:bg-red-50 hover:text-red-600 rounded-xl transition-all font-bold text-sm">
-            <LogOut className="w-5 h-5 mr-3" /> Déconnexion
+        <div className="p-4 m-4 mt-0 bg-red-50/50 rounded-2xl border border-red-100/50 backdrop-blur-sm">
+          <button onClick={handleLogout} className="w-full flex items-center justify-center px-4 py-2.5 text-red-600 hover:bg-red-50 rounded-xl transition-all font-bold text-sm group">
+            <LogOut className="w-5 h-5 mr-2 transition-transform group-hover:-translate-x-1" /> Déconnexion
           </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-4 md:p-8 relative bg-gray-50 w-full">
-        
-        {/* Mobile Quick Actions (Visible directly without menu) */}
-        <div className="md:hidden mb-6 bg-white/80 rounded-2xl p-4 border border-white shadow-sm flex flex-col gap-2">
-          <a href={getShopUrl()} target="_blank" rel="noreferrer" className="w-full flex items-center justify-center gap-2 bg-[#4F46E5] text-white font-bold px-4 py-2.5 rounded-xl hover:shadow-xl hover:shadow-indigo-500/30 hover:scale-[1.02] transition-all text-sm relative overflow-hidden group animate-shine">
+      <main className="flex-1 overflow-y-auto z-10 relative w-full">
+        <div className="p-4 md:p-8">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              variants={pageVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="w-full h-full"
+            >
+              {/* Mobile Quick Actions (Visible directly without menu) */}
+              <div className="md:hidden mb-6 bg-white/80 rounded-2xl p-4 border border-white shadow-sm flex flex-col gap-2">
+                <a href={getShopUrl()} target="_blank" rel="noreferrer" className="w-full flex items-center justify-center gap-2 bg-[#4F46E5] text-white font-bold px-4 py-2.5 rounded-xl hover:shadow-xl hover:shadow-indigo-500/30 hover:scale-[1.02] transition-all text-sm relative overflow-hidden group animate-shine">
             <div className="bg-indigo-500 rounded-lg p-1"><Store className="w-4 h-4 text-white" /></div> Ma Vitrine
           </a>
           <div className="flex gap-2">
@@ -819,23 +884,23 @@ Merci de votre confiance ! 🙏`;
               {/* Ultra Modern KPI Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                 {/* Revenu */}
-                <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(79,70,229,0.15)] hover:-translate-y-2 transition-all duration-300 relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:bg-indigo-500/20 transition-colors"></div>
+                <motion.div variants={itemVariants} className="bg-white/90 backdrop-blur-sm rounded-[2rem] p-6 border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(79,70,229,0.15)] hover:-translate-y-2 hover:border-indigo-100 transition-all duration-300 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:bg-indigo-500/20 group-hover:scale-150 transition-all duration-700"></div>
                   <div className="flex justify-between items-start mb-4 relative z-10">
                     <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm">
                       <Activity className="w-6 h-6" />
                     </div>
-                    <span className="bg-emerald-50 text-emerald-600 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">+12% ce mois</span>
+                    <span className="bg-emerald-50 text-emerald-600 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm">+12% ce mois</span>
                   </div>
                   <div className="relative z-10">
                     <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">Revenus Générés</p>
                     <p className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-700 tracking-tight">{stats.revenue.toLocaleString('fr-FR')} <span className="text-lg font-bold text-gray-400">FCFA</span></p>
                   </div>
-                </div>
+                </motion.div>
 
                 {/* Commandes */}
-                <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(249,115,22,0.15)] hover:-translate-y-2 transition-all duration-300 relative overflow-hidden group cursor-pointer" onClick={() => setActiveTab('orders')}>
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:bg-orange-500/20 transition-colors"></div>
+                <motion.div variants={itemVariants} className="bg-white/90 backdrop-blur-sm rounded-[2rem] p-6 border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(249,115,22,0.15)] hover:-translate-y-2 hover:border-orange-100 transition-all duration-300 relative overflow-hidden group cursor-pointer" onClick={() => setActiveTab('orders')}>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:bg-orange-500/20 group-hover:scale-150 transition-all duration-700"></div>
                   <div className="flex justify-between items-start mb-4 relative z-10">
                     <div className="w-14 h-14 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center group-hover:scale-110 group-hover:bg-orange-500 group-hover:text-white transition-all shadow-sm">
                       <ShoppingBag className="w-6 h-6" />
@@ -846,11 +911,11 @@ Merci de votre confiance ! 🙏`;
                     <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">Commandes en cours</p>
                     <p className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-700 tracking-tight">{stats.pending} <span className="text-lg font-bold text-gray-400">À traiter</span></p>
                   </div>
-                </div>
+                </motion.div>
 
                 {/* Produits */}
-                <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(59,130,246,0.15)] hover:-translate-y-2 transition-all duration-300 relative overflow-hidden group cursor-pointer" onClick={() => setActiveTab('products')}>
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:bg-blue-500/20 transition-colors"></div>
+                <motion.div variants={itemVariants} className="bg-white/90 backdrop-blur-sm rounded-[2rem] p-6 border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(59,130,246,0.15)] hover:-translate-y-2 hover:border-blue-100 transition-all duration-300 relative overflow-hidden group cursor-pointer" onClick={() => setActiveTab('products')}>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:bg-blue-500/20 group-hover:scale-150 transition-all duration-700"></div>
                   <div className="flex justify-between items-start mb-4 relative z-10">
                     <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center group-hover:scale-110 group-hover:bg-blue-500 group-hover:text-white transition-all shadow-sm">
                       <Package className="w-6 h-6" />
@@ -860,7 +925,7 @@ Merci de votre confiance ! 🙏`;
                     <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">Catalogue Produits</p>
                     <p className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-700 tracking-tight">{stats.totalProducts} <span className="text-lg font-bold text-gray-400">En ligne</span></p>
                   </div>
-                </div>
+                </motion.div>
               </div>
 
               {/* Recent Orders */}
@@ -1013,8 +1078,9 @@ Merci de votre confiance ! 🙏`;
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {products.map(p => (
-                <div key={p.id} className="glass-panel group overflow-hidden flex flex-col hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300 border-white/60">
-                  <div className="aspect-[4/3] relative overflow-hidden bg-white/40">
+                <motion.div variants={itemVariants} key={p.id} className="bg-white/90 backdrop-blur-sm group overflow-hidden flex flex-col hover:shadow-2xl hover:shadow-indigo-500/15 transition-all duration-300 border border-white rounded-[2rem] relative">
+                  <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+                  <div className="aspect-[4/3] relative overflow-hidden bg-gray-50/50 rounded-t-[2rem]">
                     {p.image_url ? (
                       <img src={p.image_url} alt={p.name} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     ) : (
@@ -1072,7 +1138,7 @@ Merci de votre confiance ! 🙏`;
                       <span className="font-black text-indigo-600 text-xl">{p.price_fcfa.toLocaleString('fr-FR')} <span className="text-sm">FCFA</span></span>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               ))}
               
               {products.length === 0 && (
@@ -1144,7 +1210,8 @@ Merci de votre confiance ! 🙏`;
                      (o.customer_phone || '').includes(searchQuery))
                   )
                   .map(order => (
-                  <div key={order.id} className="flex flex-col lg:flex-row lg:items-center justify-between p-5 bg-white/40 hover:bg-white/70 border border-white/50 rounded-2xl transition-all shadow-sm hover:shadow-md group gap-5">
+                  <motion.div variants={itemVariants} key={order.id} className="flex flex-col lg:flex-row lg:items-center justify-between p-5 bg-white/80 hover:bg-white/95 border border-white rounded-[1.5rem] transition-all duration-300 shadow-sm hover:shadow-xl hover:shadow-indigo-500/10 group gap-5 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:bg-indigo-500/10 group-hover:scale-150 transition-all duration-700 pointer-events-none"></div>
                     
                     <div className="flex flex-col sm:flex-row sm:items-center gap-5 flex-1">
                       <div className="flex-1">
@@ -1222,7 +1289,7 @@ Merci de votre confiance ! 🙏`;
                       </a>
                     </div>
                     
-                  </div>
+                  </motion.div>
                 ))}
                 
                 {orders.length === 0 && (
@@ -1247,7 +1314,8 @@ Merci de votre confiance ! 🙏`;
             <div className="glass-panel overflow-hidden border-white/60 p-3 sm:p-6">
               <div className="flex flex-col gap-4">
                 {orders.filter(o => o.status === 'DELIVERED').map(order => (
-                  <div key={order.id} className="flex flex-col p-5 bg-white/40 hover:bg-white/70 border border-white/50 rounded-2xl transition-all shadow-sm hover:shadow-md group gap-4">
+                  <motion.div variants={itemVariants} key={order.id} className="flex flex-col p-5 bg-white/80 hover:bg-white/95 border border-white rounded-[1.5rem] transition-all duration-300 shadow-sm hover:shadow-xl hover:shadow-indigo-500/10 group gap-4 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:bg-indigo-500/10 group-hover:scale-150 transition-all duration-700 pointer-events-none"></div>
                     
                     {/* Header: Livreur & Date */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1313,7 +1381,7 @@ Merci de votre confiance ! 🙏`;
                        </div>
                     </div>
 
-                  </div>
+                  </motion.div>
                 ))}
                 
                 {orders.filter(o => o.status === 'DELIVERED').length === 0 && (
@@ -1343,7 +1411,7 @@ Merci de votre confiance ! 🙏`;
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {team.map(driver => (
-                <div key={driver.id} className="bg-white/60 hover:bg-white/90 backdrop-blur-xl border border-white/80 rounded-[2rem] p-6 transition-all shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] group relative overflow-hidden">
+                  <motion.div variants={itemVariants} key={driver.id} className="bg-white/80 hover:bg-white/95 backdrop-blur-xl border border-white rounded-[2rem] p-6 transition-all duration-300 shadow-sm hover:shadow-xl hover:shadow-indigo-500/10 group relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-indigo-100 to-purple-50 rounded-bl-[100px] -z-10 opacity-50 group-hover:opacity-100 transition-opacity"></div>
                   
                   <div className="flex justify-between items-start mb-4">
@@ -1379,7 +1447,7 @@ Merci de votre confiance ! 🙏`;
                   >
                     <BarChart3 className="w-4 h-4" /> Bilan du jour
                   </button>
-                </div>
+                  </motion.div>
               ))}
             </div>
             
@@ -1400,7 +1468,7 @@ Merci de votre confiance ! 🙏`;
               <p className="text-gray-500 mt-2 font-medium text-lg">Personnalisez votre vitrine publique</p>
             </div>
             
-            <form onSubmit={handleSaveSettings} className="glass-panel p-6 border-white/60 space-y-6">
+            <motion.form variants={itemVariants} onSubmit={handleSaveSettings} className="glass-panel p-6 border-white/60 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">Nom de la boutique</label>
@@ -1703,7 +1771,7 @@ Merci de votre confiance ! 🙏`;
               >
                 {settingsForm.isSaving ? 'Enregistrement...' : 'Enregistrer les paramètres'}
               </button>
-            </form>
+            </motion.form>
           </div>
         ) : activeTab === 'billing' ? (
           <div className="space-y-8 max-w-7xl mx-auto">
@@ -1819,7 +1887,10 @@ Merci de votre confiance ! 🙏`;
             </p>
           </div>
         ) : null}
-      </main>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </main>
 
       {/* Product Modal - Premium UI */}
       {showProductModal && (
@@ -2090,7 +2161,6 @@ Merci de votre confiance ! 🙏`;
           </div>
         );
       })()}
-
     </div>
   );
 }
