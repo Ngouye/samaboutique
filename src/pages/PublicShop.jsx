@@ -1405,6 +1405,52 @@ export default function PublicShop() {
       <FortuneWheel merchantName={merchant?.shop_name || 'notre boutique'} />
       <SocialProofToast products={products} />
 
+      {/* MOBILE BOTTOM NAVIGATION */}
+      <div className="md:hidden fixed bottom-0 w-full bg-white/95 backdrop-blur-xl border-t border-gray-100 z-50 px-6 py-2 flex justify-between items-center pb-[max(env(safe-area-inset-bottom),0.5rem)]">
+        <button onClick={() => { setActiveTab('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="flex flex-col items-center gap-1 group">
+          <div className={`p-1.5 rounded-xl transition-colors ${activeTab === 'home' ? 'bg-[#cce312]' : 'group-hover:bg-gray-50'}`}>
+            <Store className={`w-5 h-5 ${activeTab === 'home' ? 'text-black' : 'text-gray-500'}`} />
+          </div>
+          <span className={`text-[10px] font-bold ${activeTab === 'home' ? 'text-gray-900' : 'text-gray-500'}`}>Home</span>
+        </button>
+        
+        <button onClick={() => { setActiveTab('home'); setTimeout(() => document.getElementById('shop-grid')?.scrollIntoView({ behavior: 'smooth' }), 100); }} className="flex flex-col items-center gap-1 group">
+          <div className="p-1.5 rounded-xl transition-colors group-hover:bg-gray-50">
+            <Search className="w-5 h-5 text-gray-500" />
+          </div>
+          <span className="text-[10px] font-bold text-gray-500">Catalog</span>
+        </button>
+
+        <button onClick={() => setIsCartOpen(true)} className="flex flex-col items-center gap-1 group relative">
+          <div className="p-1.5 rounded-xl transition-colors group-hover:bg-gray-50 relative">
+            <ShoppingCart className="w-5 h-5 text-gray-500" />
+            {cartItemsCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-gray-900 text-white text-[10px] font-black rounded-full h-4 w-4 flex items-center justify-center border-2 border-white">
+                {cartItemsCount}
+              </span>
+            )}
+          </div>
+          <span className="text-[10px] font-bold text-gray-500">Cart</span>
+        </button>
+
+        <button onClick={() => { /* TODO: Filter favorites */ }} className="flex flex-col items-center gap-1 group">
+          <div className="p-1.5 rounded-xl transition-colors group-hover:bg-gray-50 relative">
+            <Heart className="w-5 h-5 text-gray-500" />
+            {favorites.length > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+            )}
+          </div>
+          <span className="text-[10px] font-bold text-gray-500">Favorites</span>
+        </button>
+
+        <button onClick={() => setActiveTab('profile')} className="flex flex-col items-center gap-1 group">
+          <div className={`p-1.5 rounded-xl transition-colors ${activeTab === 'profile' ? 'bg-[#cce312]' : 'group-hover:bg-gray-50'}`}>
+            <User className={`w-5 h-5 ${activeTab === 'profile' ? 'text-black' : 'text-gray-500'}`} />
+          </div>
+          <span className={`text-[10px] font-bold ${activeTab === 'profile' ? 'text-gray-900' : 'text-gray-500'}`}>Profile</span>
+        </button>
+      </div>
+
     </div>
   );
 }
