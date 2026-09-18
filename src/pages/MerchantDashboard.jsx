@@ -45,6 +45,26 @@ export default function MerchantDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
 
+const DEFAULT_DELIVERY_ZONES = [
+  { id: 'dk-plateau', name: 'Dakar Plateau / Médina', price: 1000, active: true },
+  { id: 'dk-almadies', name: 'Almadies / Ngor / Ouakam', price: 1500, active: true },
+  { id: 'dk-mermoz', name: 'Mermoz / Sacré-Cœur / Point E', price: 1500, active: true },
+  { id: 'dk-yoff', name: 'Yoff / Parcelles Assainies', price: 2000, active: true },
+  { id: 'dk-pikine', name: 'Pikine / Guédiawaye', price: 2500, active: true },
+  { id: 'dk-rufisque', name: 'Rufisque / Keur Massar / Diamniadio', price: 3000, active: true },
+  { id: 'dk-sebi', name: 'Sébikotane / Pout', price: 3500, active: false },
+  { id: 'rg-thies', name: 'Thiès (Région)', price: 3000, active: false },
+  { id: 'rg-mbour', name: 'Mbour / Saly', price: 3000, active: false },
+  { id: 'rg-sl', name: 'Saint-Louis (Région)', price: 4000, active: false },
+  { id: 'rg-zg', name: 'Ziguinchor (Région)', price: 4000, active: false },
+  { id: 'rg-diourbel', name: 'Diourbel / Touba / Mbacké', price: 3500, active: false },
+  { id: 'rg-kaolack', name: 'Kaolack (Région)', price: 3500, active: false },
+  { id: 'rg-louga', name: 'Louga (Région)', price: 3500, active: false },
+  { id: 'rg-fatick', name: 'Fatick (Région)', price: 3500, active: false },
+  { id: 'rg-tambacounda', name: 'Tambacounda (Région)', price: 4500, active: false },
+  { id: 'rg-kolda', name: 'Kolda (Région)', price: 4500, active: false }
+];
+
   // Settings State
   const [settingsForm, setSettingsForm] = useState({ 
     shop_name: '',
@@ -63,6 +83,7 @@ export default function MerchantDashboard() {
     social_tiktok: '',
     payout_provider: 'WAVE',
     payout_phone_number: '',
+    delivery_zones: [],
     isSaving: false 
   });
 
@@ -86,6 +107,7 @@ export default function MerchantDashboard() {
         social_tiktok: merchant.social_links?.tiktok || '',
         payout_provider: merchant.payout_provider || 'WAVE',
         payout_phone_number: merchant.payout_phone_number || '',
+        delivery_zones: merchant.delivery_zones || DEFAULT_DELIVERY_ZONES,
         isSaving: false
       });
       
@@ -286,7 +308,8 @@ export default function MerchantDashboard() {
           facebook: settingsForm.social_facebook,
           instagram: settingsForm.social_instagram,
           tiktok: settingsForm.social_tiktok
-        }
+        },
+        delivery_zones: settingsForm.delivery_zones
       }).eq('id', user.id);
       
       if (error) throw error;
@@ -445,7 +468,25 @@ export default function MerchantDashboard() {
   };
 
   const generateWhatsAppMessage = (order) => {
-    const text = `Bonjour ${order.customer_name},\nVotre commande (Ref: ${order.id.slice(0,6)}) est maintenant ${order.status}.\nTotal: ${order.total_amount_fcfa} FCFA.\nMerci d'avoir choisi ${merchant?.shop_name}!`;
+    let statusText = "";
+    switch(order.status) {
+      case 'PREPARING': statusText = "est en cours de préparation"; break;
+      case 'IN_TRANSIT': statusText = "est en route vers vous (préparez votre PIN)"; break;
+      case 'DELIVERED': statusText = "a été livrée avec succès"; break;
+      case 'CANCELLED': statusText = "a été annulée"; break;
+      default: statusText = "a bien été enregistrée"; break;
+    }
+    
+    const shopUrl = `${window.location.origin}/boutique/${encodeURIComponent(merchant?.shop_name || '')}`;
+    
+    const text = `Bonjour ${order.customer_name},
+
+📦 Votre commande N° ${order.id.slice(0,6).toUpperCase()} chez *${merchant?.shop_name}* ${statusText}.
+
+💳 Total: ${order.total_amount_fcfa.toLocaleString('fr-FR')} FCFA
+📍 Suivez votre commande en direct ici : ${shopUrl}
+
+Merci de votre confiance ! 🙏`;
     return `https://wa.me/${order.customer_phone.replace(/\+/g,'')}?text=${encodeURIComponent(text)}`;
   };
 
@@ -472,27 +513,37 @@ export default function MerchantDashboard() {
   deliveredToday.forEach(order => {
     totalEnbaisse += order.total_amount_fcfa;
     const cartTotal = order.cart_items?.reduce((acc, item) => acc + (item.price * item.quantity), 0) || 0;
-    partMarchand += cartTotal;
-    partLivreur += (order.total_amount_fcfa - cartTotal);
+    const deliveryFee = order.total_amount_fcfa - cartTotal;
+    
+    if (order.driver_name) {
+      partMarchand += cartTotal;
+      partLivreur += deliveryFee;
+    } else {
+      // Merchant managed it themselves, they get everything
+      partMarchand += order.total_amount_fcfa;
+    }
   });
 
   const driverBalances = team.map(driver => {
     let dEnbaisse = 0;
     let dPartLivreur = 0;
-    let dPartMarchand = 0;
+    let aReverser = 0;
     let count = 0;
 
     deliveredToday.forEach(order => {
       if (order.driver_name === driver.full_name) {
         count++;
-        dEnbaisse += order.total_amount_fcfa;
         const cartTotal = order.cart_items?.reduce((acc, item) => acc + (item.price * item.quantity), 0) || 0;
-        dPartMarchand += cartTotal;
-        dPartLivreur += (order.total_amount_fcfa - cartTotal);
+        const deliveryFee = order.total_amount_fcfa - cartTotal;
+        const collectedCash = order.payment_method === 'MOBILE_MONEY' ? 0 : order.total_amount_fcfa;
+        
+        dEnbaisse += collectedCash;
+        dPartLivreur += deliveryFee;
+        aReverser += (collectedCash - deliveryFee);
       }
     });
 
-    return { ...driver, dEnbaisse, dPartLivreur, dPartMarchand, count };
+    return { ...driver, dEnbaisse, dPartLivreur, aReverser, count };
   });
 
   const stats = {
@@ -528,8 +579,8 @@ export default function MerchantDashboard() {
       {/* Mobile Sidebar Overlay */}
       <div className="md:hidden bg-white/70 backdrop-blur-xl border-b border-white/50 p-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
         <div className="flex items-center gap-2 text-gray-900">
-          <div className="w-10 h-10 flex items-center justify-center overflow-hidden">
-            <img src="/logo.jpg" alt="SamaBoutik" className="w-full h-full object-cover mix-blend-multiply" />
+          <div className="h-10 md:h-16 flex items-center justify-center overflow-hidden">
+            <img src="/logo.png" alt="SamaBoutik" className="h-full w-auto object-contain" />
           </div>
           <span className="font-black text-lg">Admin</span>
         </div>
@@ -545,8 +596,8 @@ export default function MerchantDashboard() {
           <aside className="relative flex-1 flex flex-col max-w-xs w-full bg-white/80 backdrop-blur-2xl border-r border-white/50 shadow-2xl">
             <div className="p-6 border-b border-gray-100/50 flex justify-between items-center">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 flex items-center justify-center overflow-hidden">
-                  <img src="/logo.jpg" alt="SamaBoutik" className="w-full h-full object-cover mix-blend-multiply" />
+                <div className="h-12 md:h-20 flex items-center justify-center overflow-hidden">
+                  <img src="/logo.png" alt="SamaBoutik" className="h-full w-auto object-contain" />
                 </div>
                 <h1 className="text-xl font-black text-gray-900">Admin</h1>
               </div>
@@ -603,11 +654,8 @@ export default function MerchantDashboard() {
       {/* Sidebar Desktop */}
       <aside className="w-64 bg-white flex flex-col hidden md:flex z-10 relative shadow-sm">
         <div className="p-8">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 flex items-center justify-center overflow-hidden rounded-xl bg-indigo-600 shadow-md shadow-indigo-500/20">
-              <Store className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-xl font-black text-gray-900 tracking-tight">SamaBoutik</h1>
+          <div className="flex items-center justify-center mb-8">
+            <img src="/logo.png" alt="SamaBoutik" className="h-24 md:h-32 object-contain" />
           </div>
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Aperçu</p>
           <div className="bg-white rounded-2xl flex flex-col gap-2 mb-4">
@@ -836,7 +884,7 @@ export default function MerchantDashboard() {
                       </div>
                       <div>
                         <p className="font-bold text-gray-900 text-sm mb-1">{order.customer_name}</p>
-                        <p className="text-xs text-gray-500 truncate">{order.delivery_address}</p>
+                        <p className="text-xs text-gray-500 truncate">{order.customer_address?.split(' || GPS: ')[0]}</p>
                       </div>
                       <div className="pt-3 border-t border-gray-50 flex justify-between items-center">
                         <p className="text-xs text-gray-400 font-medium">{new Date(order.created_at).toLocaleDateString('fr-FR')}</p>
@@ -927,7 +975,9 @@ export default function MerchantDashboard() {
                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{d.count} course(s)</p>
                        </div>
                        <div className="text-right shrink-0">
-                         <p className="text-sm font-black text-indigo-600">{d.dPartMarchand.toLocaleString('fr-FR')} <span className="text-[10px]">F</span></p>
+                         <p className={`text-sm font-black ${d.aReverser < 0 ? 'text-red-500' : 'text-indigo-600'}`}>
+                           {d.aReverser < 0 ? '-' : '+'}{Math.abs(d.aReverser).toLocaleString('fr-FR')} <span className="text-[10px]">F</span>
+                         </p>
                        </div>
                      </div>
                   ))}
@@ -1156,7 +1206,7 @@ export default function MerchantDashboard() {
                       >
                         <option value="PENDING">À traiter</option>
                         <option value="PREPARING">En préparation</option>
-                        <option value="IN_TRANSIT" disabled>En cours de livraison</option>
+                        <option value="IN_TRANSIT">En cours de livraison</option>
                         <option value="DELIVERED">Livrée</option>
                         <option value="CANCELLED">Annulée</option>
                         <option value="DISPUTED">En litige</option>
@@ -1541,6 +1591,110 @@ export default function MerchantDashboard() {
                   </div>
                 </div>
               </div>
+              <div className="pt-6 border-t border-gray-100">
+                <div className="flex items-center gap-2 mb-4">
+                  <Truck className="w-5 h-5 text-indigo-500" />
+                  <h3 className="text-lg font-bold text-gray-800">Zones et Frais de Livraison</h3>
+                </div>
+                <p className="text-sm text-gray-500 mb-4">Activez les zones où vous livrez et définissez vos tarifs.</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[400px] overflow-y-auto p-2 border border-gray-100 rounded-xl bg-gray-50/50">
+                  {settingsForm.delivery_zones?.map((zone, index) => (
+                    <div key={zone.id} className={`flex items-center justify-between p-3 rounded-lg border ${zone.active ? 'border-indigo-200 bg-indigo-50/30' : 'border-gray-200 bg-white'} transition-colors`}>
+                      <label className="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
+                        <input 
+                          type="checkbox" 
+                          checked={zone.active}
+                          onChange={(e) => {
+                            const newZones = [...settingsForm.delivery_zones];
+                            newZones[index].active = e.target.checked;
+                            setSettingsForm({ ...settingsForm, delivery_zones: newZones });
+                          }}
+                          className="w-4 h-4 flex-shrink-0 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                        />
+                        <span className={`text-sm font-medium truncate ${zone.active ? 'text-indigo-900' : 'text-gray-600'}`}>
+                          {zone.name}
+                        </span>
+                      </label>
+                      <div className="flex items-center gap-2 ml-2">
+                        {zone.active && (
+                          <div className="flex items-center gap-1">
+                            <input 
+                              type="number" 
+                              value={zone.price}
+                              onChange={(e) => {
+                                const newZones = [...settingsForm.delivery_zones];
+                                newZones[index].price = parseInt(e.target.value) || 0;
+                                setSettingsForm({ ...settingsForm, delivery_zones: newZones });
+                              }}
+                              className="w-20 p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-right"
+                              placeholder="Prix"
+                            />
+                            <span className="text-xs font-bold text-gray-500">F</span>
+                          </div>
+                        )}
+                        {zone.id.startsWith('custom-') && (
+                          <button 
+                            type="button" 
+                            onClick={() => {
+                              setSettingsForm({
+                                ...settingsForm,
+                                delivery_zones: settingsForm.delivery_zones.filter((_, i) => i !== index)
+                              });
+                            }} 
+                            className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="mt-4 flex gap-2">
+                  <input 
+                    type="text" 
+                    id="newZoneName" 
+                    placeholder="Ajouter une zone personnalisée (ex: Thiès - Mbour)" 
+                    className="flex-1 p-3 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (e.target.value.trim()) {
+                          setSettingsForm({
+                            ...settingsForm,
+                            delivery_zones: [
+                              ...settingsForm.delivery_zones,
+                              { id: 'custom-' + Date.now(), name: e.target.value.trim(), price: 1000, active: true }
+                            ]
+                          });
+                          e.target.value = '';
+                        }
+                      }
+                    }}
+                  />
+                  <button 
+                    type="button"
+                    onClick={(e) => {
+                      const input = document.getElementById('newZoneName');
+                      if (input.value.trim()) {
+                        setSettingsForm({
+                          ...settingsForm,
+                          delivery_zones: [
+                            ...settingsForm.delivery_zones,
+                            { id: 'custom-' + Date.now(), name: input.value.trim(), price: 1000, active: true }
+                          ]
+                        });
+                        input.value = '';
+                      }
+                    }}
+                    className="px-4 py-2 bg-indigo-50 text-indigo-700 text-sm font-bold rounded-xl border border-indigo-100 hover:bg-indigo-100 flex items-center gap-2 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" /> Ajouter
+                  </button>
+                </div>
+              </div>
               
               <button 
                 type="submit" 
@@ -1852,13 +2006,16 @@ export default function MerchantDashboard() {
         
         let dTotalEnbaisse = 0;
         let dPartLivreur = 0;
-        let dPartMarchand = 0;
+        let aReverser = 0;
         
         driverDeliveries.forEach(order => {
-          dTotalEnbaisse += order.total_amount_fcfa;
           const cartTotal = order.cart_items?.reduce((acc, item) => acc + (item.price * item.quantity), 0) || 0;
-          dPartMarchand += cartTotal;
-          dPartLivreur += (order.total_amount_fcfa - cartTotal);
+          const deliveryFee = order.total_amount_fcfa - cartTotal;
+          const collectedCash = order.payment_method === 'MOBILE_MONEY' ? 0 : order.total_amount_fcfa;
+          
+          dTotalEnbaisse += collectedCash;
+          dPartLivreur += deliveryFee;
+          aReverser += (collectedCash - deliveryFee);
         });
 
         return (
@@ -1879,17 +2036,21 @@ export default function MerchantDashboard() {
               <div className="p-6 overflow-y-auto custom-scrollbar">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
                   <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 text-center">
-                    <p className="text-gray-500 font-bold text-xs uppercase tracking-wider mb-2">Encaissé par lui</p>
+                    <p className="text-gray-500 font-bold text-xs uppercase tracking-wider mb-2">Encaissé (Cash)</p>
                     <p className="text-2xl font-black text-gray-900">{dTotalEnbaisse.toLocaleString('fr-FR')} <span className="text-sm opacity-50">F</span></p>
                   </div>
                   <div className="bg-orange-50 p-5 rounded-2xl border border-orange-100/50 text-center">
                     <p className="text-orange-600/70 font-bold text-xs uppercase tracking-wider mb-2">Sa part (Frais)</p>
                     <p className="text-2xl font-black text-orange-500">{dPartLivreur.toLocaleString('fr-FR')} <span className="text-sm opacity-50">F</span></p>
                   </div>
-                  <div className="bg-indigo-50 p-5 rounded-2xl border border-indigo-100/50 text-center relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5"></div>
-                    <p className="text-indigo-700 font-bold text-xs uppercase tracking-wider mb-2 relative z-10">Il doit vous verser</p>
-                    <p className="text-3xl font-black text-indigo-600 relative z-10">{dPartMarchand.toLocaleString('fr-FR')} <span className="text-sm opacity-50">F</span></p>
+                  <div className={`p-5 rounded-2xl border text-center relative overflow-hidden ${aReverser < 0 ? 'bg-red-50 border-red-100/50' : 'bg-indigo-50 border-indigo-100/50'}`}>
+                    <div className="absolute inset-0 bg-gradient-to-br from-black/5 to-transparent"></div>
+                    <p className={`font-bold text-xs uppercase tracking-wider mb-2 relative z-10 ${aReverser < 0 ? 'text-red-700' : 'text-indigo-700'}`}>
+                      {aReverser < 0 ? 'Vous lui devez' : 'Il doit vous verser'}
+                    </p>
+                    <p className={`text-3xl font-black relative z-10 ${aReverser < 0 ? 'text-red-600' : 'text-indigo-600'}`}>
+                      {Math.abs(aReverser).toLocaleString('fr-FR')} <span className="text-sm opacity-50">F</span>
+                    </p>
                   </div>
                 </div>
 

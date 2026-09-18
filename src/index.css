@@ -10,11 +10,11 @@
 
   body {
     @apply text-gray-800 font-sans antialiased selection:bg-indigo-200;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Poppins', sans-serif;
   }
   
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     letter-spacing: -0.02em;
   }
 }
@@ -42,12 +42,35 @@
     @apply bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-500;
   }
   
+  .text-gradient-dark {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-200 to-gray-500;
+  }
+
+  .text-gradient-glow {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400;
+    text-shadow: 0 0 20px rgba(129, 140, 248, 0.3);
+  }
+  
   .bg-mesh {
     background-color: #f8fafc;
     background-image: 
       radial-gradient(at 40% 20%, hsla(158,64%,85%,1) 0px, transparent 50%),
       radial-gradient(at 80% 0%, hsla(189,100%,86%,1) 0px, transparent 50%),
       radial-gradient(at 0% 50%, hsla(158,64%,85%,1) 0px, transparent 50%);
+  }
+
+  .bg-grid-pattern {
+    background-size: 40px 40px;
+    background-image: linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    mask-image: radial-gradient(circle at center, black, transparent 80%);
+  }
+
+  .bg-grid-pattern-light {
+    background-size: 40px 40px;
+    background-image: linear-gradient(to right, rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+    mask-image: radial-gradient(circle at center, black, transparent 80%);
   }
 }
 
@@ -129,3 +152,18 @@
 
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+@keyframes border-spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+.spinning-border {
+  position: absolute;
+  top: -25%;
+  left: -25%;
+  width: 150%;
+  height: 150%;
+  background: conic-gradient(from 0deg, #fbbf24, #ec4899, #9333ea, #fbbf24);
+  animation: border-spin 3s linear infinite;
+}

@@ -60,8 +60,8 @@ export default function Register() {
         <div className="w-full max-w-md glass rounded-3xl p-10 relative">
           
           <div className="flex flex-col items-center mb-8">
-            <Link to="/" className="h-20 w-20 flex items-center justify-center overflow-hidden hover:scale-105 transition-transform mb-4">
-              <img src="/logo.jpg" alt="SamaBoutik Logo" className="w-full h-full object-cover mix-blend-multiply" />
+            <Link to="/" className="h-32 w-48 md:h-48 md:w-72 flex items-center justify-center overflow-hidden hover:scale-105 transition-transform mb-6">
+              <img src="/logo.png" alt="SamaBoutik Logo" className="w-full h-full object-contain" />
             </Link>
             <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight text-center">
               Lancer votre boutique
