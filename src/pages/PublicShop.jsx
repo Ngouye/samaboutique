@@ -8,7 +8,7 @@ import {
   Package, MapPin, Search, Menu, Store, ShoppingCart, Heart, User, 
   Star, Plus, Minus, X, CheckCircle, Bell, ArrowRight, ChevronRight,
   Filter, Phone, Mail, Globe, ChevronDown, ShoppingBag, Truck, CreditCard,
-  Eye, ThumbsUp, MessageCircle
+  Eye, ThumbsUp, MessageCircle, Smartphone, Gamepad2, Laptop, Camera, Headphones, Shirt, Utensils, Tag, Watch
 } from 'lucide-react';
 import Icon3D from '../components/Icon3D';
 import StoreStories from '../components/StoreStories';
@@ -624,23 +624,58 @@ export default function PublicShop() {
               </div>
 
               {/* MOBILE FILTERS */}
-              <div className="lg:hidden w-full flex items-center justify-between gap-4 mb-6">
-                <select 
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="flex-1 bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 text-sm font-bold outline-none"
-                >
-                  {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                </select>
-                <select 
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="flex-1 bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 text-sm font-bold outline-none"
-                >
-                  <option value="newest">Nouveautés</option>
-                  <option value="price_asc">Prix croissant</option>
-                  <option value="price_desc">Prix décroissant</option>
-                </select>
+              <div className="lg:hidden w-full mb-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-black text-gray-900 tracking-tight">Catégories</h3>
+                  <button className="text-sm font-bold text-gray-500 flex items-center gap-1 hover:text-gray-900 transition-colors" onClick={() => document.getElementById('shop-grid').scrollIntoView({ behavior: 'smooth' })}>
+                    Voir tout <ChevronRight className="w-4 h-4 bg-gray-100 rounded-full p-0.5" />
+                  </button>
+                </div>
+                
+                <div className="flex overflow-x-auto gap-4 pb-4 scrollbar-hide snap-x">
+                  {categories.map((cat) => {
+                    const c = cat.toLowerCase();
+                    let IconComponent = Tag;
+                    if (c.includes('phone') || c.includes('téléphone') || c.includes('mobile')) IconComponent = Smartphone;
+                    else if (c.includes('console') || c.includes('jeu') || c.includes('game')) IconComponent = Gamepad2;
+                    else if (c.includes('laptop') || c.includes('pc') || c.includes('ordinateur') || c.includes('mac')) IconComponent = Laptop;
+                    else if (c.includes('camera') || c.includes('photo')) IconComponent = Camera;
+                    else if (c.includes('audio') || c.includes('casque') || c.includes('écouteur') || c.includes('son')) IconComponent = Headphones;
+                    else if (c.includes('vêtement') || c.includes('habit') || c.includes('t-shirt') || c.includes('mode') || c.includes('chemise')) IconComponent = Shirt;
+                    else if (c.includes('nourriture') || c.includes('aliment') || c.includes('food') || c.includes('restaurant')) IconComponent = Utensils;
+                    else if (c.includes('montre') || c.includes('watch') || c.includes('bijou')) IconComponent = Watch;
+                    else if (c === 'Tous') IconComponent = Package;
+
+                    const isSelected = selectedCategory === cat;
+                    
+                    return (
+                      <button 
+                        key={cat}
+                        onClick={() => setSelectedCategory(cat)}
+                        className="flex flex-col items-center gap-3 snap-center group min-w-[72px]"
+                      >
+                        <div className={`w-[72px] h-[72px] rounded-full flex items-center justify-center transition-all duration-300 ${isSelected ? 'bg-gray-900 shadow-lg scale-110' : 'bg-gray-100 group-hover:bg-gray-200'}`}>
+                          <IconComponent className={`w-8 h-8 ${isSelected ? 'text-white' : 'text-gray-700'}`} strokeWidth={1.5} />
+                        </div>
+                        <span className={`text-xs font-bold whitespace-nowrap transition-colors ${isSelected ? 'text-gray-900' : 'text-gray-500'}`}>
+                          {cat}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+                
+                <div className="flex justify-end mt-2">
+                  <select 
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="bg-gray-50 text-gray-600 border border-gray-200 rounded-full px-4 py-2 text-xs font-bold outline-none focus:border-gray-900"
+                  >
+                    <option value="newest">Trier: Nouveautés</option>
+                    <option value="price_asc">Trier: Prix croissant</option>
+                    <option value="price_desc">Trier: Prix décroissant</option>
+                  </select>
+                </div>
               </div>
 
               {/* PRODUCTS GRID */}
