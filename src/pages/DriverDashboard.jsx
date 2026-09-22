@@ -372,7 +372,7 @@ export default function DriverDashboard() {
                       <MessageCircle className="w-5 h-5" /> WhatsApp
                     </a>
                   </div>
-                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeOrder.customer_address + ', ' + activeOrder.delivery_zone)}`} target="_blank" rel="noreferrer" className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20">
+                  <a href={activeOrder.customer_address?.includes('|| GPS: ') ? activeOrder.customer_address.split('|| GPS: ')[1].trim() : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeOrder.customer_address + ', ' + activeOrder.delivery_zone)}`} target="_blank" rel="noreferrer" className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20">
                     <Navigation className="w-5 h-5" /> Navigation Google Maps
                   </a>
                   
