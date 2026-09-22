@@ -1,0 +1,28 @@
+generatedAt: "2026-09-22T19:08:32.874Z"
+rule: S1854
+count: 2
+details:
+  code: "javascript:S1854"
+  source: SonarLintScanner
+  path: "c:\\Users\\DELL\\Documents\\TEST\\samaboutik"
+occurrences[2]:
+  - key: "server/routes/payment.js:48:10:4"
+    file: server/routes/payment.js
+    line: 49
+    textRange:
+      startLine: 49
+      endLine: 49
+      startOffset: 10
+      endOffset: 24
+    message: "Remove this useless assignment to variable \"amountMerchant\"."
+    severity: MAJOR
+  - key: "supabase/functions/paydunya-checkout/index.ts:21:24:15"
+    file: supabase/functions/paydunya-checkout/index.ts
+    line: 22
+    textRange:
+      startLine: 22
+      endLine: 22
+      startOffset: 24
+      endOffset: 29
+    message: "Remove this useless assignment to variable \"email\"."
+    severity: MAJOR

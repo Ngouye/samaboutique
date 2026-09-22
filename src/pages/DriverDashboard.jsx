@@ -249,7 +249,7 @@ export default function DriverDashboard() {
 
   if (loading) return (
     <div className="min-h-screen flex flex-col justify-center items-center bg-gray-50">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-indigo-600 border-solid mb-4"></div>
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-primary-600 border-solid mb-4"></div>
       <p className="text-gray-500 font-medium">Chargement des courses...</p>
     </div>
   );
@@ -267,14 +267,14 @@ export default function DriverDashboard() {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans relative overflow-hidden pb-24">
       {/* Background Dark Overlay */}
-      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-50 via-white to-gray-50 -z-10"></div>
+      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary-50 via-white to-gray-50 -z-10"></div>
       
       {/* Header Pro */}
       <header className="bg-white/90 backdrop-blur-xl border-b border-gray-100 sticky top-0 z-40">
         <div className="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="w-12 h-12 bg-indigo-500 rounded-full flex items-center justify-center text-white font-black text-xl shadow-lg shadow-indigo-500/20 border-2 border-white">
+              <div className="w-12 h-12 bg-primary-500 rounded-full flex items-center justify-center text-white font-black text-xl shadow-lg shadow-primary-500/20 border-2 border-white">
                 {driverName.charAt(0).toUpperCase()}
               </div>
               <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></div>
@@ -287,7 +287,7 @@ export default function DriverDashboard() {
           <button 
             onClick={soundEnabled ? () => setSoundEnabled(false) : enableSound}
             className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-              soundEnabled ? 'bg-indigo-500/20 text-indigo-600' : 'bg-white text-gray-400'
+              soundEnabled ? 'bg-primary-500/20 text-primary-600' : 'bg-white text-gray-400'
             }`}
           >
             {soundEnabled ? <BellRing className="w-5 h-5" /> : <BellOff className="w-5 h-5" />}
@@ -320,9 +320,9 @@ export default function DriverDashboard() {
                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                Course en cours
             </h2>
-            <div className="bg-white border-2 border-indigo-100 rounded-[2rem] overflow-hidden shadow-2xl shadow-indigo-500/5">
-              <div className="bg-indigo-500/10 px-6 py-4 border-b border-indigo-500/20 flex justify-between items-center">
-                 <span className="text-indigo-600 text-xs font-black uppercase tracking-wider flex items-center gap-2">
+            <div className="bg-white border-2 border-primary-100 rounded-[2rem] overflow-hidden shadow-2xl shadow-primary-500/5">
+              <div className="bg-primary-500/10 px-6 py-4 border-b border-primary-500/20 flex justify-between items-center">
+                 <span className="text-primary-600 text-xs font-black uppercase tracking-wider flex items-center gap-2">
                    <Navigation className="w-4 h-4" /> En route
                  </span>
                  <span className="text-gray-700 text-xs font-mono bg-gray-50 px-2.5 py-1 rounded-md border border-gray-100">
@@ -335,7 +335,7 @@ export default function DriverDashboard() {
                 
                 <div className="relative pl-6 border-l-2 border-gray-100 space-y-6 mb-8">
                    <div className="relative">
-                      <div className="absolute -left-[1.65rem] top-1 w-3 h-3 rounded-full bg-indigo-500 border-[3px] border-gray-100"></div>
+                      <div className="absolute -left-[1.65rem] top-1 w-3 h-3 rounded-full bg-primary-500 border-[3px] border-gray-100"></div>
                       <p className="text-xs text-gray-500 font-medium mb-1">Point de départ</p>
                       <p className="text-sm font-bold text-gray-800">{shopName}</p>
                    </div>
@@ -372,11 +372,11 @@ export default function DriverDashboard() {
                       <MessageCircle className="w-5 h-5" /> WhatsApp
                     </a>
                   </div>
-                  <a href={activeOrder.customer_address?.includes('|| GPS: ') ? activeOrder.customer_address.split('|| GPS: ')[1].trim() : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeOrder.customer_address + ', ' + activeOrder.delivery_zone)}`} target="_blank" rel="noreferrer" className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20">
+                  <a href={activeOrder.customer_address?.includes('|| GPS: ') ? activeOrder.customer_address.split('|| GPS: ')[1].trim() : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeOrder.customer_address + ', ' + activeOrder.delivery_zone)}`} target="_blank" rel="noreferrer" className="w-full flex items-center justify-center gap-2 bg-primary-600 text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-primary-500 transition-all shadow-lg shadow-primary-600/20">
                     <Navigation className="w-5 h-5" /> Navigation Google Maps
                   </a>
                   
-                  <button onClick={() => openPinModal(activeOrder.id)} className="w-full mt-2 flex items-center justify-center gap-2 bg-indigo-600 text-white py-4.5 rounded-[1.25rem] font-black text-lg hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-indigo-600/20" style={{ paddingTop: '1.125rem', paddingBottom: '1.125rem' }}>
+                  <button onClick={() => openPinModal(activeOrder.id)} className="w-full mt-2 flex items-center justify-center gap-2 bg-primary-600 text-white py-4.5 rounded-[1.25rem] font-black text-lg hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-primary-600/20" style={{ paddingTop: '1.125rem', paddingBottom: '1.125rem' }}>
                     <CheckCircle2 className="w-6 h-6 text-emerald-500" /> Livré & Encaissé
                   </button>
                 </div>
@@ -395,12 +395,12 @@ export default function DriverDashboard() {
           {availableOrders.length === 0 ? (
             <div className="bg-gray-50 border border-gray-100 border-dashed rounded-[2rem] p-10 text-center flex flex-col items-center justify-center min-h-[250px]">
               <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-6 relative">
-                <div className="absolute inset-0 border-2 border-indigo-500/20 rounded-full animate-ping"></div>
-                <Navigation className="w-8 h-8 text-indigo-600 opacity-50" />
+                <div className="absolute inset-0 border-2 border-primary-500/20 rounded-full animate-ping"></div>
+                <Navigation className="w-8 h-8 text-primary-600 opacity-50" />
               </div>
               <h3 className="text-lg font-bold text-gray-700 mb-2">En recherche...</h3>
               <p className="text-gray-400 text-sm">Aucune nouvelle course dans la zone.</p>
-              <button onClick={fetchDriverOrders} className="mt-6 text-indigo-600 font-medium text-sm hover:text-indigo-300 px-4 py-2 bg-indigo-500/10 rounded-full">
+              <button onClick={fetchDriverOrders} className="mt-6 text-primary-600 font-medium text-sm hover:text-primary-300 px-4 py-2 bg-primary-500/10 rounded-full">
                 Rafraîchir
               </button>
             </div>
@@ -408,7 +408,7 @@ export default function DriverDashboard() {
             <div className="space-y-4">
               {availableOrders.map((order) => (
                 <div key={order.id} className="bg-white rounded-[1.5rem] p-5 shadow-lg border border-gray-100 hover:border-gray-200 transition-all flex flex-col gap-4 relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500"></div>
+                  <div className="absolute top-0 left-0 w-1 h-full bg-primary-500"></div>
                   
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
@@ -437,7 +437,7 @@ export default function DriverDashboard() {
                     <button 
                       onClick={() => assignOrder(order.id)}
                       disabled={!!activeOrder}
-                      className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-500 active:scale-[0.98] transition-all disabled:opacity-30 disabled:bg-gray-100 disabled:text-gray-400 shadow-lg shadow-indigo-600/20"
+                      className="flex-1 flex items-center justify-center gap-2 bg-primary-600 text-white py-3 rounded-xl font-bold hover:bg-primary-500 active:scale-[0.98] transition-all disabled:opacity-30 disabled:bg-gray-100 disabled:text-gray-400 shadow-lg shadow-primary-600/20"
                     >
                       {activeOrder ? "Course en cours" : "Accepter la course"}
                     </button>
@@ -469,7 +469,7 @@ export default function DriverDashboard() {
                 </div>
                 <div className="bg-gray-50 rounded-xl p-3">
                   <p className="text-xs text-gray-500 font-bold mb-1">À reverser</p>
-                  <p className={`text-lg font-black ${amountToReturn < 0 ? 'text-red-500' : 'text-indigo-600'}`}>
+                  <p className={`text-lg font-black ${amountToReturn < 0 ? 'text-red-500' : 'text-primary-600'}`}>
                     {amountToReturn < 0 ? 'Le marchand doit' : ''} {Math.abs(amountToReturn).toLocaleString('fr-FR')} CFA
                   </p>
                 </div>
@@ -508,7 +508,7 @@ export default function DriverDashboard() {
               Mon Profil
             </h2>
             <div className="bg-white border border-gray-100 rounded-[2rem] p-6 shadow-xl text-center flex flex-col items-center">
-              <div className="w-24 h-24 bg-indigo-500 rounded-full flex items-center justify-center text-white font-black text-4xl shadow-lg shadow-indigo-500/20 mb-4">
+              <div className="w-24 h-24 bg-primary-500 rounded-full flex items-center justify-center text-white font-black text-4xl shadow-lg shadow-primary-500/20 mb-4">
                 {driverName.charAt(0).toUpperCase()}
               </div>
               <h3 className="text-2xl font-black text-gray-900 mb-1">{driverName}</h3>
@@ -530,21 +530,21 @@ export default function DriverDashboard() {
         <div className="max-w-md mx-auto px-6 h-16 flex items-center justify-between">
           <button 
             onClick={() => setActiveTab('courses')}
-            className={`flex flex-col items-center justify-center gap-1 w-16 transition-colors ${activeTab === 'courses' ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-700'}`}
+            className={`flex flex-col items-center justify-center gap-1 w-16 transition-colors ${activeTab === 'courses' ? 'text-primary-600' : 'text-gray-400 hover:text-gray-700'}`}
           >
             <Navigation className="w-6 h-6" />
             <span className="text-[10px] font-bold">Courses</span>
           </button>
           <button 
             onClick={() => setActiveTab('gains')}
-            className={`flex flex-col items-center justify-center gap-1 w-16 transition-colors ${activeTab === 'gains' ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-700'}`}
+            className={`flex flex-col items-center justify-center gap-1 w-16 transition-colors ${activeTab === 'gains' ? 'text-primary-600' : 'text-gray-400 hover:text-gray-700'}`}
           >
             <Activity className="w-6 h-6" />
             <span className="text-[10px] font-bold">Gains</span>
           </button>
           <button 
             onClick={() => setActiveTab('profil')}
-            className={`flex flex-col items-center justify-center gap-1 w-16 transition-colors ${activeTab === 'profil' ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-700'}`}
+            className={`flex flex-col items-center justify-center gap-1 w-16 transition-colors ${activeTab === 'profil' ? 'text-primary-600' : 'text-gray-400 hover:text-gray-700'}`}
           >
             <User className="w-6 h-6" />
             <span className="text-[10px] font-bold">Profil</span>
@@ -580,7 +580,7 @@ export default function DriverDashboard() {
                   required
                   autoFocus
                   placeholder="• • • •"
-                  className="w-full text-center text-5xl tracking-[0.3em] font-black text-gray-900 bg-white border-2 border-gray-100 rounded-2xl py-6 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all mb-2"
+                  className="w-full text-center text-5xl tracking-[0.3em] font-black text-gray-900 bg-white border-2 border-gray-100 rounded-2xl py-6 focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/20 outline-none transition-all mb-2"
                   value={pinModal.pinValue}
                   onChange={(e) => {
                     const val = e.target.value.replace(/\D/g, '');
@@ -619,21 +619,21 @@ export default function DriverDashboard() {
           <div className="bg-white rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-slate-100 max-w-4xl w-full relative z-10 overflow-hidden animate-in zoom-in-95 duration-500 flex flex-col md:flex-row">
             
             {/* Image / Illustration Section (Hidden on small mobile, visible on tablet+) */}
-            <div className="hidden md:flex md:w-1/2 relative bg-indigo-50 p-8 flex-col justify-center items-center overflow-hidden">
+            <div className="hidden md:flex md:w-1/2 relative bg-primary-50 p-8 flex-col justify-center items-center overflow-hidden">
                <div className="absolute top-0 left-0 w-full h-full bg-[url('https://images.unsplash.com/photo-1617347454431-f49d7ff5c3b1?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80')] bg-cover bg-center opacity-80 mix-blend-multiply"></div>
-               <div className="absolute inset-0 bg-gradient-to-t from-indigo-900/90 to-indigo-900/20"></div>
+               <div className="absolute inset-0 bg-gradient-to-t from-primary-900/90 to-primary-900/20"></div>
                <div className="relative z-10 text-center text-white p-6">
-                 <Truck className="w-16 h-16 mx-auto mb-6 text-indigo-300" />
+                 <Truck className="w-16 h-16 mx-auto mb-6 text-primary-300" />
                  <h2 className="text-3xl font-black mb-4">Portail Livreur</h2>
-                 <p className="text-indigo-100 text-lg font-medium">Accédez à vos courses, suivez vos gains et livrez en toute simplicité.</p>
+                 <p className="text-primary-100 text-lg font-medium">Accédez à vos courses, suivez vos gains et livrez en toute simplicité.</p>
                </div>
             </div>
 
             {/* Form Section */}
             <div className="w-full md:w-1/2 p-6 sm:p-10 md:p-12 pb-safe bg-white">
               <div className="md:hidden flex justify-center mb-6">
-                 <div className="w-20 h-20 bg-indigo-50 rounded-2xl flex items-center justify-center">
-                    <Truck className="w-10 h-10 text-indigo-600" />
+                 <div className="w-20 h-20 bg-primary-50 rounded-2xl flex items-center justify-center">
+                    <Truck className="w-10 h-10 text-primary-600" />
                  </div>
               </div>
               
@@ -644,16 +644,16 @@ export default function DriverDashboard() {
 
               <form onSubmit={handleLogin} className="space-y-6">
                 <div className="group">
-                  <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-widest group-focus-within:text-indigo-600 transition-colors">Numéro de Téléphone</label>
+                  <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-widest group-focus-within:text-primary-600 transition-colors">Numéro de Téléphone</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Phone className="w-5 h-5 text-gray-500 group-focus-within:text-indigo-600 transition-colors" />
+                      <Phone className="w-5 h-5 text-gray-500 group-focus-within:text-primary-600 transition-colors" />
                     </div>
                     <input
                       type="text"
                       required
                       placeholder="Ex: 01 23 45 67 89"
-                      className="w-full text-lg font-bold text-gray-900 bg-gray-50 border-2 border-gray-200 rounded-2xl py-4 pl-12 pr-4 focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-600/10 outline-none transition-all placeholder:text-gray-500"
+                      className="w-full text-lg font-bold text-gray-900 bg-gray-50 border-2 border-gray-200 rounded-2xl py-4 pl-12 pr-4 focus:border-primary-600 focus:bg-white focus:ring-4 focus:ring-primary-600/10 outline-none transition-all placeholder:text-gray-500"
                       value={loginForm.phone}
                       onChange={(e) => setLoginForm({...loginForm, phone: e.target.value, error: ''})}
                       disabled={loginForm.isLoading}
@@ -662,16 +662,16 @@ export default function DriverDashboard() {
                 </div>
                 
                 <div className="group">
-                  <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-widest group-focus-within:text-indigo-600 transition-colors">Numéro CNI</label>
+                  <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-widest group-focus-within:text-primary-600 transition-colors">Numéro CNI</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <ShieldCheck className="w-5 h-5 text-gray-500 group-focus-within:text-indigo-600 transition-colors" />
+                      <ShieldCheck className="w-5 h-5 text-gray-500 group-focus-within:text-primary-600 transition-colors" />
                     </div>
                     <input
                       type="text"
                       required
                       placeholder="Votre pièce d'identité"
-                      className="w-full text-lg font-bold text-gray-900 bg-gray-50 border-2 border-gray-200 rounded-2xl py-4 pl-12 pr-4 focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-600/10 outline-none transition-all placeholder:text-gray-500"
+                      className="w-full text-lg font-bold text-gray-900 bg-gray-50 border-2 border-gray-200 rounded-2xl py-4 pl-12 pr-4 focus:border-primary-600 focus:bg-white focus:ring-4 focus:ring-primary-600/10 outline-none transition-all placeholder:text-gray-500"
                       value={loginForm.cni}
                       onChange={(e) => setLoginForm({...loginForm, cni: e.target.value, error: ''})}
                       disabled={loginForm.isLoading}
@@ -691,7 +691,7 @@ export default function DriverDashboard() {
                 <button 
                   type="submit"
                   disabled={!loginForm.phone.trim() || !loginForm.cni.trim() || loginForm.isLoading}
-                  className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white rounded-[1.25rem] font-black text-lg hover:bg-indigo-500 active:scale-[0.98] transition-all disabled:opacity-50 disabled:bg-gray-200 disabled:text-gray-400 mt-8"
+                  className="w-full flex items-center justify-center gap-2 bg-primary-600 text-white rounded-[1.25rem] font-black text-lg hover:bg-primary-500 active:scale-[0.98] transition-all disabled:opacity-50 disabled:bg-gray-200 disabled:text-gray-400 mt-8"
                   style={{ paddingTop: '1.25rem', paddingBottom: '1.25rem' }}
                 >
                   {loginForm.isLoading ? (

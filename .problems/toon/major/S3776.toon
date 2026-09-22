@@ -1,0 +1,18 @@
+generatedAt: "2026-09-22T19:08:32.874Z"
+rule: S3776
+count: 1
+details:
+  code: "javascript:S3776"
+  source: SonarLintScanner
+  path: "c:\\Users\\DELL\\Documents\\TEST\\samaboutik"
+occurrences[1]:
+  - key: "server/routes/payment.js:110:41:5"
+    file: server/routes/payment.js
+    line: 111
+    textRange:
+      startLine: 111
+      endLine: 111
+      startOffset: 41
+      endOffset: 43
+    message: "Refactor this function to reduce its Cognitive Complexity from 25 to the 15 allowed. [+12 locations]"
+    severity: MAJOR

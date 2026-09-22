@@ -1,0 +1,18 @@
+generatedAt: "2026-09-22T19:08:32.874Z"
+rule: S6582
+count: 1
+details:
+  code: "javascript:S6582"
+  source: SonarLintScanner
+  path: "c:\\Users\\DELL\\Documents\\TEST\\samaboutik"
+occurrences[1]:
+  - key: "server/routes/payment.js:163:16:6"
+    file: server/routes/payment.js
+    line: 164
+    textRange:
+      startLine: 164
+      endLine: 164
+      startOffset: 16
+      endOffset: 81
+    message: "Prefer using an optional chain expression instead, as it's more concise and easier to read."
+    severity: MAJOR

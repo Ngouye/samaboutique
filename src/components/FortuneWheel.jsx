@@ -86,7 +86,7 @@ const FortuneWheel = ({ merchantName }) => {
       <div className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden relative border border-slate-100 animate-in zoom-in-95 duration-500">
         
         {/* Header / Banner */}
-        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-center text-white relative">
+        <div className="bg-gradient-to-r from-primary-500 to-purple-600 p-6 text-center text-white relative">
           <button 
             onClick={closeWheel}
             className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
@@ -95,7 +95,7 @@ const FortuneWheel = ({ merchantName }) => {
           </button>
           <Icon3D name="gift" className="w-16 h-16 mx-auto mb-2 drop-shadow-xl" />
           <h2 className="text-2xl font-black">Tentez votre chance !</h2>
-          <p className="text-indigo-100 text-sm mt-1">Tournez la roue et gagnez un cadeau exclusif chez {merchantName}.</p>
+          <p className="text-primary-100 text-sm mt-1">Tournez la roue et gagnez un cadeau exclusif chez {merchantName}.</p>
         </div>
 
         <div className="p-8 text-center overflow-hidden">
@@ -159,7 +159,7 @@ const FortuneWheel = ({ merchantName }) => {
                       type="tel"
                       required
                       placeholder="Votre numéro de téléphone"
-                      className="w-full text-base font-bold text-gray-900 bg-gray-50 border-2 border-gray-200 rounded-2xl py-3.5 pl-12 pr-4 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                      className="w-full text-base font-bold text-gray-900 bg-gray-50 border-2 border-gray-200 rounded-2xl py-3.5 pl-12 pr-4 focus:border-primary-500 focus:bg-white focus:ring-4 focus:ring-primary-500/10 outline-none transition-all"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       disabled={isSpinning}
@@ -197,7 +197,7 @@ const FortuneWheel = ({ merchantName }) => {
 
                <button 
                  onClick={closeWheel}
-                 className="w-full bg-indigo-600 text-white font-black text-lg py-4 rounded-2xl shadow-lg hover:bg-indigo-700 transition-colors"
+                 className="w-full bg-primary-600 text-white font-black text-lg py-4 rounded-2xl shadow-lg hover:bg-primary-700 transition-colors"
                >
                  Continuer mes achats
                </button>

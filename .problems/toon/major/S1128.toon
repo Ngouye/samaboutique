@@ -1,0 +1,18 @@
+generatedAt: "2026-09-22T19:08:32.874Z"
+rule: S1128
+count: 1
+details:
+  code: "javascript:S1128"
+  source: SonarLintScanner
+  path: "c:\\Users\\DELL\\Documents\\TEST\\samaboutik"
+occurrences[1]:
+  - key: "update_schema.js:0:9:10"
+    file: update_schema.js
+    line: 1
+    textRange:
+      startLine: 1
+      endLine: 1
+      startOffset: 9
+      endOffset: 21
+    message: Remove this unused import of 'createClient'.
+    severity: MAJOR

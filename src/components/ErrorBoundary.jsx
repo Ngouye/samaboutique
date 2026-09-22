@@ -40,7 +40,7 @@ class ErrorBoundary extends React.Component {
                 // localStorage.clear();
                 window.location.reload();
               }}
-              className="bg-indigo-600 text-white font-bold py-3 px-6 rounded-xl hover:bg-indigo-700 transition-colors"
+              className="bg-primary-600 text-white font-bold py-3 px-6 rounded-xl hover:bg-primary-700 transition-colors"
             >
               Rafraîchir la page
             </button>

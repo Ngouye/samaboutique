@@ -1,0 +1,18 @@
+generatedAt: "2026-09-22T19:08:32.874Z"
+rule: S2245
+count: 1
+details:
+  code: "javascript:S2245"
+  source: SonarLintScanner
+  path: "c:\\Users\\DELL\\Documents\\TEST\\samaboutik"
+occurrences[1]:
+  - key: "server/routes/payment.js:28:38:2"
+    file: server/routes/payment.js
+    line: 29
+    textRange:
+      startLine: 29
+      endLine: 29
+      startOffset: 38
+      endOffset: 51
+    message: Make sure that using this pseudorandom number generator is safe here.
+    severity: MAJOR

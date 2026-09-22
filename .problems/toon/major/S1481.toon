@@ -1,0 +1,18 @@
+generatedAt: "2026-09-22T19:08:32.874Z"
+rule: S1481
+count: 1
+details:
+  code: "javascript:S1481"
+  source: SonarLintScanner
+  path: "c:\\Users\\DELL\\Documents\\TEST\\samaboutik"
+occurrences[1]:
+  - key: "server/routes/payment.js:48:10:3"
+    file: server/routes/payment.js
+    line: 49
+    textRange:
+      startLine: 49
+      endLine: 49
+      startOffset: 10
+      endOffset: 24
+    message: Remove the declaration of the unused 'amountMerchant' variable.
+    severity: MAJOR

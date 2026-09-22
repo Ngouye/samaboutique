@@ -77,7 +77,7 @@ const SocialProofToast = ({ products }) => {
               {toast.product?.image_url ? (
                 <img src={toast.product.image_url} alt={toast.product.name} className="w-full h-full object-cover" />
               ) : (
-                toast.type === 'purchase' ? <ShoppingBag className="w-6 h-6 text-indigo-400" /> : <Eye className="w-6 h-6 text-orange-400" />
+                toast.type === 'purchase' ? <ShoppingBag className="w-6 h-6 text-primary-400" /> : <Eye className="w-6 h-6 text-orange-400" />
               )}
               {/* Badge */}
               <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white flex items-center justify-center shadow-sm">

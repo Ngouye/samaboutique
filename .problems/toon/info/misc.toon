@@ -1,0 +1,48 @@
+generatedAt: "2026-09-22T19:08:32.874Z"
+rule: misc
+count: 4
+details:
+  code: "6133"
+  source: ts
+  path: "c:\\Users\\DELL\\Documents\\TEST\\samaboutik"
+occurrences[4]:
+  - key: "server/routes/payment.js:0:20:0"
+    file: server/routes/payment.js
+    line: 1
+    textRange:
+      startLine: 1
+      endLine: 1
+      startOffset: 20
+      endOffset: 29
+    message: "Could not find a declaration file for module 'express'. 'c:/Users/DELL/Documents/TEST/samaboutik/server/node_modules/express/index.js' implicitly has an 'any' type.\n  Try `npm i --save-dev @types/express` if it exists or add a new declaration (.d.ts) file containing `declare module 'express';`"
+    severity: INFO
+  - key: "server/routes/payment.js:48:10:1"
+    file: server/routes/payment.js
+    line: 49
+    textRange:
+      startLine: 49
+      endLine: 49
+      startOffset: 10
+      endOffset: 24
+    message: 'amountMerchant' is declared but its value is never read.
+    severity: INFO
+  - key: "src/contexts/AuthContext.jsx:0:7:7"
+    file: src/contexts/AuthContext.jsx
+    line: 1
+    textRange:
+      startLine: 1
+      endLine: 1
+      startOffset: 7
+      endOffset: 12
+    message: 'React' is declared but its value is never read.
+    severity: INFO
+  - key: "src/utils/lazyWithRetry.js:0:7:9"
+    file: src/utils/lazyWithRetry.js
+    line: 1
+    textRange:
+      startLine: 1
+      endLine: 1
+      startOffset: 7
+      endOffset: 12
+    message: 'React' is declared but its value is never read.
+    severity: INFO

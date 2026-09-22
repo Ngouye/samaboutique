@@ -1,0 +1,48 @@
+generatedAt: "2026-09-22T19:08:32.874Z"
+rule: S7785
+count: 4
+details:
+  code: "javascript:S7785"
+  source: SonarLintScanner
+  path: "c:\\Users\\DELL\\Documents\\TEST\\samaboutik"
+occurrences[4]:
+  - key: "create_admin.js:31:0:12"
+    file: create_admin.js
+    line: 32
+    textRange:
+      startLine: 32
+      endLine: 32
+      startOffset: 0
+      endOffset: 13
+    message: Prefer top-level await over an async function `createAdmin` call.
+    severity: MAJOR
+  - key: "create_bucket.js:23:0:13"
+    file: create_bucket.js
+    line: 24
+    textRange:
+      startLine: 24
+      endLine: 24
+      startOffset: 0
+      endOffset: 14
+    message: Prefer top-level await over an async function `createBucket` call.
+    severity: MAJOR
+  - key: "create_test_shop.js:27:0:11"
+    file: create_test_shop.js
+    line: 28
+    textRange:
+      startLine: 28
+      endLine: 28
+      startOffset: 0
+      endOffset: 12
+    message: Prefer top-level await over an async function `createShop` call.
+    severity: MAJOR
+  - key: "test-register.js:27:0:14"
+    file: test-register.js
+    line: 28
+    textRange:
+      startLine: 28
+      endLine: 28
+      startOffset: 0
+      endOffset: 14
+    message: Prefer top-level await over an async function `testRegister` call.
+    severity: MAJOR
