@@ -422,3 +422,9 @@ entrypoint = "./functions/paydunya-checkout/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/paydunya-checkout/*.html" ]
+
+[functions.paydunya-webhook]
+enabled = true
+# PayDunya n'envoie pas de jeton Supabase : la notification est authentifiée par sa signature (voir index.ts).
+verify_jwt = false
+entrypoint = "./functions/paydunya-webhook/index.ts"

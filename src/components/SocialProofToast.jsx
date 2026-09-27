@@ -62,7 +62,7 @@ const SocialProofToast = ({ products }) => {
   }, [products]);
 
   return (
-    <div className="fixed bottom-4 left-4 z-50 flex flex-col gap-2 pointer-events-none">
+    <div className="fixed bottom-4 left-4 z-40 hidden flex-col gap-2 pointer-events-none md:flex">
       <AnimatePresence>
         {toast && (
           <motion.div

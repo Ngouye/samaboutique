@@ -178,8 +178,8 @@ export default function AdminDashboard() {
           <div className="flex-1 w-full md:max-w-md relative">
             <input 
               type="text" 
-              placeholder="Search anything..." 
-              className="w-full bg-white border border-gray-200 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 text-slate-600 shadow-sm"
+              placeholder="Rechercher..." 
+              className="w-full rounded-full border-2 border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm font-medium text-slate-700 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-500/15"
             />
             <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
           </div>
@@ -331,7 +331,7 @@ export default function AdminDashboard() {
                           placeholder="Rechercher par nom ou téléphone..." 
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 w-full text-slate-600 shadow-sm"
+                          className="w-full rounded-xl border-2 border-slate-200 bg-white py-2.5 pl-9 pr-4 text-sm font-medium text-slate-700 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-500/15"
                         />
                       </div>
                       
@@ -340,7 +340,7 @@ export default function AdminDashboard() {
                         <select 
                           value={tierFilter}
                           onChange={(e) => setTierFilter(e.target.value)}
-                          className="bg-white border border-gray-200 text-slate-600 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400 shadow-sm"
+                          className="cursor-pointer rounded-xl border-2 border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 shadow-sm outline-none transition-all focus:border-blue-400 focus:ring-4 focus:ring-blue-500/15"
                         >
                           <option value="all">Tous les forfaits</option>
                           <option value="free">Débutant</option>

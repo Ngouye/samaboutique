@@ -1,9 +1,52 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { MapPin, Phone, CheckCircle, Navigation, Package, Store, BellRing, BellOff, ShieldCheck, X, Truck, ArrowRight, CheckCircle2, ChevronRight, PhoneCall, User, Activity, LogOut, MessageCircle } from 'lucide-react';
+import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
+import {
+  MapPin, Phone, Navigation, Package, BellRing, BellOff, ShieldCheck, X, ArrowRight, CheckCircle2,
+  PhoneCall, User, LogOut, MessageCircle, Bike, Radar, Wallet, Coins, HandCoins, Store, RefreshCw, Check,
+  Clock, IdCard, Flag, LoaderCircle,
+} from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { playSuccess, playPop } from '../utils/audio';
+import { CountUp } from '../components/landing/Magic';
+import { Field, ErrorBanner, EASE } from '../components/auth/AuthUI';
+
+const fmt = (n) => Math.round(n || 0).toLocaleString('fr-FR');
+const addressOf = (o) => (o.customer_address || '').split(' || GPS: ')[0];
+const gpsOf = (o) => ((o.customer_address || '').includes('|| GPS: ') ? o.customer_address.split('|| GPS: ')[1].trim() : null);
+const EMPTY_PIN = { isOpen: false, orderId: null, pinValue: '', error: '', isLoading: false, success: false, shake: 0 };
+
+function Aurora() {
+  return (
+    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden="true">
+      <div className="aurora-blob aurora-1 -left-32 -top-32 h-96 w-96 bg-emerald-500/20" />
+      <div className="aurora-blob aurora-2 -right-32 top-1/3 h-96 w-96 bg-cyan-500/10" />
+      <div className="aurora-blob aurora-3 bottom-0 left-1/4 h-80 w-80 bg-amber-400/5" />
+    </div>
+  );
+}
+
+function AmountBadge({ order, large = false }) {
+  if (order.payment_method === 'MOBILE_MONEY') {
+    return (
+      <div className={large ? '' : 'text-right'}>
+        <span className="inline-flex items-center gap-1 rounded-lg bg-sky-400/15 px-2 py-1 text-[11px] font-extrabold text-sky-300">
+          <Check className="h-3 w-3" strokeWidth={3} /> DÉJÀ PAYÉ (Wave/OM)
+        </span>
+        <p className={`mt-1 font-bold text-white/40 line-through ${large ? 'text-xl' : 'text-sm'}`}>{fmt(order.total_amount_fcfa)} FCFA</p>
+      </div>
+    );
+  }
+  return (
+    <div className={large ? '' : 'text-right'}>
+      <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">À encaisser</p>
+      <p className={`font-extrabold text-emerald-300 ${large ? 'text-4xl' : 'text-xl'}`}>
+        {fmt(order.total_amount_fcfa)} <span className="text-xs font-bold text-emerald-300/60">FCFA</span>
+      </p>
+    </div>
+  );
+}
 
 export default function DriverDashboard() {
   const { shopName } = useParams();
@@ -11,18 +54,31 @@ export default function DriverDashboard() {
   const [loading, setLoading] = useState(true);
   const [merchant, setMerchant] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(false);
-  const [pinModal, setPinModal] = useState({ isOpen: false, orderId: null, pinValue: '', error: '', isLoading: false });
+  const [pinModal, setPinModal] = useState(EMPTY_PIN);
   const [driverName, setDriverName] = useState('');
   const [showDriverNameModal, setShowDriverNameModal] = useState(false);
   const [loginForm, setLoginForm] = useState({ phone: '', cni: '', error: '', isLoading: false });
   const [activeTab, setActiveTab] = useState('courses');
+  const [assigningId, setAssigningId] = useState(null);
   const audioContextRef = useRef(null);
+  const pinInputRef = useRef(null);
+  // Session du livreur : jeton délivré par le serveur (valable 12 h). La CNI n'est jamais conservée.
+  const tokenRef = useRef(null);
+  const soundEnabledRef = useRef(false);
+  const knownOrderIdsRef = useRef(null);
 
-  // Vérifier le nom du livreur au chargement
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled;
+  }, [soundEnabled]);
+
+  // Vérifier la session du livreur au chargement
   useEffect(() => {
     try {
+      sessionStorage.removeItem('samaboutik_driver_auth'); // ancienne version : ne plus garder téléphone/CNI
       const savedName = sessionStorage.getItem('samaboutik_driver_name');
-      if (savedName) {
+      const savedToken = sessionStorage.getItem('samaboutik_driver_token');
+      if (savedName && savedToken) {
+        tokenRef.current = savedToken;
         setDriverName(savedName);
       } else {
         setShowDriverNameModal(true);
@@ -35,7 +91,7 @@ export default function DriverDashboard() {
 
   // Fonction pour jouer un petit son "Ding"
   const playNotificationSound = () => {
-    if (!soundEnabled) return;
+    if (!soundEnabledRef.current) return;
     try {
       if (!audioContextRef.current) {
         audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
@@ -43,18 +99,18 @@ export default function DriverDashboard() {
       const ctx = audioContextRef.current;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      
+
       osc.connect(gain);
       gain.connect(ctx.destination);
-      
+
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, ctx.currentTime); 
-      osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.1); 
-      
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.1);
+
       gain.gain.setValueAtTime(0, ctx.currentTime);
       gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.05);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-      
+
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.5);
     } catch (e) {
@@ -62,32 +118,62 @@ export default function DriverDashboard() {
     }
   };
 
+  const clearSession = () => {
+    try {
+      sessionStorage.removeItem('samaboutik_driver_name');
+      sessionStorage.removeItem('samaboutik_driver_token');
+    } catch (e) {
+      console.error("Storage access error:", e);
+    }
+    tokenRef.current = null;
+    knownOrderIdsRef.current = null;
+    setDriverName('');
+    setOrders([]);
+    setActiveTab('courses');
+  };
+
+  // Session expirée ou révoquée (livreur supprimé par le marchand) : retour à l'écran de connexion.
+  const expireSession = () => {
+    clearSession();
+    setPinModal(EMPTY_PIN);
+    setLoginForm({ phone: '', cni: '', error: 'Votre session a expiré. Reconnectez-vous.', isLoading: false });
+    setShowDriverNameModal(true);
+  };
+
+  const isSessionError = (error) => String(error?.message || '').includes('SESSION_EXPIREE');
+
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!loginForm.phone.trim() || !loginForm.cni.trim()) return;
-    
+
     setLoginForm({ ...loginForm, isLoading: true, error: '' });
-    
+
     try {
       const { data, error } = await supabase.rpc('authenticate_driver', {
         p_shop_name: decodeURIComponent(shopName),
         p_phone: loginForm.phone.trim(),
         p_cni: loginForm.cni.trim()
       });
-      
+
       if (error) throw error;
-      
-      if (data) {
-        try {
-          sessionStorage.setItem('samaboutik_driver_name', data);
-        } catch (e) {
-          console.error("Storage access error:", e);
-        }
-        setDriverName(data);
-        setShowDriverNameModal(false);
+      if (!data?.ok) {
+        setLoginForm({ ...loginForm, isLoading: false, error: data?.error || "Identifiants incorrects ou non enregistrés." });
+        return;
       }
-    } catch (err) {
-      setLoginForm({ ...loginForm, isLoading: false, error: "Identifiants incorrects ou non enregistrés." });
+
+      tokenRef.current = data.token;
+      try {
+        sessionStorage.setItem('samaboutik_driver_name', data.name);
+        sessionStorage.setItem('samaboutik_driver_token', data.token);
+      } catch (e) {
+        console.error("Storage access error:", e);
+      }
+      setDriverName(data.name);
+      setShowDriverNameModal(false);
+      setLoginForm({ phone: '', cni: '', error: '', isLoading: false });
+      fetchDriverOrders();
+    } catch {
+      setLoginForm({ ...loginForm, isLoading: false, error: "Connexion impossible. Vérifiez votre réseau." });
     }
   };
 
@@ -96,60 +182,59 @@ export default function DriverDashboard() {
       audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
     }
     audioContextRef.current.resume().then(() => {
+      soundEnabledRef.current = true;
       setSoundEnabled(true);
       playNotificationSound();
     });
   };
 
+  // Les commandes ne sont plus lisibles publiquement (pas de temps réel anonyme) :
+  // on interroge le serveur toutes les 15 s tant que la page est visible.
   useEffect(() => {
-    let subscription;
-    
-    const init = async () => {
-      const mData = await fetchDriverOrders();
-      
-      if (mData) {
-        subscription = supabase
-          .channel('public:orders')
-          .on(
-            'postgres_changes',
-            { event: 'UPDATE', schema: 'public', table: 'orders', filter: `merchant_id=eq.${mData.id}` },
-            (payload) => {
-              const newOrder = payload.new;
-              if (newOrder.status === 'PREPARING' || newOrder.status === 'IN_TRANSIT' || newOrder.status === 'DELIVERED') {
-                if (newOrder.status === 'PREPARING') playNotificationSound();
-                fetchDriverOrders();
-              }
-            }
-          )
-          .subscribe();
-      }
-    };
-
-    init();
-    return () => {
-      if (subscription) supabase.removeChannel(subscription);
-    };
-  }, [shopName, soundEnabled]); 
+    fetchDriverOrders();
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchDriverOrders();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [shopName]);
 
   const fetchDriverOrders = async () => {
     setLoading(true);
     const decodedName = decodeURIComponent(shopName);
-    
+
     try {
       const { data: mData } = await supabase
         .from('merchants')
         .select('id, shop_name, phone_number')
         .ilike('shop_name', decodedName)
         .single();
-        
+
       if (mData) {
         setMerchant(mData);
-        
-        const { data: ordersData, error } = await supabase.rpc('get_driver_orders', {
-          p_shop_name: decodedName
-        });
-        
-        if (error) throw error;
+
+        if (!tokenRef.current) {
+          setOrders([]);
+          setLoading(false);
+          return mData;
+        }
+
+        const { data: ordersData, error } = await supabase.rpc('get_driver_orders', { p_token: tokenRef.current });
+        if (error) {
+          if (isSessionError(error)) {
+            expireSession();
+            setLoading(false);
+            return mData;
+          }
+          throw error;
+        }
+
+        // Son quand une nouvelle course apparaît sur le radar
+        const available = (ordersData || []).filter((o) => o.status === 'PREPARING').map((o) => o.id);
+        if (knownOrderIdsRef.current && available.some((id) => !knownOrderIdsRef.current.has(id))) {
+          playNotificationSound();
+        }
+        knownOrderIdsRef.current = new Set(available);
+
         setOrders(ordersData || []);
         setLoading(false);
         return mData;
@@ -161,73 +246,85 @@ export default function DriverDashboard() {
     return null;
   };
 
-  // Nouvelle fonction pour accepter une course
+  // Accepter une course
   const assignOrder = async (orderId) => {
+    setAssigningId(orderId);
     try {
       const { error } = await supabase.rpc('assign_order_to_driver', {
-        p_order_id: orderId,
-        p_driver_name: driverName
+        p_token: tokenRef.current,
+        p_order_id: orderId
       });
-      
-      if (error) throw error;
-      
+
+      if (error) {
+        if (isSessionError(error)) return expireSession();
+        throw error;
+      }
+
+      playPop();
       fetchDriverOrders();
     } catch (err) {
       alert(err.message);
       fetchDriverOrders(); // Rafraîchir au cas où elle aurait disparu
+    } finally {
+      setAssigningId(null);
     }
   };
 
   const openPinModal = (orderId) => {
-    setPinModal({ isOpen: true, orderId, pinValue: '', error: '', isLoading: false });
+    setPinModal({ ...EMPTY_PIN, isOpen: true, orderId });
+  };
+
+  const closePinModal = () => {
+    if (!pinModal.isLoading && !pinModal.success) setPinModal(EMPTY_PIN);
   };
 
   const submitPinCode = async (e) => {
     e.preventDefault();
     if (!pinModal.pinValue || pinModal.pinValue.length !== 4) {
-      setPinModal(prev => ({ ...prev, error: 'Veuillez entrer les 4 chiffres.' }));
+      setPinModal(prev => ({ ...prev, error: 'Veuillez entrer les 4 chiffres.', shake: prev.shake + 1 }));
       return;
     }
-    
+
     setPinModal(prev => ({ ...prev, isLoading: true, error: '' }));
-    
+
     try {
-      const { data: success, error } = await supabase.rpc('mark_order_delivered', {
+      const { data: result, error } = await supabase.rpc('mark_order_delivered', {
+        p_token: tokenRef.current,
         p_order_id: pinModal.orderId,
-        p_pin: pinModal.pinValue.trim(),
-        p_driver_name: driverName
+        p_pin: pinModal.pinValue.trim()
       });
-      
+
       if (error) {
-         setPinModal(prev => ({ ...prev, error: error.message, isLoading: false }));
-         return;
+        if (isSessionError(error)) return expireSession();
+        setPinModal(prev => ({ ...prev, error: error.message, isLoading: false, shake: prev.shake + 1 }));
+        return;
       }
-      
-      if (success) {
+
+      if (result?.ok) {
         // Célébration de la livraison !
         playSuccess();
         confetti({
-          particleCount: 100,
-          spread: 80,
+          particleCount: 140,
+          spread: 90,
           origin: { y: 0.5 },
-          colors: ['#10B981', '#3B82F6', '#F59E0B']
+          colors: ['#10B981', '#2dd4bf', '#F59E0B', '#ffffff']
         });
-        
-        setOrders(orders.filter(o => o.id !== pinModal.orderId));
-        setPinModal({ isOpen: false, orderId: null, pinValue: '', error: '', isLoading: false });
+        setPinModal(prev => ({ ...prev, isLoading: false, success: true }));
+        setTimeout(() => {
+          setPinModal(EMPTY_PIN);
+          fetchDriverOrders();
+        }, 1500);
       } else {
-        setPinModal(prev => ({ ...prev, error: 'Code incorrect !', isLoading: false }));
+        setPinModal(prev => ({ ...prev, error: result?.error || 'Code incorrect !', isLoading: false, pinValue: '', shake: prev.shake + 1 }));
       }
-    } catch (err) {
-      setPinModal(prev => ({ ...prev, error: "Erreur réseau.", isLoading: false }));
+    } catch {
+      setPinModal(prev => ({ ...prev, error: "Erreur réseau.", isLoading: false, shake: prev.shake + 1 }));
     }
   };
 
   // Logique de séparation des commandes
   const activeOrder = orders.find(o => o.status === 'IN_TRANSIT' && o.driver_name === driverName);
-  // Les commandes disponibles sont celles en PREPARING
   const availableOrders = orders.filter(o => o.status === 'PREPARING');
-  // Les commandes livrées aujourd'hui
   const deliveredOrders = orders.filter(o => o.status === 'DELIVERED' && o.driver_name === driverName);
   const totalGains = deliveredOrders.reduce((sum, o) => sum + (o.payment_method === 'MOBILE_MONEY' ? 0 : (o.total_amount_fcfa || 0)), 0);
   const totalDeliveryFees = deliveredOrders.reduce((sum, o) => {
@@ -237,474 +334,482 @@ export default function DriverDashboard() {
   const amountToReturn = totalGains - totalDeliveryFees;
 
   const handleLogout = () => {
-    try {
-      sessionStorage.removeItem('samaboutik_driver_name');
-    } catch (e) {
-      console.error("Storage access error:", e);
-    }
-    setDriverName('');
-    setActiveTab('courses');
+    if (tokenRef.current) supabase.rpc('logout_driver', { p_token: tokenRef.current });
+    clearSession();
     setShowDriverNameModal(true);
   };
 
-  if (loading) return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-gray-50">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-primary-600 border-solid mb-4"></div>
-      <p className="text-gray-500 font-medium">Chargement des courses...</p>
+  const shopLabel = decodeURIComponent(shopName);
+
+  // Écran de chargement uniquement au premier chargement (les rafraîchissements gardent l'affichage).
+  if (loading && !merchant) return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#050b09] text-white">
+      <Aurora />
+      <motion.span animate={{ x: [-30, 30, -30] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }} className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 shadow-[0_0_40px_rgba(52,211,153,0.5)]">
+        <Bike className="h-8 w-8" />
+      </motion.span>
+      <p className="font-semibold text-white/70">Chargement des courses…</p>
     </div>
   );
 
   if (!merchant) return (
-    <div className="min-h-screen flex justify-center items-center bg-gray-50 p-4">
-      <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center mx-4">
-        <img src="/logo.png" alt="Logo" className="w-48 md:w-64 mx-auto mb-6 object-contain opacity-70" />
-        <h2 className="text-xl font-bold text-gray-700">Boutique introuvable</h2>
-        <p className="text-gray-500 mt-2">Ce lien livreur est invalide.</p>
-      </div>
+    <div className="flex min-h-screen items-center justify-center bg-[#050b09] p-4 text-white">
+      <Aurora />
+      <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm rounded-[2rem] border border-white/10 bg-white/[0.04] p-10 text-center backdrop-blur-xl">
+        <span className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-500/15"><Store className="h-8 w-8 text-rose-300" /></span>
+        <h2 className="text-2xl font-extrabold">Boutique introuvable</h2>
+        <p className="mt-2 text-white/60">Ce lien livreur est invalide. Demandez un nouveau lien au marchand.</p>
+      </motion.div>
     </div>
   );
 
+  const tabs = [
+    { id: 'courses', label: 'Courses', icon: Navigation, badge: availableOrders.length },
+    { id: 'gains', label: 'Gains', icon: Wallet },
+    { id: 'profil', label: 'Profil', icon: User },
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans relative overflow-hidden pb-24">
-      {/* Background Dark Overlay */}
-      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary-50 via-white to-gray-50 -z-10"></div>
-      
-      {/* Header Pro */}
-      <header className="bg-white/90 backdrop-blur-xl border-b border-gray-100 sticky top-0 z-40">
-        <div className="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
+    <MotionConfig reducedMotion="user">
+    <div className="relative min-h-screen bg-[#050b09] pb-32 font-sans text-white">
+      <Aurora />
+
+      {/* En-tête */}
+      <header className="sticky top-0 z-40 border-b border-white/5 bg-[#050b09]/75 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3.5">
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="w-12 h-12 bg-primary-500 rounded-full flex items-center justify-center text-white font-black text-xl shadow-lg shadow-primary-500/20 border-2 border-white">
-                {driverName.charAt(0).toUpperCase()}
-              </div>
-              <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></div>
-            </div>
+            <span className="relative">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 text-xl font-extrabold text-[#050b09] shadow-[0_0_24px_rgba(52,211,153,0.4)]">
+                {driverName.charAt(0).toUpperCase() || '?'}
+              </span>
+              <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                <span className="relative inline-flex h-4 w-4 rounded-full border-2 border-[#050b09] bg-emerald-400" />
+              </span>
+            </span>
             <div>
-              <h1 className="text-sm font-bold text-gray-900 leading-tight">{driverName}</h1>
-              <p className="text-xs text-gray-500 font-medium">En ligne • {shopName}</p>
+              <h1 className="font-bold leading-tight">{driverName || 'Livreur'}</h1>
+              <p className="text-xs text-white/50">En ligne · {shopLabel}</p>
             </div>
           </div>
-          <button 
-            onClick={soundEnabled ? () => setSoundEnabled(false) : enableSound}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-              soundEnabled ? 'bg-primary-500/20 text-primary-600' : 'bg-white text-gray-400'
-            }`}
-          >
-            {soundEnabled ? <BellRing className="w-5 h-5" /> : <BellOff className="w-5 h-5" />}
-          </button>
+          <div className="flex items-center gap-2">
+            <motion.button whileTap={{ scale: 0.9, rotate: -10 }} onClick={fetchDriverOrders} className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-white/70" aria-label="Rafraîchir">
+              <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={soundEnabled ? () => setSoundEnabled(false) : enableSound}
+              className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${soundEnabled ? 'bg-emerald-400/20 text-emerald-300' : 'bg-white/5 text-white/50'}`}
+              aria-label={soundEnabled ? 'Couper le son' : 'Activer le son'}
+            >
+              {soundEnabled ? <BellRing className="h-5 w-5" /> : <BellOff className="h-5 w-5" />}
+            </motion.button>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-md mx-auto px-4 py-6 relative z-20 space-y-6">
-        
-        {/* STATS RAPIDES (Seulement sur l'onglet Courses) */}
-        {activeTab === 'courses' && (
-          <div className="grid grid-cols-2 gap-3 mb-2">
-            <div className="bg-white shadow-sm backdrop-blur-sm border border-gray-100 rounded-2xl p-4">
-               <p className="text-xs font-medium text-gray-500 mb-1">Courses du jour</p>
-               <p className="text-2xl font-black text-gray-900">{deliveredOrders.length}</p>
-            </div>
-            <div className="bg-white shadow-sm backdrop-blur-sm border border-gray-100 rounded-2xl p-4">
-               <p className="text-xs font-medium text-gray-500 mb-1">Total encaissé</p>
-               <p className="text-xl font-black text-emerald-600">
-                 {totalGains.toLocaleString('fr-FR')} <span className="text-xs">FCFA</span>
-               </p>
-            </div>
-          </div>
-        )}
-
-        {/* SECTION: Ma course en cours */}
-        {activeTab === 'courses' && activeOrder && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-               Course en cours
-            </h2>
-            <div className="bg-white border-2 border-primary-100 rounded-[2rem] overflow-hidden shadow-2xl shadow-primary-500/5">
-              <div className="bg-primary-500/10 px-6 py-4 border-b border-primary-500/20 flex justify-between items-center">
-                 <span className="text-primary-600 text-xs font-black uppercase tracking-wider flex items-center gap-2">
-                   <Navigation className="w-4 h-4" /> En route
-                 </span>
-                 <span className="text-gray-700 text-xs font-mono bg-gray-50 px-2.5 py-1 rounded-md border border-gray-100">
-                    #{activeOrder.id.slice(0,5).toUpperCase()}
-                 </span>
-              </div>
-              
-              <div className="p-6">
-                <h3 className="text-2xl font-black text-gray-900 mb-6">{activeOrder.customer_name}</h3>
-                
-                <div className="relative pl-6 border-l-2 border-gray-100 space-y-6 mb-8">
-                   <div className="relative">
-                      <div className="absolute -left-[1.65rem] top-1 w-3 h-3 rounded-full bg-primary-500 border-[3px] border-gray-100"></div>
-                      <p className="text-xs text-gray-500 font-medium mb-1">Point de départ</p>
-                      <p className="text-sm font-bold text-gray-800">{shopName}</p>
-                   </div>
-                   <div className="relative">
-                      <div className="absolute -left-[1.65rem] top-1 w-3 h-3 rounded-full bg-emerald-500 border-[3px] border-gray-100 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
-                      <p className="text-xs text-gray-500 font-medium mb-1">Destination ({activeOrder.delivery_zone})</p>
-                      <p className="text-base font-bold text-gray-900">{activeOrder.customer_address.split(' || GPS: ')[0]}</p>
-                      {activeOrder.customer_address.includes(' || GPS: ') && (
-                        <a href={activeOrder.customer_address.split(' || GPS: ')[1]} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-sm font-bold border border-blue-100">
-                          <MapPin className="w-4 h-4" /> Itinéraire GPS
-                        </a>
-                      )}
-                   </div>
-                </div>
-
-                <div className="bg-gray-50 rounded-2xl p-4 mb-6 border border-gray-100">
-                  <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Montant à encaisser</p>
-                          {activeOrder.payment_method === 'MOBILE_MONEY' ? (
-                            <div className="flex flex-col">
-                              <span className="text-[12px] font-black bg-orange-100 text-orange-600 px-3 py-1.5 rounded-lg mb-1 self-start">DÉJÀ PAYÉ (Wave/OM)</span>
-                              <p className="text-xl font-bold text-gray-400 line-through">{activeOrder.total_amount_fcfa.toLocaleString('fr-FR')} FCFA</p>
-                            </div>
-                          ) : (
-                            <p className="text-3xl font-black text-emerald-600">{activeOrder.total_amount_fcfa.toLocaleString('fr-FR')} <span className="text-base font-bold opacity-50">FCFA</span></p>
-                          )}
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  <div className="flex gap-3">
-                    <a href={`tel:${activeOrder.customer_phone}`} className="flex-1 flex flex-col items-center justify-center gap-1.5 bg-emerald-50 text-emerald-600 py-3.5 rounded-2xl font-bold text-sm hover:bg-emerald-500/20 transition-all border border-emerald-100">
-                      <PhoneCall className="w-5 h-5" /> Appeler
-                    </a>
-                    <a href={`https://wa.me/${activeOrder.customer_phone?.replace(/\+/g, '')}?text=${encodeURIComponent(`Bonjour ${activeOrder.customer_name},\n\n🚚 C'est votre livreur. J'arrive avec votre commande.\n\n🔒 N'oubliez pas de préparer votre code PIN pour valider la livraison.\n\nÀ tout de suite !`)}`} target="_blank" rel="noreferrer" className="flex-1 flex flex-col items-center justify-center gap-1.5 bg-[#25D366]/10 text-[#25D366] py-3.5 rounded-2xl font-bold text-sm hover:bg-[#25D366]/20 transition-all border border-[#25D366]/20">
-                      <MessageCircle className="w-5 h-5" /> WhatsApp
-                    </a>
-                  </div>
-                  <a href={activeOrder.customer_address?.includes('|| GPS: ') ? activeOrder.customer_address.split('|| GPS: ')[1].trim() : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeOrder.customer_address + ', ' + activeOrder.delivery_zone)}`} target="_blank" rel="noreferrer" className="w-full flex items-center justify-center gap-2 bg-primary-600 text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-primary-500 transition-all shadow-lg shadow-primary-600/20">
-                    <Navigation className="w-5 h-5" /> Navigation Google Maps
-                  </a>
-                  
-                  <button onClick={() => openPinModal(activeOrder.id)} className="w-full mt-2 flex items-center justify-center gap-2 bg-primary-600 text-white py-4.5 rounded-[1.25rem] font-black text-lg hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-primary-600/20" style={{ paddingTop: '1.125rem', paddingBottom: '1.125rem' }}>
-                    <CheckCircle2 className="w-6 h-6 text-emerald-500" /> Livré & Encaissé
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* SECTION: Nouvelles courses disponibles */}
-        {activeTab === 'courses' && (
-          <div>
-          <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-            Radar des Courses <span className="bg-gray-100 text-gray-700 text-[10px] py-0.5 px-2 rounded-full">{availableOrders.length}</span>
-          </h2>
-          
-          {availableOrders.length === 0 ? (
-            <div className="bg-gray-50 border border-gray-100 border-dashed rounded-[2rem] p-10 text-center flex flex-col items-center justify-center min-h-[250px]">
-              <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-6 relative">
-                <div className="absolute inset-0 border-2 border-primary-500/20 rounded-full animate-ping"></div>
-                <Navigation className="w-8 h-8 text-primary-600 opacity-50" />
-              </div>
-              <h3 className="text-lg font-bold text-gray-700 mb-2">En recherche...</h3>
-              <p className="text-gray-400 text-sm">Aucune nouvelle course dans la zone.</p>
-              <button onClick={fetchDriverOrders} className="mt-6 text-primary-600 font-medium text-sm hover:text-primary-300 px-4 py-2 bg-primary-500/10 rounded-full">
-                Rafraîchir
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {availableOrders.map((order) => (
-                <div key={order.id} className="bg-white rounded-[1.5rem] p-5 shadow-lg border border-gray-100 hover:border-gray-200 transition-all flex flex-col gap-4 relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-primary-500"></div>
-                  
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <span className="inline-block px-2 py-1 bg-white rounded-md text-[10px] font-mono text-gray-500 border border-gray-100 mb-2">#{order.id.slice(0,5).toUpperCase()}</span>
-                      <h3 className="text-lg font-black text-gray-900 mb-1">{order.delivery_zone}</h3>
-                      <p className="text-sm text-gray-500 font-medium line-clamp-2 max-w-[80%]">{order.customer_address.split(' || GPS: ')[0]}</p>
-                    </div>
-                        {order.payment_method === 'MOBILE_MONEY' ? (
-                           <div className="text-right shrink-0 bg-gray-50 px-3 py-2 rounded-xl border border-gray-100">
-                             <span className="text-[10px] font-black bg-orange-100 text-orange-600 px-2 py-1 rounded block mb-1">DÉJÀ PAYÉ</span>
-                             <span className="text-sm font-bold text-gray-400 line-through">{order.total_amount_fcfa.toLocaleString('fr-FR')} CFA</span>
-                           </div>
-                        ) : (
-                           <div className="text-right shrink-0 bg-gray-50 px-3 py-2 rounded-xl border border-gray-100">
-                              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">À encaisser</p>
-                              <p className="text-lg font-black text-emerald-600">{order.total_amount_fcfa.toLocaleString('fr-FR')} <span className="text-[10px] font-bold opacity-70">CFA</span></p>
-                           </div>
-                        )}
-                  </div>
-                  
-                  <div className="flex items-center gap-3 pt-3 mt-1">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 bg-white py-2 px-3 rounded-lg border border-gray-100">
-                      <Package className="w-3.5 h-3.5 text-gray-400" />
-                      {order.cart_items?.length || 1} article(s)
-                    </div>
-                    <button 
-                      onClick={() => assignOrder(order.id)}
-                      disabled={!!activeOrder}
-                      className="flex-1 flex items-center justify-center gap-2 bg-primary-600 text-white py-3 rounded-xl font-bold hover:bg-primary-500 active:scale-[0.98] transition-all disabled:opacity-30 disabled:bg-gray-100 disabled:text-gray-400 shadow-lg shadow-primary-600/20"
-                    >
-                      {activeOrder ? "Course en cours" : "Accepter la course"}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        )}
-
-        {/* SECTION: Gains */}
-        {activeTab === 'gains' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-              Bilan du jour
-            </h2>
-            <div className="bg-white border border-gray-100 rounded-[2rem] p-6 shadow-xl mb-6 text-center">
-              <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Activity className="w-8 h-8 text-emerald-600" />
-              </div>
-              <p className="text-gray-500 font-medium mb-1">Total encaissé (espèces)</p>
-              <h3 className="text-4xl font-black text-gray-900">{totalGains.toLocaleString('fr-FR')} <span className="text-lg opacity-50">CFA</span></h3>
-              
-              <div className="mt-4 grid grid-cols-2 gap-4">
-                <div className="bg-gray-50 rounded-xl p-3">
-                  <p className="text-xs text-gray-500 font-bold mb-1">Mes Frais (Gains)</p>
-                  <p className="text-lg font-black text-emerald-600">+{totalDeliveryFees.toLocaleString('fr-FR')} CFA</p>
-                </div>
-                <div className="bg-gray-50 rounded-xl p-3">
-                  <p className="text-xs text-gray-500 font-bold mb-1">À reverser</p>
-                  <p className={`text-lg font-black ${amountToReturn < 0 ? 'text-red-500' : 'text-primary-600'}`}>
-                    {amountToReturn < 0 ? 'Le marchand doit' : ''} {Math.abs(amountToReturn).toLocaleString('fr-FR')} CFA
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-              Historique des courses livrées ({deliveredOrders.length})
-            </h2>
-            {deliveredOrders.length === 0 ? (
-              <div className="bg-gray-50 border border-gray-100 border-dashed rounded-2xl p-8 text-center">
-                <p className="text-gray-400 text-sm">Aucune course livrée pour le moment.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {deliveredOrders.map(order => (
-                  <div key={order.id} className="bg-white rounded-2xl p-4 flex justify-between items-center border border-gray-100">
-                    <div>
-                      <p className="text-white font-bold">{order.delivery_zone}</p>
-                      <p className="text-xs text-gray-400 font-mono">#{order.id.slice(0,5).toUpperCase()}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-emerald-600 font-black">+{order.total_amount_fcfa.toLocaleString('fr-FR')} CFA</p>
-                    </div>
-                  </div>
+      <main className="relative mx-auto max-w-md space-y-6 px-4 py-6">
+        <AnimatePresence mode="wait">
+          {activeTab === 'courses' && (
+            <motion.div key="courses" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.4, ease: EASE }} className="space-y-6">
+              {/* Stats rapides */}
+              <div className="grid grid-cols-3 gap-2.5">
+                {[
+                  { label: 'Livrées', value: deliveredOrders.length, icon: CheckCircle2, cls: 'from-emerald-400/20 text-emerald-300' },
+                  { label: 'Encaissé', value: `${fmt(totalGains)}`, icon: Coins, cls: 'from-amber-400/20 text-amber-300' },
+                  { label: 'Mes gains', value: `${fmt(totalDeliveryFees)}`, icon: HandCoins, cls: 'from-sky-400/20 text-sky-300' },
+                ].map((s, i) => (
+                  <motion.div key={s.label} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }} className={`rounded-2xl border border-white/10 bg-gradient-to-br ${s.cls} to-transparent p-3.5`}>
+                    <s.icon className="mb-2 h-5 w-5" />
+                    <p className="text-lg font-extrabold text-white">{s.value}</p>
+                    <p className="text-[11px] font-medium text-white/50">{s.label}</p>
+                  </motion.div>
                 ))}
               </div>
-            )}
-          </div>
-        )}
 
-        {/* SECTION: Profil */}
-        {activeTab === 'profil' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-              Mon Profil
-            </h2>
-            <div className="bg-white border border-gray-100 rounded-[2rem] p-6 shadow-xl text-center flex flex-col items-center">
-              <div className="w-24 h-24 bg-primary-500 rounded-full flex items-center justify-center text-white font-black text-4xl shadow-lg shadow-primary-500/20 mb-4">
-                {driverName.charAt(0).toUpperCase()}
+              {/* Course en cours */}
+              {activeOrder && (
+                <motion.section initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: 'spring', stiffness: 200, damping: 20 }}>
+                  <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/50">
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" /> Course en cours
+                  </h2>
+                  <div className="conic-border rounded-[2rem]">
+                    <div className="overflow-hidden rounded-[2rem] bg-[#0b1a14]">
+                      <div className="flex items-center justify-between border-b border-white/5 bg-emerald-400/10 px-5 py-3.5">
+                        <span className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-emerald-300">
+                          <motion.span animate={{ x: [0, 4, 0] }} transition={{ duration: 0.8, repeat: Infinity }}><Bike className="h-4 w-4" /></motion.span> En route
+                        </span>
+                        <span className="rounded-lg bg-white/5 px-2.5 py-1 font-mono text-xs text-white/60">#{activeOrder.id.slice(0, 5).toUpperCase()}</span>
+                      </div>
+
+                      <div className="p-5">
+                        <h3 className="mb-5 text-2xl font-extrabold">{activeOrder.customer_name}</h3>
+
+                        {/* Trajet */}
+                        <div className="relative mb-6 pl-8">
+                          <div className="absolute bottom-3 left-[11px] top-3 w-0.5 bg-gradient-to-b from-emerald-400 to-amber-300" />
+                          <motion.span animate={{ top: ['8%', '72%', '8%'] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} className="absolute left-0 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#050b09] shadow-[0_0_16px_rgba(255,255,255,0.6)]">
+                            <Bike className="h-3.5 w-3.5" />
+                          </motion.span>
+                          <div className="mb-5">
+                            <p className="text-xs text-white/40">Départ</p>
+                            <p className="flex items-center gap-1.5 font-bold"><Store className="h-4 w-4 text-emerald-300" /> {shopLabel}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-white/40">Destination · {activeOrder.delivery_zone}</p>
+                            <p className="flex items-start gap-1.5 text-lg font-bold"><Flag className="mt-1 h-4 w-4 shrink-0 text-amber-300" /> {addressOf(activeOrder)}</p>
+                          </div>
+                        </div>
+
+                        <div className="mb-5 rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/10">
+                          <AmountBadge order={activeOrder} large />
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                          <motion.a whileTap={{ scale: 0.94 }} href={`tel:${activeOrder.customer_phone}`} className="flex flex-col items-center gap-1.5 rounded-2xl bg-emerald-400/10 py-3.5 text-sm font-bold text-emerald-300 ring-1 ring-emerald-400/20">
+                            <PhoneCall className="h-5 w-5" /> Appeler
+                          </motion.a>
+                          <motion.a whileTap={{ scale: 0.94 }} href={`https://wa.me/${activeOrder.customer_phone?.replace(/\+/g, '')}?text=${encodeURIComponent(`Bonjour ${activeOrder.customer_name},\n\n🚚 C'est votre livreur. J'arrive avec votre commande.\n\n🔒 N'oubliez pas de préparer votre code PIN pour valider la livraison.\n\nÀ tout de suite !`)}`} target="_blank" rel="noreferrer" className="flex flex-col items-center gap-1.5 rounded-2xl bg-[#25D366]/10 py-3.5 text-sm font-bold text-[#4ade80] ring-1 ring-[#25D366]/25">
+                            <MessageCircle className="h-5 w-5" /> WhatsApp
+                          </motion.a>
+                          <motion.a whileTap={{ scale: 0.94 }} href={gpsOf(activeOrder) || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeOrder.customer_address + ', ' + activeOrder.delivery_zone)}`} target="_blank" rel="noreferrer" className="flex flex-col items-center gap-1.5 rounded-2xl bg-sky-400/10 py-3.5 text-sm font-bold text-sky-300 ring-1 ring-sky-400/20">
+                            {gpsOf(activeOrder) ? <MapPin className="h-5 w-5" /> : <Navigation className="h-5 w-5" />} Itinéraire
+                          </motion.a>
+                        </div>
+
+                        <motion.button
+                          whileTap={{ scale: 0.97 }}
+                          onClick={() => openPinModal(activeOrder.id)}
+                          className="shine-btn relative mt-4 flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-400 py-5 text-lg font-extrabold text-[#050b09] shadow-[0_0_40px_rgba(52,211,153,0.35)]"
+                        >
+                          <ShieldCheck className="h-6 w-6" /> Livré & encaissé
+                        </motion.button>
+                      </div>
+                    </div>
+                  </div>
+                </motion.section>
+              )}
+
+              {/* Radar des courses */}
+              <section>
+                <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/50">
+                  <Radar className="h-4 w-4 text-emerald-300" /> Radar des courses
+                  <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] text-emerald-300">{availableOrders.length}</span>
+                </h2>
+
+                {availableOrders.length === 0 ? (
+                  <div className="flex flex-col items-center rounded-[2rem] border border-white/10 bg-white/[0.03] px-6 py-10 text-center">
+                    <div className="relative mb-6 h-40 w-40">
+                      {[0, 1, 2].map((i) => (
+                        <span key={i} className="absolute rounded-full border border-emerald-400/20" style={{ inset: `${i * 22}px` }} />
+                      ))}
+                      <span className="absolute inset-0 animate-spin rounded-full" style={{ background: 'conic-gradient(from 0deg, rgba(52,211,153,0.35), transparent 28%)', animationDuration: '3s' }} />
+                      <span className="absolute left-1/2 top-1/2 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-emerald-400 text-[#050b09] shadow-[0_0_24px_rgba(52,211,153,0.7)]">
+                        <Bike className="h-5 w-5" />
+                      </span>
+                      <motion.span animate={{ opacity: [0, 1, 0], scale: [0.5, 1, 0.5] }} transition={{ duration: 3, repeat: Infinity }} className="absolute left-[22%] top-[26%] h-2.5 w-2.5 rounded-full bg-amber-300" />
+                      <motion.span animate={{ opacity: [0, 1, 0], scale: [0.5, 1, 0.5] }} transition={{ duration: 3, repeat: Infinity, delay: 1.4 }} className="absolute bottom-[24%] right-[20%] h-2 w-2 rounded-full bg-sky-300" />
+                    </div>
+                    <h3 className="text-lg font-bold">En recherche de courses…</h3>
+                    <p className="mt-1 text-sm text-white/50">Aucune nouvelle course pour le moment. Activez le son pour être alerté.</p>
+                    <motion.button whileTap={{ scale: 0.95 }} onClick={fetchDriverOrders} className="mt-6 inline-flex items-center gap-2 rounded-full bg-emerald-400/15 px-5 py-2.5 text-sm font-bold text-emerald-300">
+                      <RefreshCw className="h-4 w-4" /> Rafraîchir
+                    </motion.button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <AnimatePresence initial={false}>
+                      {availableOrders.map((order, i) => (
+                        <motion.article
+                          key={order.id}
+                          layout
+                          initial={{ opacity: 0, x: 40 }}
+                          animate={{ opacity: 1, x: 0, transition: { delay: i * 0.06 } }}
+                          exit={{ opacity: 0, x: -60 }}
+                          className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-5"
+                        >
+                          <span className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-emerald-400 to-teal-500" />
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <span className="mb-2 inline-flex items-center gap-1 rounded-md bg-white/5 px-2 py-0.5 font-mono text-[10px] text-white/50">#{order.id.slice(0, 5).toUpperCase()}</span>
+                              <h3 className="text-lg font-extrabold">{order.delivery_zone}</h3>
+                              <p className="mt-0.5 line-clamp-2 flex items-start gap-1 text-sm text-white/60"><MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {addressOf(order)}</p>
+                            </div>
+                            <AmountBadge order={order} />
+                          </div>
+                          <div className="mt-4 flex items-center gap-2.5">
+                            <span className="flex items-center gap-1.5 rounded-xl bg-white/5 px-3 py-2.5 text-xs font-bold text-white/70">
+                              <Package className="h-3.5 w-3.5" /> {order.cart_items?.length || 1} art.
+                            </span>
+                            <motion.button
+                              whileTap={{ scale: 0.96 }}
+                              onClick={() => assignOrder(order.id)}
+                              disabled={!!activeOrder || assigningId === order.id}
+                              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 py-3 font-extrabold text-[#050b09] shadow-[0_8px_24px_-8px_rgba(52,211,153,0.6)] disabled:cursor-not-allowed disabled:from-white/10 disabled:to-white/10 disabled:text-white/40 disabled:shadow-none"
+                            >
+                              {assigningId === order.id ? <LoaderCircle className="h-5 w-5 animate-spin" /> : activeOrder ? <><Clock className="h-4 w-4" /> Course en cours</> : <>Accepter <ArrowRight className="h-4 w-4" /></>}
+                            </motion.button>
+                          </div>
+                        </motion.article>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                )}
+              </section>
+            </motion.div>
+          )}
+
+          {activeTab === 'gains' && (
+            <motion.div key="gains" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.4, ease: EASE }} className="space-y-6">
+              <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 p-6 shadow-[0_24px_48px_-20px_rgba(16,185,129,0.6)]">
+                <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
+                <p className="relative text-sm font-medium text-emerald-50/90">Total encaissé aujourd'hui (espèces)</p>
+                <p className="relative mt-1 text-5xl font-extrabold tracking-tight">
+                  <CountUp to={totalGains} /> <span className="text-lg font-semibold text-emerald-100/70">FCFA</span>
+                </p>
+                <div className="relative mt-5 grid grid-cols-2 gap-2">
+                  <div className="rounded-2xl bg-white/15 p-3 backdrop-blur">
+                    <p className="text-xs text-emerald-50/80">Mes frais (gains)</p>
+                    <p className="text-lg font-extrabold">+{fmt(totalDeliveryFees)} F</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/15 p-3 backdrop-blur">
+                    <p className="text-xs text-emerald-50/80">{amountToReturn < 0 ? 'Le marchand vous doit' : 'À reverser'}</p>
+                    <p className="text-lg font-extrabold">{fmt(Math.abs(amountToReturn))} F</p>
+                  </div>
+                </div>
               </div>
-              <h3 className="text-2xl font-black text-gray-900 mb-1">{driverName}</h3>
-              <p className="text-gray-500 font-medium mb-6">Livreur partenaire • {shopName}</p>
-              
-              <button 
-                onClick={handleLogout}
-                className="w-full flex items-center justify-center gap-2 bg-rose-500/10 text-rose-500 py-3.5 rounded-2xl font-bold hover:bg-rose-500/20 transition-all border border-rose-500/20"
-              >
-                <LogOut className="w-5 h-5" /> Déconnexion
-              </button>
-            </div>
-          </div>
-        )}
+
+              <section>
+                <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-white/50">Courses livrées ({deliveredOrders.length})</h2>
+                {deliveredOrders.length === 0 ? (
+                  <div className="rounded-3xl border border-dashed border-white/15 p-8 text-center text-sm text-white/50">
+                    Aucune course livrée pour le moment.
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {deliveredOrders.map((order, i) => (
+                      <motion.div key={order.id} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-400/15 text-emerald-300"><Check className="h-5 w-5" strokeWidth={3} /></span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-bold">{order.delivery_zone}</p>
+                          <p className="font-mono text-xs text-white/40">#{order.id.slice(0, 5).toUpperCase()}</p>
+                        </div>
+                        <p className="font-extrabold text-emerald-300">+{fmt(order.total_amount_fcfa)} F</p>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </motion.div>
+          )}
+
+          {activeTab === 'profil' && (
+            <motion.div key="profil" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.4, ease: EASE }}>
+              <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04] p-8 text-center">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-emerald-400/20 to-transparent" />
+                <motion.span initial={{ scale: 0.6, rotate: -12 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 200 }} className="relative mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-[1.75rem] bg-gradient-to-br from-emerald-400 to-teal-600 text-4xl font-extrabold text-[#050b09] shadow-[0_0_40px_rgba(52,211,153,0.4)]">
+                  {driverName.charAt(0).toUpperCase() || '?'}
+                </motion.span>
+                <h3 className="relative text-2xl font-extrabold">{driverName}</h3>
+                <p className="relative mt-1 text-white/50">Livreur partenaire · {shopLabel}</p>
+                <div className="relative mt-6 grid grid-cols-2 gap-2">
+                  <div className="rounded-2xl bg-white/5 p-4"><p className="text-2xl font-extrabold">{deliveredOrders.length}</p><p className="text-xs text-white/50">Livrées</p></div>
+                  <div className="rounded-2xl bg-white/5 p-4"><p className="text-2xl font-extrabold">{availableOrders.length}</p><p className="text-xs text-white/50">Disponibles</p></div>
+                </div>
+                {merchant?.phone_number && (
+                  <a href={`tel:${merchant.phone_number}`} className="relative mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-white/5 py-3.5 font-bold text-white/80 ring-1 ring-white/10">
+                    <Phone className="h-5 w-5" /> Appeler la boutique
+                  </a>
+                )}
+                <motion.button whileTap={{ scale: 0.97 }} onClick={handleLogout} className="relative mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-rose-500/10 py-3.5 font-bold text-rose-300 ring-1 ring-rose-400/20">
+                  <LogOut className="h-5 w-5" /> Déconnexion
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
-      {/* Barre de navigation bas factice (Bottom Nav) */}
-      <nav className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 z-40 pb-safe">
-        <div className="max-w-md mx-auto px-6 h-16 flex items-center justify-between">
-          <button 
-            onClick={() => setActiveTab('courses')}
-            className={`flex flex-col items-center justify-center gap-1 w-16 transition-colors ${activeTab === 'courses' ? 'text-primary-600' : 'text-gray-400 hover:text-gray-700'}`}
-          >
-            <Navigation className="w-6 h-6" />
-            <span className="text-[10px] font-bold">Courses</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab('gains')}
-            className={`flex flex-col items-center justify-center gap-1 w-16 transition-colors ${activeTab === 'gains' ? 'text-primary-600' : 'text-gray-400 hover:text-gray-700'}`}
-          >
-            <Activity className="w-6 h-6" />
-            <span className="text-[10px] font-bold">Gains</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab('profil')}
-            className={`flex flex-col items-center justify-center gap-1 w-16 transition-colors ${activeTab === 'profil' ? 'text-primary-600' : 'text-gray-400 hover:text-gray-700'}`}
-          >
-            <User className="w-6 h-6" />
-            <span className="text-[10px] font-bold">Profil</span>
-          </button>
+      {/* Navigation basse */}
+      <nav className="fixed inset-x-3 bottom-3 z-40" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div className="mx-auto flex max-w-md items-center justify-around rounded-3xl border border-white/10 bg-[#0b1a14]/85 p-2 shadow-[0_20px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+          {tabs.map((t) => {
+            const active = activeTab === t.id;
+            return (
+              <button key={t.id} onClick={() => setActiveTab(t.id)} className="relative flex flex-1 flex-col items-center gap-1 rounded-2xl py-2.5">
+                {active && <motion.span layoutId="driver-tab" className="absolute inset-0 rounded-2xl bg-emerald-400/15 ring-1 ring-emerald-400/25" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+                <span className="relative">
+                  <t.icon className={`h-6 w-6 transition-colors ${active ? 'text-emerald-300' : 'text-white/40'}`} />
+                  {t.badge > 0 && <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-400 px-1 text-[10px] font-extrabold text-[#050b09]">{t.badge}</span>}
+                </span>
+                <span className={`relative text-[11px] font-bold ${active ? 'text-white' : 'text-white/40'}`}>{t.label}</span>
+              </button>
+            );
+          })}
         </div>
       </nav>
 
-      {/* Modale de Code PIN Moderne */}
-      {pinModal.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-white/90 backdrop-blur-sm">
-          <div className="bg-white rounded-t-[2rem] sm:rounded-[2.5rem] shadow-2xl border border-gray-100 max-w-sm w-full relative z-10 overflow-hidden animate-in slide-in-from-bottom-full sm:zoom-in duration-300 pb-safe">
-            <button 
-              onClick={() => !pinModal.isLoading && setPinModal({ ...pinModal, isOpen: false })}
-              className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
+      {/* Modale code PIN */}
+      <AnimatePresence>
+        {pinModal.isOpen && (
+          <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center sm:p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={closePinModal} />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', stiffness: 300, damping: 32 }}
+              className="relative w-full max-w-sm overflow-hidden rounded-t-[2rem] border border-white/10 bg-[#0b1a14] p-7 pb-10 text-center sm:rounded-[2rem]"
             >
-              <X className="w-5 h-5" />
-            </button>
+              <div className="pointer-events-none absolute -top-20 left-1/2 h-40 w-40 -translate-x-1/2 rounded-full bg-emerald-400/25 blur-3xl" />
+              <button onClick={closePinModal} className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white/60" aria-label="Fermer"><X className="h-5 w-5" /></button>
 
-            <div className="p-8 text-center">
-              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner border border-gray-100">
-                <ShieldCheck className="w-8 h-8 text-emerald-600" />
-              </div>
-              <h3 className="text-2xl font-black text-gray-900 mb-2">Code Client</h3>
-              <p className="text-gray-500 text-sm font-medium mb-8">
-                Demandez au client son code secret à 4 chiffres pour valider.
-              </p>
+              <AnimatePresence mode="wait">
+                {pinModal.success ? (
+                  <motion.div key="ok" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="relative py-8">
+                    <motion.span initial={{ scale: 0, rotate: -120 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 220, damping: 12 }} className="mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-[#050b09] shadow-[0_0_60px_rgba(52,211,153,0.6)]">
+                      <Check className="h-12 w-12" strokeWidth={3} />
+                    </motion.span>
+                    <h3 className="text-2xl font-extrabold">Livraison validée !</h3>
+                    <p className="mt-1 text-white/60">Bravo, course terminée 🎉</p>
+                  </motion.div>
+                ) : (
+                  <motion.form key="form" onSubmit={submitPinCode} className="relative">
+                    <motion.span animate={{ rotate: [0, -8, 8, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }} className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-300">
+                      <ShieldCheck className="h-8 w-8" />
+                    </motion.span>
+                    <h3 className="text-2xl font-extrabold">Code client</h3>
+                    <p className="mb-7 mt-1 text-sm text-white/60">Demandez au client son code secret à 4 chiffres.</p>
 
-              <form onSubmit={submitPinCode}>
-                <input
-                  type="text"
-                  pattern="\d*"
-                  maxLength="4"
-                  required
-                  autoFocus
-                  placeholder="• • • •"
-                  className="w-full text-center text-5xl tracking-[0.3em] font-black text-gray-900 bg-white border-2 border-gray-100 rounded-2xl py-6 focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/20 outline-none transition-all mb-2"
-                  value={pinModal.pinValue}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, '');
-                    setPinModal({ ...pinModal, pinValue: val, error: '' });
-                  }}
-                  disabled={pinModal.isLoading}
-                />
-                
-                <div className="h-6 mb-6">
-                  {pinModal.error && (
-                    <p className="text-sm font-bold text-rose-500 animate-pulse">{pinModal.error}</p>
-                  )}
-                </div>
-
-                <button 
-                  type="submit"
-                  disabled={pinModal.isLoading || pinModal.pinValue.length !== 4}
-                  onMouseEnter={playPop}
-                  className="w-full flex items-center justify-center gap-2 bg-emerald-500 text-white py-4 rounded-[1.25rem] font-black text-xl hover:bg-emerald-400 active:scale-[0.98] transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-30 disabled:active:scale-100 disabled:bg-gray-100 disabled:text-gray-400"
-                >
-                  {pinModal.isLoading ? (
-                    <div className="w-6 h-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    "Valider la livraison"
-                  )}
-                </button>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modale d'Identification Sécurisée du Livreur (Claire & Ultra Moderne) */}
-      {showDriverNameModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-50/90 backdrop-blur-md">
-          <div className="bg-white rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-slate-100 max-w-4xl w-full relative z-10 overflow-hidden animate-in zoom-in-95 duration-500 flex flex-col md:flex-row">
-            
-            {/* Image / Illustration Section (Hidden on small mobile, visible on tablet+) */}
-            <div className="hidden md:flex md:w-1/2 relative bg-primary-50 p-8 flex-col justify-center items-center overflow-hidden">
-               <div className="absolute top-0 left-0 w-full h-full bg-[url('https://images.unsplash.com/photo-1617347454431-f49d7ff5c3b1?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80')] bg-cover bg-center opacity-80 mix-blend-multiply"></div>
-               <div className="absolute inset-0 bg-gradient-to-t from-primary-900/90 to-primary-900/20"></div>
-               <div className="relative z-10 text-center text-white p-6">
-                 <Truck className="w-16 h-16 mx-auto mb-6 text-primary-300" />
-                 <h2 className="text-3xl font-black mb-4">Portail Livreur</h2>
-                 <p className="text-primary-100 text-lg font-medium">Accédez à vos courses, suivez vos gains et livrez en toute simplicité.</p>
-               </div>
-            </div>
-
-            {/* Form Section */}
-            <div className="w-full md:w-1/2 p-6 sm:p-10 md:p-12 pb-safe bg-white">
-              <div className="md:hidden flex justify-center mb-6">
-                 <div className="w-20 h-20 bg-primary-50 rounded-2xl flex items-center justify-center">
-                    <Truck className="w-10 h-10 text-primary-600" />
-                 </div>
-              </div>
-              
-              <h3 className="text-2xl sm:text-3xl font-black text-gray-900 mb-2 tracking-tight text-center md:text-left">Bienvenue</h3>
-              <p className="text-gray-400 font-medium mb-8 text-center md:text-left">
-                Saisissez vos identifiants pour commencer.
-              </p>
-
-              <form onSubmit={handleLogin} className="space-y-6">
-                <div className="group">
-                  <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-widest group-focus-within:text-primary-600 transition-colors">Numéro de Téléphone</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Phone className="w-5 h-5 text-gray-500 group-focus-within:text-primary-600 transition-colors" />
+                    <div className="relative mb-3" onClick={() => pinInputRef.current?.focus()}>
+                      <input
+                        ref={pinInputRef}
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={4}
+                        autoFocus
+                        aria-label="Code PIN à 4 chiffres"
+                        className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                        value={pinModal.pinValue}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                          setPinModal({ ...pinModal, pinValue: val, error: '' });
+                        }}
+                        disabled={pinModal.isLoading}
+                      />
+                      <motion.div key={pinModal.shake} animate={pinModal.shake ? { x: [0, -12, 12, -8, 8, -4, 4, 0] } : {}} transition={{ duration: 0.5 }} className="grid grid-cols-4 gap-3">
+                        {[0, 1, 2, 3].map((i) => {
+                          const ch = pinModal.pinValue[i];
+                          const current = i === pinModal.pinValue.length;
+                          return (
+                            <div
+                              key={i}
+                              className={`flex h-[4.5rem] items-center justify-center rounded-2xl border-2 text-4xl font-extrabold transition-colors ${
+                                pinModal.error ? 'border-rose-400/60 bg-rose-400/10' : ch ? 'border-emerald-400 bg-emerald-400/10' : current ? 'border-emerald-400/50 bg-white/5' : 'border-white/10 bg-white/5'
+                              }`}
+                            >
+                              {ch ? (
+                                <motion.span initial={{ scale: 0, y: 10 }} animate={{ scale: 1, y: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 18 }}>{ch}</motion.span>
+                              ) : current ? (
+                                <span className="h-8 w-0.5 animate-pulse rounded bg-emerald-400" />
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </motion.div>
                     </div>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ex: 01 23 45 67 89"
-                      className="w-full text-lg font-bold text-gray-900 bg-gray-50 border-2 border-gray-200 rounded-2xl py-4 pl-12 pr-4 focus:border-primary-600 focus:bg-white focus:ring-4 focus:ring-primary-600/10 outline-none transition-all placeholder:text-gray-500"
-                      value={loginForm.phone}
-                      onChange={(e) => setLoginForm({...loginForm, phone: e.target.value, error: ''})}
-                      disabled={loginForm.isLoading}
-                    />
-                  </div>
-                </div>
-                
-                <div className="group">
-                  <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-widest group-focus-within:text-primary-600 transition-colors">Numéro CNI</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <ShieldCheck className="w-5 h-5 text-gray-500 group-focus-within:text-primary-600 transition-colors" />
+
+                    <div className="mb-5 h-6">
+                      {pinModal.error && <p className="text-sm font-bold text-rose-300">{pinModal.error}</p>}
                     </div>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Votre pièce d'identité"
-                      className="w-full text-lg font-bold text-gray-900 bg-gray-50 border-2 border-gray-200 rounded-2xl py-4 pl-12 pr-4 focus:border-primary-600 focus:bg-white focus:ring-4 focus:ring-primary-600/10 outline-none transition-all placeholder:text-gray-500"
-                      value={loginForm.cni}
-                      onChange={(e) => setLoginForm({...loginForm, cni: e.target.value, error: ''})}
-                      disabled={loginForm.isLoading}
-                    />
-                  </div>
-                </div>
-                
-                {loginForm.error && (
-                  <div className="p-4 mt-2 rounded-2xl bg-rose-50 border border-rose-100 flex items-center gap-3 animate-in slide-in-from-top-2">
-                    <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
-                       <X className="w-4 h-4 text-rose-600" />
-                    </div>
-                    <p className="text-sm font-bold text-rose-600">{loginForm.error}</p>
-                  </div>
+
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
+                      type="submit"
+                      disabled={pinModal.isLoading || pinModal.pinValue.length !== 4}
+                      onMouseEnter={playPop}
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-400 py-4 text-lg font-extrabold text-[#050b09] shadow-[0_0_30px_rgba(52,211,153,0.35)] transition-opacity disabled:opacity-30 disabled:shadow-none"
+                    >
+                      {pinModal.isLoading ? <LoaderCircle className="h-6 w-6 animate-spin" /> : <><CheckCircle2 className="h-6 w-6" /> Valider la livraison</>}
+                    </motion.button>
+                  </motion.form>
                 )}
-
-                <button 
-                  type="submit"
-                  disabled={!loginForm.phone.trim() || !loginForm.cni.trim() || loginForm.isLoading}
-                  className="w-full flex items-center justify-center gap-2 bg-primary-600 text-white rounded-[1.25rem] font-black text-lg hover:bg-primary-500 active:scale-[0.98] transition-all disabled:opacity-50 disabled:bg-gray-200 disabled:text-gray-400 mt-8"
-                  style={{ paddingTop: '1.25rem', paddingBottom: '1.25rem' }}
-                >
-                  {loginForm.isLoading ? (
-                     <div className="w-6 h-6 border-2 border-gray-300 border-t-white rounded-full animate-spin"></div>
-                  ) : (
-                    <>Se Connecter <ArrowRight className="w-5 h-5" /></>
-                  )}
-                </button>
-              </form>
-            </div>
+              </AnimatePresence>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
+
+      {/* Connexion du livreur */}
+      <AnimatePresence>
+        {showDriverNameModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] overflow-y-auto bg-[#050b09]">
+            <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+              <div className="aurora-blob aurora-1 -left-24 -top-24 h-96 w-96 bg-emerald-500/25" />
+              <div className="aurora-blob aurora-2 -right-24 bottom-0 h-96 w-96 bg-cyan-500/15" />
+              <div className="bg-grid-pattern absolute inset-0" />
+            </div>
+            <div className="relative mx-auto flex min-h-full max-w-md flex-col justify-center px-5 py-10">
+              <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: EASE }}>
+                <div className="relative mb-8 h-28">
+                  <div className="absolute inset-x-0 bottom-3 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                  <motion.span
+                    animate={{ x: ['-10%', '85%'] }}
+                    transition={{ duration: 3.2, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' }}
+                    className="absolute bottom-3 flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-400 to-teal-600 text-[#050b09] shadow-[0_0_50px_rgba(52,211,153,0.5)]"
+                  >
+                    <Bike className="h-10 w-10" />
+                  </motion.span>
+                </div>
+                <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-xs font-bold uppercase tracking-widest text-emerald-300 ring-1 ring-white/10">
+                  <Store className="h-3.5 w-3.5" /> {shopLabel}
+                </p>
+                <h2 className="text-4xl font-extrabold tracking-tight text-white">Portail livreur</h2>
+                <p className="mt-2 text-white/60">Connectez-vous avec votre téléphone et votre numéro de CNI pour voir vos courses.</p>
+
+                <form onSubmit={handleLogin} className="mt-8 space-y-4">
+                  <ErrorBanner message={loginForm.error} dark />
+                  <Field
+                    dark
+                    id="driver-phone"
+                    type="tel"
+                    label="Numéro de téléphone"
+                    icon={Phone}
+                    autoComplete="tel"
+                    required
+                    value={loginForm.phone}
+                    onChange={(e) => setLoginForm({ ...loginForm, phone: e.target.value, error: '' })}
+                    disabled={loginForm.isLoading}
+                  />
+                  <Field
+                    dark
+                    id="driver-cni"
+                    label="Numéro de CNI"
+                    icon={IdCard}
+                    required
+                    value={loginForm.cni}
+                    onChange={(e) => setLoginForm({ ...loginForm, cni: e.target.value, error: '' })}
+                    disabled={loginForm.isLoading}
+                  />
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    type="submit"
+                    disabled={!loginForm.phone.trim() || !loginForm.cni.trim() || loginForm.isLoading}
+                    className="shine-btn flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-400 py-4 text-lg font-extrabold text-[#050b09] shadow-[0_0_40px_rgba(52,211,153,0.35)] transition-opacity disabled:opacity-40 disabled:shadow-none"
+                  >
+                    {loginForm.isLoading ? <LoaderCircle className="h-6 w-6 animate-spin" /> : <>Commencer ma tournée <ArrowRight className="h-5 w-5" /></>}
+                  </motion.button>
+                </form>
+                <p className="mt-6 flex items-center justify-center gap-2 text-xs text-white/40">
+                  <ShieldCheck className="h-4 w-4" /> Vos identifiants sont fournis par le marchand.
+                </p>
+              </motion.div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
+    </MotionConfig>
   );
 }

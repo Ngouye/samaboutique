@@ -6,6 +6,8 @@ const AuthContext = createContext();
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [merchant, setMerchant] = useState(null);
+  // Rôle admin vérifié par la base (table platform_admins), jamais par une adresse email côté navigateur.
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,6 +28,7 @@ export function AuthProvider({ children }) {
         fetchMerchantProfile(session.user.id);
       } else {
         setMerchant(null);
+        setIsAdmin(false);
         setLoading(false);
       }
     });
@@ -35,12 +38,12 @@ export function AuthProvider({ children }) {
 
   const fetchMerchantProfile = async (userId) => {
     try {
-      const { data, error } = await supabase
-        .from('merchants')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      
+      const [{ data, error }, { data: adminFlag }] = await Promise.all([
+        supabase.from('merchants').select('*').eq('id', userId).single(),
+        supabase.rpc('is_platform_admin'),
+      ]);
+      setIsAdmin(adminFlag === true);
+
       if (error) {
         console.error("Error fetching merchant profile:", error);
       } else {
@@ -75,8 +78,6 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     return supabase.auth.signOut();
   };
-
-  const isAdmin = user?.email === 'gningngouye2001@gmail.com';
 
   return (
     <AuthContext.Provider value={{ user, merchant, isAdmin, login, register, logout, loading }}>

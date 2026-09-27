@@ -59,8 +59,8 @@ export default function StoreStories({ products = [], onProductClick }) {
   return (
     <>
       {/* Story Bubbles Row */}
-      <div className="w-full bg-white/50 backdrop-blur-md pt-6 pb-4 border-b border-gray-100 overflow-x-auto scrollbar-hide sticky top-0 z-40">
-        <div className="flex gap-4 px-4 sm:px-6 max-w-7xl mx-auto">
+      <div className="w-full overflow-x-auto scrollbar-hide py-2">
+        <div className="flex gap-4">
           {storyProducts.map((product, idx) => (
             <div 
               key={product.id} 
@@ -69,7 +69,7 @@ export default function StoreStories({ products = [], onProductClick }) {
             >
               <div className="relative w-20 h-20 rounded-full flex items-center justify-center transition-transform group-hover:scale-105 shadow-md overflow-hidden">
                 {/* Anneau rotatif */}
-                <div className="spinning-border"></div>
+                <div className="story-ring absolute inset-0 rounded-full"></div>
                 {/* Conteneur image */}
                 <div className="absolute inset-[3px] rounded-full border-2 border-white overflow-hidden bg-white z-10">
                   <img 
@@ -148,7 +148,7 @@ export default function StoreStories({ products = [], onProductClick }) {
                     {storyProducts[activeStoryIndex].name}
                   </h3>
                   <p className="text-white/90 text-xl font-bold drop-shadow-md">
-                    {storyProducts[activeStoryIndex].price} FCFA
+                    {storyProducts[activeStoryIndex].price_fcfa?.toLocaleString('fr-FR')} FCFA
                   </p>
                 </div>
                 

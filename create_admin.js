@@ -1,7 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://kvtqcxyqjsodzdjshits.supabase.co';
-const serviceRoleKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt2dHFjeHlxanNvZHpkanNoaXRzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4Nzg2NDI1MSwiZXhwIjoyMTAzNDQwMjUxfQ.H0HPADh6UpJQax4aSb-cAGVFhJC-WgVXtAtu6nntQ7s';
+// Aucun secret dans ce fichier : tout est lu depuis l'environnement.
+// Exemple : node --env-file=server/.env create_admin.js
+// (server/.env doit contenir SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ADMIN_EMAIL, ADMIN_PASSWORD)
+const supabaseUrl = process.env.SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const email = process.env.ADMIN_EMAIL;
+const password = process.env.ADMIN_PASSWORD;
+
+if (!supabaseUrl || !serviceRoleKey || !email || !password) {
+  console.error('Variables manquantes : SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ADMIN_EMAIL, ADMIN_PASSWORD');
+  process.exit(1);
+}
 
 const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: {
@@ -13,12 +23,12 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 async function createAdmin() {
   console.log("Création de l'utilisateur admin via l'API d'administration...");
   const { data, error } = await supabase.auth.admin.createUser({
-    email: 'admin2@samaboutik.com',
-    password: 'password123',
+    email,
+    password,
     email_confirm: true,
     user_metadata: {
-      shop_name: 'Boutique Pro Dakar',
-      phone_number: '77 111 22 33'
+      shop_name: process.env.ADMIN_SHOP_NAME || 'Boutique Admin',
+      phone_number: process.env.ADMIN_PHONE || ''
     }
   });
 

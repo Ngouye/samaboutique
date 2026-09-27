@@ -1,10 +1,77 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Store, AlertCircle, ArrowRight, Mail, Lock, Phone } from 'lucide-react';
+import { Store, ArrowRight, Mail, Lock, Phone, Check, Sparkles, ShoppingBag, Globe } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { playSuccess, playPop } from '../utils/audio';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { AuthShell, Field, PasswordField, StrengthMeter, SubmitButton, ErrorBanner, EASE } from '../components/auth/AuthUI';
+
+// Aperçu en direct de la boutique pendant la saisie.
+function ShopPreview({ shopName, phoneNumber, email, password }) {
+  const steps = [
+    { label: 'Boutique nommée', done: shopName.trim().length > 1 },
+    { label: 'Contact WhatsApp', done: phoneNumber.replace(/\D/g, '').length >= 8 },
+    { label: 'Compte sécurisé', done: /\S+@\S+\.\S+/.test(email) && password.length >= 6 },
+  ];
+  const doneCount = steps.filter((s) => s.done).length;
+  const name = shopName.trim() || 'Votre boutique';
+
+  return (
+    <div className="max-w-md">
+      <motion.h2 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: EASE }} className="text-4xl font-extrabold leading-tight tracking-tight xl:text-5xl">
+        Votre vitrine prend vie <span className="text-shimmer">en direct.</span>
+      </motion.h2>
+
+      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.8, ease: EASE }} className="mt-8 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.06] shadow-[0_30px_60px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+        <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3 font-mono text-xs text-white/60">
+          <Globe className="h-3.5 w-3.5 text-emerald-300" />
+          <span className="truncate">samaboutik.sn/boutique/<span className="text-emerald-300">{encodeURIComponent(name.toLowerCase().replace(/\s+/g, '-'))}</span></span>
+        </div>
+        <div className="bg-gradient-to-br from-emerald-600 to-teal-800 p-5">
+          <div className="flex items-center gap-3">
+            <motion.span key={name.charAt(0)} initial={{ scale: 0.5, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-xl font-extrabold text-emerald-700 shadow-lg">
+              {name.charAt(0).toUpperCase()}
+            </motion.span>
+            <div className="min-w-0">
+              <AnimatePresence mode="wait">
+                <motion.p key={name} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="truncate text-xl font-extrabold">{name}</motion.p>
+              </AnimatePresence>
+              <p className="text-xs text-emerald-100/80">{phoneNumber || 'Votre numéro WhatsApp'}</p>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-2 p-4">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="rounded-xl bg-white/5 p-2">
+              <div className="flex aspect-square items-center justify-center rounded-lg bg-white/10"><ShoppingBag className="h-5 w-5 text-white/30" /></div>
+              <div className="mt-2 h-1.5 w-3/4 rounded bg-white/15" />
+              <div className="mt-1 h-1.5 w-1/2 rounded bg-emerald-400/40" />
+            </div>
+          ))}
+        </div>
+      </motion.div>
+
+      <div className="mt-6 space-y-2.5">
+        {steps.map((s) => (
+          <div key={s.label} className="flex items-center gap-3">
+            <motion.span
+              animate={{ scale: s.done ? [1, 1.3, 1] : 1, backgroundColor: s.done ? 'rgb(52 211 153)' : 'rgba(255,255,255,0.08)' }}
+              transition={{ duration: 0.4 }}
+              className="flex h-7 w-7 items-center justify-center rounded-full"
+            >
+              {s.done && <Check className="h-4 w-4 text-[#030a07]" strokeWidth={3} />}
+            </motion.span>
+            <span className={`font-semibold transition-colors ${s.done ? 'text-white' : 'text-white/40'}`}>{s.label}</span>
+          </div>
+        ))}
+        <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10">
+          <motion.div animate={{ width: `${(doneCount / steps.length) * 100}%` }} transition={{ duration: 0.6, ease: EASE }} className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-amber-300" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -13,7 +80,8 @@ export default function Register() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
+  const [success, setSuccess] = useState(false);
+
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -23,15 +91,16 @@ export default function Register() {
       setError('');
       setLoading(true);
       await register(email, password, shopName, phoneNumber);
-      
+
+      setSuccess(true);
       playSuccess();
       confetti({
-        particleCount: 150,
-        spread: 70,
+        particleCount: 160,
+        spread: 80,
         origin: { y: 0.6 },
-        colors: ['#4F46E5', '#EC4899', '#8B5CF6']
+        colors: ['#10b981', '#2dd4bf', '#fbbf24', '#ffffff']
       });
-      
+
       setTimeout(() => {
         const searchParams = new URLSearchParams(window.location.search);
         const plan = searchParams.get('plan');
@@ -41,7 +110,7 @@ export default function Register() {
           navigate('/dashboard');
         }
       }, 1500);
-      
+
     } catch (err) {
       setError(err.message || 'Échec de la création du compte');
     } finally {
@@ -49,167 +118,41 @@ export default function Register() {
     }
   };
 
+  const fields = [
+    <Field key="shop" id="shopName" label="Nom de la boutique" icon={Store} required value={shopName} onChange={(e) => setShopName(e.target.value)} />,
+    <Field key="phone" id="phone" type="tel" label="Téléphone (WhatsApp)" icon={Phone} autoComplete="tel" required value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} />,
+    <Field key="email" id="email" type="email" label="Adresse email" icon={Mail} autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />,
+    <div key="pw">
+      <PasswordField id="password" label="Mot de passe (6 caractères min.)" icon={Lock} autoComplete="new-password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
+      <StrengthMeter password={password} />
+    </div>,
+  ];
+
   return (
-    <div className="min-h-screen flex relative overflow-hidden bg-mesh">
-      {/* Background Decoratives (Aurora) */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary-500/20 rounded-full blur-[120px] pointer-events-none animate-aurora-1"></div>
-      <div className="absolute top-[20%] right-[-10%] w-[30%] h-[40%] bg-purple-500/20 rounded-full blur-[120px] pointer-events-none animate-aurora-2"></div>
-      <div className="absolute top-[40%] left-[20%] w-[20%] h-[30%] bg-pink-500/10 rounded-full blur-[100px] pointer-events-none animate-aurora-1" style={{animationDelay: '2s'}}></div>
-      
-      <div className="flex-1 flex items-center justify-center p-6 z-10 py-12">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-          className="w-full max-w-md glass rounded-[2rem] p-10 relative shadow-[0_8px_40px_rgb(0,0,0,0.04)]"
-        >
-          
-          <div className="flex flex-col items-center mb-8">
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.1, duration: 0.5, ease: "easeOut" }}
-            >
-              <Link to="/" className="h-20 flex items-center justify-center mb-6">
-                <img src="/logo.png" alt="SamaBoutik Logo" className="h-full object-contain drop-shadow-sm" />
-              </Link>
-            </motion.div>
-            
-            <motion.h2 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="text-2xl font-black text-gray-900 tracking-tight text-center"
-            >
-              Lancer votre boutique
-            </motion.h2>
-            <motion.p 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="mt-2 text-sm text-gray-500 text-center font-medium"
-            >
-              Rejoignez <span className="text-primary-600 font-bold">SamaBoutik</span> et vendez en 2 minutes.
-            </motion.p>
-          </div>
-          
-          {error && (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="mb-8 bg-red-50 p-4 rounded-2xl flex items-start gap-3 border border-red-100/50"
-            >
-              <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
-              <p className="text-sm text-red-700 font-medium">{error}</p>
-            </motion.div>
-          )}
-
-          <form className="space-y-5" onSubmit={handleSubmit}>
-            <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 }} className="group relative">
-              <label htmlFor="shopName" className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Nom de la boutique</label>
-              <div className="relative flex items-center">
-                <div className="absolute left-4 text-gray-400 group-focus-within:text-primary-600 transition-colors">
-                  <Store className="w-5 h-5" strokeWidth={2.5} />
-                </div>
-                <input
-                  id="shopName"
-                  type="text"
-                  required
-                  className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl text-gray-900 placeholder-gray-400 font-medium focus:outline-none focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 focus:bg-white transition-all duration-300"
-                  placeholder="Ex: Mon Super Store"
-                  value={shopName}
-                  onChange={(e) => setShopName(e.target.value)}
-                />
-              </div>
-            </motion.div>
-            
-            <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.45 }} className="group relative">
-              <label htmlFor="phone" className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Téléphone (WhatsApp)</label>
-              <div className="relative flex items-center">
-                <div className="absolute left-4 text-gray-400 group-focus-within:text-primary-600 transition-colors">
-                  <Phone className="w-5 h-5" strokeWidth={2.5} />
-                </div>
-                <input
-                  id="phone"
-                  type="tel"
-                  required
-                  className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl text-gray-900 placeholder-gray-400 font-medium focus:outline-none focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 focus:bg-white transition-all duration-300"
-                  placeholder="+221 77 000 00 00"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                />
-              </div>
-            </motion.div>
-
-            <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }} className="group relative">
-              <label htmlFor="email" className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Adresse Email</label>
-              <div className="relative flex items-center">
-                <div className="absolute left-4 text-gray-400 group-focus-within:text-primary-600 transition-colors">
-                  <Mail className="w-5 h-5" strokeWidth={2.5} />
-                </div>
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl text-gray-900 placeholder-gray-400 font-medium focus:outline-none focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 focus:bg-white transition-all duration-300"
-                  placeholder="vous@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-            </motion.div>
-            
-            <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.55 }} className="group relative">
-              <label htmlFor="password" className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Mot de passe</label>
-              <div className="relative flex items-center">
-                <div className="absolute left-4 text-gray-400 group-focus-within:text-primary-600 transition-colors">
-                  <Lock className="w-5 h-5" strokeWidth={2.5} />
-                </div>
-                <input
-                  id="password"
-                  type="password"
-                  required
-                  minLength="6"
-                  className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl text-gray-900 placeholder-gray-400 font-medium focus:outline-none focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 focus:bg-white transition-all duration-300"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-            </motion.div>
-
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="pt-2">
-              <motion.button
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.98 }}
-                type="submit"
-                disabled={loading}
-                onMouseEnter={playPop}
-                className="relative overflow-hidden w-full flex justify-center items-center py-4 px-4 border border-transparent rounded-2xl text-sm font-bold text-white bg-gradient-to-r from-primary-600 to-pink-500 hover:from-primary-700 hover:to-pink-600 focus:outline-none focus:ring-4 focus:ring-primary-500/30 shadow-[0_8px_20px_rgb(79,70,229,0.25)] disabled:opacity-50 transition-colors"
-              >
-                {loading ? 'Création en cours...' : (
-                  <>
-                    Créer ma boutique
-                    <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </>
-                )}
-              </motion.button>
-            </motion.div>
-          </form>
-          
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}
-            className="mt-8 text-center"
-          >
-            <p className="text-sm text-gray-500 font-medium">
-              Déjà un compte ?{' '}
-              <Link to="/login" className="font-bold text-primary-600 hover:text-primary-700 hover:underline transition-colors">
-                Connectez-vous
-              </Link>
-            </p>
+    <AuthShell
+      side={<ShopPreview shopName={shopName} phoneNumber={phoneNumber} email={email} password={password} />}
+      badge={<><Sparkles className="h-3.5 w-3.5" /> Gratuit pour démarrer</>}
+      title="Lancez votre boutique"
+      subtitle="Rejoignez SamaBoutik et commencez à vendre en 2 minutes."
+    >
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <ErrorBanner message={error} />
+        {fields.map((f, i) => (
+          <motion.div key={i} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 + i * 0.08, ease: EASE, duration: 0.6 }}>
+            {f}
           </motion.div>
+        ))}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="pt-2">
+          <SubmitButton onMouseEnter={playPop} loading={loading} loadingText="Création en cours..." success={success && <><Check className="h-5 w-5" strokeWidth={3} /> Boutique créée !</>}>
+            Créer ma boutique <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+          </SubmitButton>
         </motion.div>
-      </div>
-    </div>
+      </form>
+
+      <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="mt-8 text-center text-sm text-slate-500">
+        Déjà un compte ?{' '}
+        <Link to="/login" className="font-bold text-emerald-600 hover:text-emerald-700 hover:underline">Connectez-vous</Link>
+      </motion.p>
+    </AuthShell>
   );
 }

@@ -31,36 +31,7 @@ router.get('/:productId', async (req, res) => {
   }
 });
 
-// POST /api/reviews - Add a new review
-router.post('/', async (req, res) => {
-  try {
-    const { product_id, order_id, rating, comment, customer_name } = req.body;
-
-    // Optional: Validate that the order exists and belongs to the product
-    if (order_id) {
-       const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .select('id')
-        .eq('id', order_id)
-        .single();
-        
-       if (orderError) throw new Error("Commande invalide pour cet avis.");
-    }
-
-    const { data, error } = await supabase.from('reviews').insert([{
-      product_id,
-      order_id: order_id || null, // Can be null if we allow general reviews for now
-      rating,
-      comment,
-      customer_name
-    }]).select().single();
-
-    if (error) throw error;
-    res.json({ success: true, review: data });
-  } catch (error) {
-    console.error("Erreur serveur lors de l'ajout d'un avis :", error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+// Les avis sont publiés via la fonction SQL submit_review (validation + limitation des envois).
+// L'ancienne route POST, qui insérait sans contrôle avec la clé service_role, a été supprimée.
 
 export default router;

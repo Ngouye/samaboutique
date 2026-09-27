@@ -1,15 +1,61 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { AlertCircle, ArrowRight, Mail, Lock } from 'lucide-react';
+import { ArrowRight, Mail, Lock, Bell, CircleCheck, TrendingUp, Check, Store } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { AuthShell, Field, PasswordField, SubmitButton, ErrorBanner, FloatingCard, EASE } from '../components/auth/AuthUI';
+
+function LoginShowcase() {
+  return (
+    <div className="max-w-md">
+      <motion.h2 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: EASE }} className="text-4xl font-extrabold leading-tight tracking-tight xl:text-5xl">
+        Votre boutique <span className="text-shimmer">vous attend.</span>
+      </motion.h2>
+      <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="mt-4 text-lg text-white/70">
+        Commandes, livraisons et paiements : tout est en temps réel dans votre tableau de bord.
+      </motion.p>
+      <div className="relative mt-10 h-64">
+        <FloatingCard delay={0.5} className="absolute left-0 top-0 w-64">
+          <div className="flex items-center gap-3">
+            <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-400/15">
+              <Bell className="h-5 w-5 text-emerald-300" />
+              <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 animate-ping rounded-full bg-emerald-400" />
+            </span>
+            <div>
+              <p className="text-xs text-white/50">Nouvelle commande</p>
+              <p className="font-extrabold">+ 43 500 FCFA</p>
+            </div>
+          </div>
+        </FloatingCard>
+        <FloatingCard delay={0.8} float={14} duration={7} className="absolute right-0 top-20 w-56">
+          <div className="flex items-center gap-3">
+            <CircleCheck className="h-9 w-9 text-sky-300" />
+            <div>
+              <p className="text-xs text-white/50">Paiement reçu</p>
+              <p className="text-sm font-bold">via Wave</p>
+            </div>
+          </div>
+        </FloatingCard>
+        <FloatingCard delay={1.1} float={8} duration={5} className="absolute bottom-0 left-12 w-60">
+          <p className="mb-2 flex items-center gap-1.5 text-xs text-white/50"><TrendingUp className="h-3.5 w-3.5 text-emerald-300" /> Ventes de la semaine</p>
+          <div className="flex h-12 items-end gap-1.5">
+            {[35, 55, 40, 70, 60, 85, 100].map((h, i) => (
+              <motion.span key={i} initial={{ height: 0 }} animate={{ height: `${h}%` }} transition={{ delay: 1.4 + i * 0.08, duration: 0.8, ease: EASE }} className="w-4 rounded-t bg-gradient-to-t from-emerald-600 to-emerald-300" />
+            ))}
+          </div>
+        </FloatingCard>
+      </div>
+    </div>
+  );
+}
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
+  const [success, setSuccess] = useState(false);
+
   const { login, user } = useAuth();
   const navigate = useNavigate();
 
@@ -24,143 +70,47 @@ export default function Login() {
       setLoading(true);
       const { error: authError } = await login(email, password);
       if (authError) throw authError;
+      setSuccess(true);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message || 'Échec de la connexion');
+      setError(err.message === 'Invalid login credentials' ? 'Email ou mot de passe incorrect.' : (err.message || 'Échec de la connexion'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex relative overflow-hidden bg-mesh">
-      {/* Background Decoratives (Aurora) */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary-500/20 rounded-full blur-[120px] pointer-events-none animate-aurora-1"></div>
-      <div className="absolute top-[20%] right-[-10%] w-[30%] h-[40%] bg-purple-500/20 rounded-full blur-[120px] pointer-events-none animate-aurora-2"></div>
-      <div className="absolute top-[40%] left-[20%] w-[20%] h-[30%] bg-pink-500/10 rounded-full blur-[100px] pointer-events-none animate-aurora-1" style={{animationDelay: '2s'}}></div>
-      
-      <div className="flex-1 flex items-center justify-center p-6 z-10">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-          className="w-full max-w-md glass rounded-[2rem] p-10 relative shadow-[0_8px_40px_rgb(0,0,0,0.04)]"
-        >
-          
-          <div className="flex flex-col items-center mb-10">
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.1, duration: 0.5, ease: "easeOut" }}
-            >
-              <Link to="/" className="h-20 flex items-center justify-center mb-6">
-                <img src="/logo.png" alt="SamaBoutik Logo" className="h-full object-contain drop-shadow-sm" />
-              </Link>
-            </motion.div>
-            
-            <motion.h2 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="text-2xl font-black text-gray-900 tracking-tight text-center"
-            >
-              Content de vous revoir
-            </motion.h2>
-            <motion.p 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="mt-2 text-sm text-gray-500 text-center font-medium"
-            >
-              Connectez-vous pour gérer votre <span className="text-primary-600 font-bold">SamaBoutik</span>
-            </motion.p>
-          </div>
-          
-          {error && (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="mb-8 bg-red-50 p-4 rounded-2xl flex items-start gap-3 border border-red-100/50"
-            >
-              <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
-              <p className="text-sm text-red-700 font-medium">{error}</p>
-            </motion.div>
-          )}
-
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <motion.div 
-              initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 }}
-              className="group relative"
-            >
-              <label htmlFor="email" className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Adresse Email</label>
-              <div className="relative flex items-center">
-                <div className="absolute left-4 text-gray-400 group-focus-within:text-primary-600 transition-colors">
-                  <Mail className="w-5 h-5" strokeWidth={2.5} />
-                </div>
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl text-gray-900 placeholder-gray-400 font-medium focus:outline-none focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 focus:bg-white transition-all duration-300"
-                  placeholder="vous@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-            </motion.div>
-            
-            <motion.div 
-              initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }}
-              className="group relative"
-            >
-              <label htmlFor="password" className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Mot de passe</label>
-              <div className="relative flex items-center">
-                <div className="absolute left-4 text-gray-400 group-focus-within:text-primary-600 transition-colors">
-                  <Lock className="w-5 h-5" strokeWidth={2.5} />
-                </div>
-                <input
-                  id="password"
-                  type="password"
-                  required
-                  className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl text-gray-900 placeholder-gray-400 font-medium focus:outline-none focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 focus:bg-white transition-all duration-300"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-            </motion.div>
-
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="pt-2">
-              <motion.button
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.98 }}
-                type="submit"
-                disabled={loading}
-                className="relative overflow-hidden w-full flex justify-center items-center py-4 px-4 border border-transparent rounded-2xl shadow-[0_8px_20px_rgb(79,70,229,0.25)] text-sm font-bold text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-4 focus:ring-primary-500/30 disabled:opacity-50 transition-colors"
-              >
-                {loading ? 'Connexion...' : (
-                  <>
-                    Se connecter
-                    <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </>
-                )}
-              </motion.button>
-            </motion.div>
-          </form>
-          
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}
-            className="mt-8 text-center"
-          >
-            <p className="text-sm text-gray-500 font-medium">
-              Pas encore de boutique ?{' '}
-              <Link to="/register" className="font-bold text-primary-600 hover:text-primary-700 hover:underline transition-colors">
-                Créer la vôtre
-              </Link>
-            </p>
-          </motion.div>
+    <AuthShell
+      side={<LoginShowcase />}
+      badge={<><Store className="h-3.5 w-3.5" /> Espace marchand</>}
+      title="Content de vous revoir"
+      subtitle="Connectez-vous pour gérer votre boutique SamaBoutik."
+    >
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <ErrorBanner message={error} />
+        <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2, ease: EASE, duration: 0.6 }}>
+          <Field id="email" type="email" label="Adresse email" icon={Mail} autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
         </motion.div>
-      </div>
-    </div>
+        <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3, ease: EASE, duration: 0.6 }}>
+          <PasswordField id="password" label="Mot de passe" icon={Lock} autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="pt-2">
+          <SubmitButton loading={loading} loadingText="Connexion..." success={success && <><Check className="h-5 w-5" strokeWidth={3} /> Bienvenue !</>}>
+            Se connecter <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+          </SubmitButton>
+        </motion.div>
+      </form>
+
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="mt-8">
+        <div className="relative my-6 flex items-center">
+          <div className="h-px flex-1 bg-slate-200" />
+          <span className="px-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Nouveau ici ?</span>
+          <div className="h-px flex-1 bg-slate-200" />
+        </div>
+        <Link to="/register" className="group flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 py-3.5 font-bold text-slate-700 transition-all hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50/50 hover:text-emerald-700">
+          Créer ma boutique gratuitement <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+        </Link>
+      </motion.div>
+    </AuthShell>
   );
 }
