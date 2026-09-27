@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Store, ArrowRight, Mail, Lock, Phone, Check, Sparkles, ShoppingBag, Globe } from 'lucide-react';
+import { Store, ArrowRight, Mail, Lock, Phone, Check, Sparkles, ShoppingBag, Globe, MapPin, LocateFixed, X, LoaderCircle } from 'lucide-react';
+import { getCurrentPosition } from '../utils/geolocation';
 import confetti from 'canvas-confetti';
 import { playSuccess, playPop } from '../utils/audio';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AuthShell, Field, PasswordField, StrengthMeter, SubmitButton, ErrorBanner, EASE } from '../components/auth/AuthUI';
 
 // Aperçu en direct de la boutique pendant la saisie.
-function ShopPreview({ shopName, phoneNumber, email, password }) {
+function ShopPreview({ shopName, phoneNumber, email, password, location }) {
   const steps = [
     { label: 'Boutique nommée', done: shopName.trim().length > 1 },
     { label: 'Contact WhatsApp', done: phoneNumber.replace(/\D/g, '').length >= 8 },
+    { label: 'Boutique localisée (facultatif)', done: !!location },
     { label: 'Compte sécurisé', done: /\S+@\S+\.\S+/.test(email) && password.length >= 6 },
   ];
   const doneCount = steps.filter((s) => s.done).length;
@@ -81,6 +83,21 @@ export default function Register() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [location, setLocation] = useState(null);
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState('');
+
+  const captureLocation = async () => {
+    setLocating(true);
+    setLocationError('');
+    try {
+      setLocation(await getCurrentPosition());
+    } catch (err) {
+      setLocationError(err.message);
+    } finally {
+      setLocating(false);
+    }
+  };
 
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -90,7 +107,7 @@ export default function Register() {
     try {
       setError('');
       setLoading(true);
-      await register(email, password, shopName, phoneNumber);
+      await register(email, password, shopName, phoneNumber, location);
 
       setSuccess(true);
       playSuccess();
@@ -121,6 +138,38 @@ export default function Register() {
   const fields = [
     <Field key="shop" id="shopName" label="Nom de la boutique" icon={Store} required value={shopName} onChange={(e) => setShopName(e.target.value)} />,
     <Field key="phone" id="phone" type="tel" label="Téléphone (WhatsApp)" icon={Phone} autoComplete="tel" required value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} />,
+    <div key="location" className={`rounded-2xl border-2 p-4 transition-colors ${location ? 'border-emerald-300 bg-emerald-50/60' : 'border-dashed border-slate-200 bg-slate-50/50'}`}>
+      {location ? (
+        <div className="flex items-center gap-3">
+          <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-md shadow-emerald-500/30">
+            <MapPin className="h-5 w-5" />
+          </motion.span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-slate-900">Boutique localisée</p>
+            <p className="truncate text-xs text-slate-500">Précision ± {Math.round(location.accuracy)} m · {location.lat.toFixed(5)}, {location.lng.toFixed(5)}</p>
+          </div>
+          <button type="button" onClick={() => setLocation(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-slate-700" aria-label="Retirer la position">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : (
+        <>
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.97 }}
+            onClick={captureLocation}
+            disabled={locating}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3 text-sm font-bold text-slate-700 shadow-sm ring-1 ring-slate-200 transition-colors hover:text-emerald-700 hover:ring-emerald-300 disabled:opacity-60"
+          >
+            {locating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
+            {locating ? 'Localisation en cours…' : 'Localiser ma boutique'}
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-500">facultatif</span>
+          </motion.button>
+          <p className="mt-2 text-xs text-slate-500">Faites-le depuis votre boutique : elle apparaîtra sur la carte SamaBoutik. Vous pourrez la modifier dans vos paramètres.</p>
+        </>
+      )}
+      {locationError && <p className="mt-2 text-xs font-semibold text-rose-600">{locationError}</p>}
+    </div>,
     <Field key="email" id="email" type="email" label="Adresse email" icon={Mail} autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />,
     <div key="pw">
       <PasswordField id="password" label="Mot de passe (6 caractères min.)" icon={Lock} autoComplete="new-password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
@@ -130,7 +179,7 @@ export default function Register() {
 
   return (
     <AuthShell
-      side={<ShopPreview shopName={shopName} phoneNumber={phoneNumber} email={email} password={password} />}
+      side={<ShopPreview shopName={shopName} phoneNumber={phoneNumber} email={email} password={password} location={location} />}
       badge={<><Sparkles className="h-3.5 w-3.5" /> Gratuit pour démarrer</>}
       title="Lancez votre boutique"
       subtitle="Rejoignez SamaBoutik et commencez à vendre en 2 minutes."

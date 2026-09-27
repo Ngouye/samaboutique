@@ -8,7 +8,9 @@ import {
   Coins, ImageOff, Pencil, Tag, Layers, Phone, MapPin, Clock, Smartphone, Bike, Car, ChevronDown, MessageCircle, Route,
   CalendarDays, Check, Copy, ExternalLink, IdCard, TrendingUp, Rocket, Zap, Gem, LoaderCircle, Eye, Palette,
   LayoutTemplate, LayoutGrid, ImagePlus, Upload, Mail, Wallet, Globe, Camera, Music2, Save, Download, Banknote, HandCoins,
+  LocateFixed,
 } from 'lucide-react';
+import { getCurrentPosition, googleMapsUrl } from '../utils/geolocation';
 import { QRCodeSVG } from 'qrcode.react';
 import { SHOP_CATEGORIES, CATEGORY_FEATURES } from '../utils/categories';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -65,6 +67,9 @@ export default function MerchantDashboard() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [productSearch, setProductSearch] = useState('');
   const [productFilter, setProductFilter] = useState('ALL');
+  // Position de la boutique (visible uniquement par le marchand et l'administrateur)
+  const [shopLocation, setShopLocation] = useState(null);
+  const [locating, setLocating] = useState(false);
 
 const DEFAULT_DELIVERY_ZONES = [
   { id: 'dk-plateau', name: 'Dakar Plateau / Médina', price: 1000, active: true },
@@ -279,6 +284,9 @@ const DEFAULT_DELIVERY_ZONES = [
       const { data: teamData, error: teamError } = await supabase.from('drivers').select('*').eq('merchant_id', user.id).order('created_at', { ascending: false });
       if (teamData) setTeam(teamData);
       else if (teamError && teamError.code !== '42P01') console.error(teamError); // Ignore if table doesn't exist yet
+
+      const { data: locationData } = await supabase.from('merchant_locations').select('latitude, longitude, accuracy_m, updated_at').eq('merchant_id', user.id).maybeSingle();
+      setShopLocation(locationData || null);
     }
     setLoading(false);
     setHasLoaded(true);
@@ -582,6 +590,25 @@ Merci de votre confiance ! 🙏`;
   };
 
   // --- Aides d'affichage des onglets ---
+  const updateShopLocation = async () => {
+    setLocating(true);
+    try {
+      const position = await getCurrentPosition();
+      const { error } = await supabase.rpc('set_merchant_location', {
+        p_latitude: position.lat,
+        p_longitude: position.lng,
+        p_accuracy_m: Math.round(position.accuracy || 0),
+      });
+      if (error) throw error;
+      setShopLocation({ latitude: position.lat, longitude: position.lng, accuracy_m: Math.round(position.accuracy || 0), updated_at: new Date().toISOString() });
+      showToast('Position de la boutique enregistrée !');
+    } catch (err) {
+      showToast(err.message || "Impossible d'enregistrer la position.");
+    } finally {
+      setLocating(false);
+    }
+  };
+
   const openNewProduct = () => {
     setEditingProductId(null);
     setNewProduct({ name: '', description: '', price_fcfa: '', stock: '', category: 'Vêtements', features: {}, image: null });
@@ -1520,6 +1547,48 @@ Merci de votre confiance ! 🙏`;
                     <input type="text" value={settingsForm.address} onChange={(e) => setSettingsForm({ ...settingsForm, address: e.target.value })} className={INPUT} placeholder="Dakar, Sénégal" />
                   </div>
                 </div>
+              </SectionCard>
+
+              <SectionCard icon={MapPin} gradient="rose" title="Localisation de la boutique" subtitle="Visible uniquement par vous et l'équipe SamaBoutik, jamais par les clients">
+                {shopLocation ? (
+                  <div className="grid gap-5 md:grid-cols-[1.4fr_1fr]">
+                    <div className="overflow-hidden rounded-2xl ring-1 ring-slate-200">
+                      <iframe
+                        title="Position de la boutique"
+                        className="h-56 w-full"
+                        loading="lazy"
+                        src={`https://www.openstreetmap.org/export/embed.html?bbox=${shopLocation.longitude - 0.008}%2C${shopLocation.latitude - 0.005}%2C${shopLocation.longitude + 0.008}%2C${shopLocation.latitude + 0.005}&layer=mapnik&marker=${shopLocation.latitude}%2C${shopLocation.longitude}`}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-3">
+                      <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
+                        <p className="flex items-center gap-2 text-sm font-bold text-emerald-800"><CircleCheck className="h-4 w-4" /> Boutique localisée</p>
+                        <p className="mt-1 font-mono text-xs text-emerald-900/70">{shopLocation.latitude.toFixed(5)}, {shopLocation.longitude.toFixed(5)}</p>
+                        {shopLocation.accuracy_m != null && <p className="text-xs text-emerald-900/70">Précision ± {shopLocation.accuracy_m} m</p>}
+                        <p className="mt-1 text-xs text-emerald-900/60">Mise à jour le {new Date(shopLocation.updated_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                      </div>
+                      <a href={googleMapsUrl(shopLocation.latitude, shopLocation.longitude)} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50">
+                        <ExternalLink className="h-4 w-4" /> Ouvrir dans Google Maps
+                      </a>
+                      <motion.button type="button" whileTap={{ scale: 0.97 }} onClick={updateShopLocation} disabled={locating} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 py-3 text-sm font-bold text-white transition-colors hover:bg-slate-800 disabled:opacity-60">
+                        {locating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />} Mettre à jour ma position
+                      </motion.button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-4 rounded-2xl border-2 border-dashed border-slate-200 px-6 py-8 text-center">
+                    <motion.span animate={{ y: [0, -6, 0] }} transition={{ duration: 2.5, repeat: Infinity }} className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-400 to-red-500 text-white shadow-lg shadow-rose-500/30">
+                      <MapPin className="h-7 w-7" />
+                    </motion.span>
+                    <div>
+                      <p className="font-bold text-slate-900">Votre boutique n'est pas encore localisée</p>
+                      <p className="mt-1 text-sm text-slate-500">Rendez-vous dans votre boutique, puis appuyez sur le bouton : votre téléphone donnera la position exacte.</p>
+                    </div>
+                    <PrimaryButton type="button" onClick={updateShopLocation} disabled={locating}>
+                      {locating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />} Localiser ma boutique
+                    </PrimaryButton>
+                  </div>
+                )}
               </SectionCard>
 
               <SectionCard icon={Wallet} gradient="amber" title="Réception des paiements" subtitle="Le compte qui reçoit l'argent de vos ventes">

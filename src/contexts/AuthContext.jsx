@@ -58,14 +58,17 @@ export function AuthProvider({ children }) {
     return supabase.auth.signInWithPassword({ email, password });
   };
 
-  const register = async (email, password, shopName, phoneNumber) => {
+  // `location` (facultatif) : position de la boutique partagée par le marchand,
+  // enregistrée côté serveur par le trigger on_auth_user_created_location.
+  const register = async (email, password, shopName, phoneNumber, location = null) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           shop_name: shopName,
-          phone_number: phoneNumber
+          phone_number: phoneNumber,
+          ...(location ? { location: { lat: location.lat, lng: location.lng, accuracy: Math.round(location.accuracy || 0) } } : {})
         }
       }
     });
