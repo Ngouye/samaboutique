@@ -68,7 +68,7 @@ export function AuthProvider({ children }) {
         data: {
           shop_name: shopName,
           phone_number: phoneNumber,
-          ...(location ? { location: { lat: location.lat, lng: location.lng, accuracy: Math.round(location.accuracy || 0) } } : {})
+          ...(location ? { location: { lat: location.lat, lng: location.lng, accuracy: Math.round(location.accuracy || 0), public: !!location.public } } : {})
         }
       }
     });

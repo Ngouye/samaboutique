@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import paymentRoutes from './routes/payment.js';
 import reviewRoutes from './routes/reviews.js';
+import { startNotificationWorker } from './lib/notificationWorker.js';
 
 dotenv.config();
 
@@ -35,4 +36,5 @@ app.get('/health', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Serveur démarré sur le port ${PORT}`);
+  startNotificationWorker();
 });

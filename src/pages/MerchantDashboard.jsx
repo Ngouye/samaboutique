@@ -18,6 +18,8 @@ import Overview from '../components/dashboard/Overview';
 import { PageHeader, PrimaryButton, StatPill, EmptyState, Modal, FilePreview, Toggle, SectionCard, MagicIcon, rise, CARD, INPUT, LABEL, EASE } from '../components/dashboard/ui';
 import { ORDER_STATUSES, statusMeta, timeAgo } from '../components/dashboard/status';
 import { fmt } from '../components/dashboard/analytics';
+import { TagsInput } from '../components/dashboard/TagsInput';
+import { WhatsAppSettingsCard, DirectoryToggle } from '../components/dashboard/SmartSettings';
 
 const pageVariants = {
   initial: { opacity: 0, y: 20 },
@@ -40,7 +42,7 @@ export default function MerchantDashboard() {
   // Modal State
   const [showProductModal, setShowProductModal] = useState(false);
   const [editingProductId, setEditingProductId] = useState(null);
-  const [newProduct, setNewProduct] = useState({ name: '', description: '', price_fcfa: '', stock: '', category: 'Vêtements', features: {}, image: null });
+  const [newProduct, setNewProduct] = useState({ name: '', description: '', price_fcfa: '', stock: '', category: 'Vêtements', features: {}, tags: [], image: null });
   const [uploading, setUploading] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
@@ -285,7 +287,7 @@ const DEFAULT_DELIVERY_ZONES = [
       if (teamData) setTeam(teamData);
       else if (teamError && teamError.code !== '42P01') console.error(teamError); // Ignore if table doesn't exist yet
 
-      const { data: locationData } = await supabase.from('merchant_locations').select('latitude, longitude, accuracy_m, updated_at').eq('merchant_id', user.id).maybeSingle();
+      const { data: locationData } = await supabase.from('merchant_locations').select('*').eq('merchant_id', user.id).maybeSingle();
       setShopLocation(locationData || null);
     }
     setLoading(false);
@@ -414,6 +416,10 @@ const DEFAULT_DELIVERY_ZONES = [
         category: newProduct.category || null,
         variants: variantsArray,
       };
+      // Mots-clés (colonne ajoutée par new_features.sql) : envoyés seulement s'il y en a.
+      if (newProduct.tags?.length || products.find((p) => p.id === editingProductId)?.tags?.length) {
+        productData.tags = newProduct.tags || [];
+      }
 
       if (image_url) {
         productData.image_url = image_url;
@@ -432,7 +438,7 @@ const DEFAULT_DELIVERY_ZONES = [
       
       setShowProductModal(false);
       setEditingProductId(null);
-      setNewProduct({ name: '', description: '', price_fcfa: '', stock: '', category: 'Vêtements', features: {}, image: null });
+      setNewProduct({ name: '', description: '', price_fcfa: '', stock: '', category: 'Vêtements', features: {}, tags: [], image: null });
       fetchData();
     } catch (error) {
       alert("Erreur lors de l'ajout: " + error.message);
@@ -600,7 +606,7 @@ Merci de votre confiance ! 🙏`;
         p_accuracy_m: Math.round(position.accuracy || 0),
       });
       if (error) throw error;
-      setShopLocation({ latitude: position.lat, longitude: position.lng, accuracy_m: Math.round(position.accuracy || 0), updated_at: new Date().toISOString() });
+      setShopLocation((prev) => ({ ...prev, latitude: position.lat, longitude: position.lng, accuracy_m: Math.round(position.accuracy || 0), updated_at: new Date().toISOString() }));
       showToast('Position de la boutique enregistrée !');
     } catch (err) {
       showToast(err.message || "Impossible d'enregistrer la position.");
@@ -611,7 +617,7 @@ Merci de votre confiance ! 🙏`;
 
   const openNewProduct = () => {
     setEditingProductId(null);
-    setNewProduct({ name: '', description: '', price_fcfa: '', stock: '', category: 'Vêtements', features: {}, image: null });
+    setNewProduct({ name: '', description: '', price_fcfa: '', stock: '', category: 'Vêtements', features: {}, tags: [], image: null });
     setShowProductModal(true);
   };
 
@@ -633,6 +639,7 @@ Merci de votre confiance ! 🙏`;
       stock: p.stock,
       category: p.category || 'Vêtements',
       features: existingFeatures,
+      tags: Array.isArray(p.tags) ? p.tags : [],
       image: null
     });
     setShowProductModal(true);
@@ -1549,7 +1556,7 @@ Merci de votre confiance ! 🙏`;
                 </div>
               </SectionCard>
 
-              <SectionCard icon={MapPin} gradient="rose" title="Localisation de la boutique" subtitle="Visible uniquement par vous et l'équipe SamaBoutik, jamais par les clients">
+              <SectionCard icon={MapPin} gradient="rose" title="Localisation de la boutique" subtitle="Visible par vous et l'équipe SamaBoutik, et sur la carte publique seulement si vous l'activez">
                 {shopLocation ? (
                   <div className="grid gap-5 md:grid-cols-[1.4fr_1fr]">
                     <div className="overflow-hidden rounded-2xl ring-1 ring-slate-200">
@@ -1574,6 +1581,9 @@ Merci de votre confiance ! 🙏`;
                         {locating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />} Mettre à jour ma position
                       </motion.button>
                     </div>
+                    <div className="md:col-span-2">
+                      <DirectoryToggle location={shopLocation} onChange={setShopLocation} showToast={showToast} />
+                    </div>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-4 rounded-2xl border-2 border-dashed border-slate-200 px-6 py-8 text-center">
@@ -1590,6 +1600,8 @@ Merci de votre confiance ! 🙏`;
                   </div>
                 )}
               </SectionCard>
+
+              <WhatsAppSettingsCard merchant={merchant} userId={user?.id} showToast={showToast} />
 
               <SectionCard icon={Wallet} gradient="amber" title="Réception des paiements" subtitle="Le compte qui reçoit l'argent de vos ventes">
                 <label className={LABEL}>Méthode de réception</label>
@@ -1912,6 +1924,10 @@ Merci de votre confiance ! 🙏`;
           <div>
             <label className={LABEL}>Description</label>
             <textarea rows="3" placeholder="Détails du produit..." className={`${INPUT} resize-none`} value={newProduct.description} onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })} />
+          </div>
+          <div>
+            <label className={LABEL}>Mots-clés <span className="font-normal text-slate-400">(aident vos clients à trouver le produit)</span></label>
+            <TagsInput value={newProduct.tags || []} onChange={(tags) => setNewProduct((prev) => ({ ...prev, tags }))} />
           </div>
           <div>
             <label className={LABEL}>Catégorie</label>

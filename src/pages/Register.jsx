@@ -86,6 +86,7 @@ export default function Register() {
   const [location, setLocation] = useState(null);
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState('');
+  const [listInDirectory, setListInDirectory] = useState(true);
 
   const captureLocation = async () => {
     setLocating(true);
@@ -107,7 +108,7 @@ export default function Register() {
     try {
       setError('');
       setLoading(true);
-      await register(email, password, shopName, phoneNumber, location);
+      await register(email, password, shopName, phoneNumber, location ? { ...location, public: listInDirectory } : null);
 
       setSuccess(true);
       playSuccess();
@@ -152,7 +153,14 @@ export default function Register() {
             <X className="h-4 w-4" />
           </button>
         </div>
-      ) : (
+      ) : null}
+      {location && (
+        <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-xl bg-white/70 p-3 text-xs text-slate-600 ring-1 ring-emerald-200">
+          <input type="checkbox" checked={listInDirectory} onChange={(e) => setListInDirectory(e.target.checked)} className="mt-0.5 h-4 w-4 accent-emerald-600" />
+          <span><span className="font-bold text-slate-900">Afficher ma boutique dans « Boutiques près de moi »</span><br />Les clients du quartier la trouvent sur la carte SamaBoutik. Modifiable à tout moment.</span>
+        </label>
+      )}
+      {location ? null : (
         <>
           <motion.button
             type="button"

@@ -7,6 +7,7 @@ import confetti from 'canvas-confetti';
 import SocialProofToast from '../components/SocialProofToast';
 import StoreStories from '../components/StoreStories';
 import { BlurWords } from '../components/landing/Magic';
+import LiveDeliveryMap from '../components/shop/LiveDeliveryMap';
 import {
   Package, MapPin, Search, Store, Heart, Star, Plus, Minus, X, ArrowRight, ChevronRight,
   Phone, Mail, ShoppingBag, Truck, Eye, MessageCircle, Smartphone, Gamepad2, Laptop, Camera, Headphones, Shirt,
@@ -292,8 +293,10 @@ export default function PublicShop() {
   const [trackError, setTrackError] = useState('');
 
   // Suivi en direct : la table des commandes n'est plus lisible publiquement,
-  // on redemande le statut toutes les 20 s avec le téléphone et le PIN déjà validés.
+  // on redemande le statut avec le téléphone et le PIN déjà validés :
+  // toutes les 6 s quand le livreur est en route (position sur la carte), sinon toutes les 20 s.
   const trackQueryRef = useRef(null);
+  const inTransit = trackResult?.status === 'IN_TRANSIT';
   useEffect(() => {
     if (!trackResult?.id || !trackQueryRef.current) return undefined;
     const interval = setInterval(async () => {
@@ -303,9 +306,9 @@ export default function PublicShop() {
         p_pin: trackQueryRef.current.pin
       });
       if (data?.ok) setTrackResult(data.order);
-    }, 20000);
+    }, inTransit ? 6000 : 20000);
     return () => clearInterval(interval);
-  }, [trackResult?.id]);
+  }, [trackResult?.id, inTransit]);
 
   useEffect(() => {
     fetchShopData();
@@ -323,6 +326,11 @@ export default function PublicShop() {
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (params.get('payment') === 'cancel') {
       setPaymentStatusMessage("Paiement annulé. Votre commande n'a pas été confirmée.");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (params.has('suivi')) {
+      // Lien du message WhatsApp : ouvre le suivi avec le numéro déjà rempli.
+      setTrackPhone(params.get('suivi') || '');
+      setActiveTab('order-tracking');
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, [shopName]);
@@ -601,7 +609,8 @@ export default function PublicShop() {
   // Filtrage
   const categories = ['Tous', ...new Set(products.map(p => p.category || 'Autres'))];
   let processedProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const q = searchQuery.trim().toLowerCase();
+    const matchesSearch = !q || p.name.toLowerCase().includes(q) || (Array.isArray(p.tags) && p.tags.some((t) => t.includes(q)));
     const matchesCat = selectedCategory === 'Tous' || (p.category || 'Autres') === selectedCategory;
     const matchesFav = !showFavoritesOnly || favorites.includes(p.id);
     return matchesSearch && matchesCat && matchesFav;
@@ -1162,6 +1171,10 @@ export default function PublicShop() {
                         <p className="font-mono text-3xl font-extrabold tracking-[0.35em]">{trackResult.delivery_pin}</p>
                       </div>
                     </motion.div>
+                  )}
+
+                  {trackResult.status === 'IN_TRANSIT' && (
+                    <LiveDeliveryMap position={trackResult.driver_position} address={trackResult.customer_address} themeColor={merchant?.theme_color} />
                   )}
 
                   {trackResult.status === 'DELIVERED' && (

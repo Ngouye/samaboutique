@@ -15,6 +15,7 @@ const PublicShop = lazyWithRetry(() => import('./pages/PublicShop'));
 const DriverDashboard = lazyWithRetry(() => import('./pages/DriverDashboard'));
 const Landing = lazyWithRetry(() => import('./pages/Landing'));
 const AdminDashboard = lazyWithRetry(() => import('./pages/AdminDashboard'));
+const Directory = lazyWithRetry(() => import('./pages/Directory'));
 
 // Loader Component
 const PageLoader = () => (
@@ -59,6 +60,7 @@ export default function App() {
               <Route path="/" element={<Landing />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/boutiques" element={<Directory />} />
               
               <Route 
                 path="/dashboard" 

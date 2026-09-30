@@ -11,6 +11,7 @@ import confetti from 'canvas-confetti';
 import { playSuccess, playPop } from '../utils/audio';
 import { CountUp } from '../components/landing/Magic';
 import { Field, ErrorBanner, EASE } from '../components/auth/AuthUI';
+import LiveLocationShare from '../components/driver/LiveLocationShare';
 
 const fmt = (n) => Math.round(n || 0).toLocaleString('fr-FR');
 const addressOf = (o) => (o.customer_address || '').split(' || GPS: ')[0];
@@ -444,6 +445,8 @@ export default function DriverDashboard() {
 
                       <div className="p-5">
                         <h3 className="mb-5 text-2xl font-extrabold">{activeOrder.customer_name}</h3>
+
+                        <LiveLocationShare token={tokenRef.current} orderId={activeOrder.id} onSessionExpired={expireSession} />
 
                         {/* Trajet */}
                         <div className="relative mb-6 pl-8">

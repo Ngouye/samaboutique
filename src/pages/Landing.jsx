@@ -100,6 +100,9 @@ function Navbar() {
                   {l.label}
                 </a>
               ))}
+              <Link to="/boutiques" className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-colors hover:bg-white/5 hover:text-white">
+                Boutiques <span className="rounded-full bg-emerald-400/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300">Nouveau</span>
+              </Link>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -132,6 +135,7 @@ function Navbar() {
                     {l.label}
                   </a>
                 ))}
+                <Link to="/boutiques" className="rounded-xl px-4 py-3 text-sm font-medium text-slate-200 hover:bg-white/5">Boutiques près de moi</Link>
                 <Link to="/login" className="rounded-xl px-4 py-3 text-sm font-medium text-slate-200 hover:bg-white/5">Se connecter</Link>
               </div>
             </motion.div>
