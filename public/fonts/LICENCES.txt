@@ -1,0 +1,6 @@
+Polices hébergées sur le site, toutes sous licence SIL Open Font License 1.1 (texte complet : OFL.txt).
+
+plus-jakarta-sans-*.woff2      Plus Jakarta Sans — Tokotype            police du site
+playfair-display-*.woff2       Playfair Display — Claus Eggers Sørensen  thèmes Minuit et Rose poudré
+dm-serif-display-latin.woff2   DM Serif Display — Colophon Foundry       thème Terracotta
+space-grotesk-latin.woff2      Space Grotesk — Florian Karsten           thème Océan

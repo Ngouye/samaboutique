@@ -1,116 +1,176 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowRight, ArrowLeft, Mail, Lock, Check, MailCheck, ShieldCheck, Truck, Wallet } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowRight, Mail, Lock, Bell, CircleCheck, TrendingUp, Check, Store } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { AuthShell, Field, PasswordField, SubmitButton, ErrorBanner, FloatingCard, EASE } from '../components/auth/AuthUI';
+import { supabase } from '../supabaseClient';
+import { AuthShell, Field, PasswordField, SubmitButton, ErrorBanner, Divider, EASE } from '../components/auth/AuthUI';
+import { authErrorMessage } from '../utils/authErrors';
+import Turnstile, { captchaRequired } from '../components/auth/Turnstile';
 
-function LoginShowcase() {
+const EMAIL_RE = /^\S+@\S+\.\S+$/;
+
+function LoginSide() {
   return (
-    <div className="max-w-md">
-      <motion.h2 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: EASE }} className="text-4xl font-extrabold leading-tight tracking-tight xl:text-5xl">
-        Votre boutique <span className="text-shimmer">vous attend.</span>
+    <>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.8, ease: EASE }} className="mb-auto ml-auto mt-2 w-72 rounded-2xl bg-white p-4 text-slate-900 shadow-2xl">
+        <div className="mb-2 flex items-center gap-2">
+          <img src="/logos/whatsapp.svg" alt="" className="h-5 w-5" />
+          <span className="text-xs font-bold">Nouvelle commande</span>
+          <span className="ml-auto text-[11px] text-slate-400">à l'instant</span>
+        </div>
+        <p className="text-sm text-slate-600">Fatou D. · 2 articles · <span className="font-bold text-emerald-700">25 000 F</span></p>
+      </motion.div>
+      <motion.h2 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.8, ease: EASE }} className="max-w-md text-4xl font-extrabold leading-[1.1] tracking-tight xl:text-5xl">
+        Tout votre commerce, au même endroit.
       </motion.h2>
-      <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="mt-4 text-lg text-white/70">
-        Commandes, livraisons et paiements : tout est en temps réel dans votre tableau de bord.
-      </motion.p>
-      <div className="relative mt-10 h-64">
-        <FloatingCard delay={0.5} className="absolute left-0 top-0 w-64">
-          <div className="flex items-center gap-3">
-            <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-400/15">
-              <Bell className="h-5 w-5 text-emerald-300" />
-              <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 animate-ping rounded-full bg-emerald-400" />
-            </span>
-            <div>
-              <p className="text-xs text-white/50">Nouvelle commande</p>
-              <p className="font-extrabold">+ 43 500 FCFA</p>
-            </div>
-          </div>
-        </FloatingCard>
-        <FloatingCard delay={0.8} float={14} duration={7} className="absolute right-0 top-20 w-56">
-          <div className="flex items-center gap-3">
-            <CircleCheck className="h-9 w-9 text-sky-300" />
-            <div>
-              <p className="text-xs text-white/50">Paiement reçu</p>
-              <p className="text-sm font-bold">via Wave</p>
-            </div>
-          </div>
-        </FloatingCard>
-        <FloatingCard delay={1.1} float={8} duration={5} className="absolute bottom-0 left-12 w-60">
-          <p className="mb-2 flex items-center gap-1.5 text-xs text-white/50"><TrendingUp className="h-3.5 w-3.5 text-emerald-300" /> Ventes de la semaine</p>
-          <div className="flex h-12 items-end gap-1.5">
-            {[35, 55, 40, 70, 60, 85, 100].map((h, i) => (
-              <motion.span key={i} initial={{ height: 0 }} animate={{ height: `${h}%` }} transition={{ delay: 1.4 + i * 0.08, duration: 0.8, ease: EASE }} className="w-4 rounded-t bg-gradient-to-t from-emerald-600 to-emerald-300" />
-            ))}
-          </div>
-        </FloatingCard>
-      </div>
-    </div>
+      <motion.ul initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="mt-8 flex flex-wrap gap-2.5 text-sm font-semibold">
+        {[[Wallet, 'Wave & Orange Money'], [Truck, 'Livraison suivie en direct'], [ShieldCheck, 'Code de livraison sécurisé']].map(([Icon, label]) => (
+          <li key={label} className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-2 backdrop-blur">
+            <Icon className="h-4 w-4 text-emerald-300" /> {label}
+          </li>
+        ))}
+      </motion.ul>
+    </>
   );
 }
 
 export default function Login() {
+  const { login, user } = useAuth();
+  const navigate = useNavigate();
+  const [mode, setMode] = useState('login'); // login | forgot | sent
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [touched, setTouched] = useState({});
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaKey, setCaptchaKey] = useState(0);
+  const captchaMissing = captchaRequired && !captchaToken;
 
-  const { login, user } = useAuth();
-  const navigate = useNavigate();
-
-  React.useEffect(() => {
+  useEffect(() => {
     if (user) navigate('/dashboard');
   }, [user, navigate]);
 
-  const handleSubmit = async (e) => {
+  const emailError = touched.email && !EMAIL_RE.test(email.trim()) ? 'Entrez une adresse email valide.' : '';
+  const passwordError = touched.password && !password ? 'Entrez votre mot de passe.' : '';
+
+  const handleLogin = async (e) => {
     e.preventDefault();
+    setTouched({ email: true, password: true });
+    if (!EMAIL_RE.test(email.trim()) || !password || captchaMissing) return;
+    setError('');
+    setLoading(true);
     try {
-      setError('');
-      setLoading(true);
-      const { error: authError } = await login(email, password);
+      const { error: authError } = await login(email.trim(), password, captchaToken);
       if (authError) throw authError;
       setSuccess(true);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message === 'Invalid login credentials' ? 'Email ou mot de passe incorrect.' : (err.message || 'Échec de la connexion'));
+      setError(authErrorMessage(err));
+      setCaptchaKey((k) => k + 1); // un jeton de captcha ne sert qu'une fois
     } finally {
       setLoading(false);
     }
   };
 
+  const handleForgot = async (e) => {
+    e.preventDefault();
+    setTouched({ email: true });
+    if (!EMAIL_RE.test(email.trim()) || captchaMissing) return;
+    setError('');
+    setLoading(true);
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/nouveau-mot-de-passe`,
+        ...(captchaToken ? { captchaToken } : {}),
+      });
+      if (resetError) throw resetError;
+      setMode('sent');
+    } catch (err) {
+      setError(authErrorMessage(err));
+      setCaptchaKey((k) => k + 1);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const switchMode = (next) => {
+    setMode(next);
+    setError('');
+    setTouched({});
+    setCaptchaKey((k) => k + 1);
+  };
+
+  const titles = {
+    login: ['Connexion à votre boutique', 'Heureux de vous revoir. Entrez vos identifiants pour continuer.'],
+    forgot: ['Mot de passe oublié', 'Indiquez l\'email de votre compte : nous vous envoyons un lien pour en choisir un nouveau.'],
+    sent: ['Vérifiez vos emails', null],
+  };
+
   return (
     <AuthShell
-      side={<LoginShowcase />}
-      badge={<><Store className="h-3.5 w-3.5" /> Espace marchand</>}
-      title="Content de vous revoir"
-      subtitle="Connectez-vous pour gérer votre boutique SamaBoutik."
+      title={titles[mode][0]}
+      subtitle={titles[mode][1]}
+      headerAction={<>Pas encore de boutique ? <Link to="/register" className="font-bold text-emerald-700 hover:underline">S'inscrire</Link></>}
+      photo="/images/landing/hero-commercante.webp"
+      photoAlt="Commerçante qui consulte ses commandes sur son téléphone"
+      side={<LoginSide />}
     >
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <ErrorBanner message={error} />
-        <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2, ease: EASE, duration: 0.6 }}>
-          <Field id="email" type="email" label="Adresse email" icon={Mail} autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-        </motion.div>
-        <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3, ease: EASE, duration: 0.6 }}>
-          <PasswordField id="password" label="Mot de passe" icon={Lock} autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-        </motion.div>
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="pt-2">
-          <SubmitButton loading={loading} loadingText="Connexion..." success={success && <><Check className="h-5 w-5" strokeWidth={3} /> Bienvenue !</>}>
-            Se connecter <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-          </SubmitButton>
-        </motion.div>
-      </form>
+      <AnimatePresence mode="wait">
+        {mode === 'login' && (
+          <motion.form key="login" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }} transition={{ duration: 0.3 }} className="space-y-5" onSubmit={handleLogin} noValidate>
+            <ErrorBanner message={error} />
+            <Field
+              id="email" type="email" label="Adresse email" icon={Mail} autoComplete="email" inputMode="email" placeholder="vous@exemple.com" required
+              value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, email: true }))} error={emailError}
+            />
+            <PasswordField
+              id="password" label="Mot de passe" icon={Lock} autoComplete="current-password" placeholder="Votre mot de passe" required
+              value={password} onChange={(e) => setPassword(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, password: true }))} error={passwordError}
+              labelAside={<button type="button" onClick={() => switchMode('forgot')} className="text-sm font-semibold text-emerald-700 hover:underline">Mot de passe oublié ?</button>}
+            />
+            <Turnstile onToken={setCaptchaToken} resetKey={captchaKey} />
+            <SubmitButton disabled={captchaMissing} loading={loading} loadingText="Connexion…" success={success && <><Check className="h-5 w-5" strokeWidth={3} /> Connecté</>}>
+              Se connecter <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </SubmitButton>
+            <Divider>Nouveau sur SamaBoutik ?</Divider>
+            <Link to="/register" className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 text-[15px] font-bold text-slate-800 transition-colors hover:border-slate-400 hover:bg-slate-50">
+              Créer une boutique gratuitement
+            </Link>
+          </motion.form>
+        )}
 
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="mt-8">
-        <div className="relative my-6 flex items-center">
-          <div className="h-px flex-1 bg-slate-200" />
-          <span className="px-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Nouveau ici ?</span>
-          <div className="h-px flex-1 bg-slate-200" />
-        </div>
-        <Link to="/register" className="group flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 py-3.5 font-bold text-slate-700 transition-all hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50/50 hover:text-emerald-700">
-          Créer ma boutique gratuitement <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-        </Link>
-      </motion.div>
+        {mode === 'forgot' && (
+          <motion.form key="forgot" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }} transition={{ duration: 0.3 }} className="space-y-5" onSubmit={handleForgot} noValidate>
+            <ErrorBanner message={error} />
+            <Field
+              id="reset-email" type="email" label="Adresse email" icon={Mail} autoComplete="email" inputMode="email" placeholder="vous@exemple.com" required autoFocus
+              value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => setTouched({ email: true })} error={emailError}
+            />
+            <Turnstile onToken={setCaptchaToken} resetKey={captchaKey} />
+            <SubmitButton disabled={captchaMissing} loading={loading} loadingText="Envoi…">Envoyer le lien</SubmitButton>
+            <button type="button" onClick={() => switchMode('login')} className="flex w-full items-center justify-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900">
+              <ArrowLeft className="h-4 w-4" /> Retour à la connexion
+            </button>
+          </motion.form>
+        )}
+
+        {mode === 'sent' && (
+          <motion.div key="sent" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            <div className="flex items-start gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white"><MailCheck className="h-5 w-5" /></span>
+              <p className="text-[15px] leading-relaxed text-emerald-900">
+                Si un compte existe pour <span className="font-bold">{email.trim()}</span>, vous allez recevoir un lien pour choisir un nouveau mot de passe. Pensez à regarder dans les spams.
+              </p>
+            </div>
+            <button type="button" onClick={() => switchMode('login')} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 text-[15px] font-bold text-slate-800 hover:bg-slate-50">
+              <ArrowLeft className="h-4 w-4" /> Retour à la connexion
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </AuthShell>
   );
 }

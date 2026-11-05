@@ -11,7 +11,7 @@ export function TagsInput({ value = [], onChange }) {
     setDraft('');
   };
   return (
-    <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/60 px-2.5 py-2 focus-within:border-emerald-400 focus-within:bg-white focus-within:ring-4 focus-within:ring-emerald-500/10">
+    <div className="flex min-h-[50px] flex-wrap items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-2.5 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition focus-within:border-emerald-600 focus-within:ring-4 focus-within:ring-emerald-600/15">
       <AnimatePresence initial={false}>
         {value.map((tag) => (
           <motion.span
@@ -20,11 +20,11 @@ export function TagsInput({ value = [], onChange }) {
             initial={{ scale: 0.6, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.6, opacity: 0 }}
-            className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-violet-50 to-fuchsia-50 px-2 py-1 text-xs font-bold text-violet-700 ring-1 ring-violet-200"
+            className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-800 ring-1 ring-emerald-200"
           >
             <Hash className="h-3 w-3 opacity-60" />
             {tag}
-            <button type="button" onClick={() => onChange(value.filter((t) => t !== tag))} className="rounded p-0.5 hover:bg-violet-100" aria-label={`Retirer ${tag}`}>
+            <button type="button" onClick={() => onChange(value.filter((t) => t !== tag))} className="rounded p-0.5 hover:bg-emerald-100" aria-label={`Retirer ${tag}`}>
               <X className="h-3 w-3" />
             </button>
           </motion.span>

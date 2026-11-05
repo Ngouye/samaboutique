@@ -7,10 +7,14 @@ import {
   Settings, CreditCard, ShieldCheck, Bell, LayoutDashboard, Crown, Sparkles, Boxes, CircleCheck, CircleX, TriangleAlert,
   Coins, ImageOff, Pencil, Tag, Layers, Phone, MapPin, Clock, Smartphone, Bike, Car, ChevronDown, MessageCircle, Route,
   CalendarDays, Check, Copy, ExternalLink, IdCard, TrendingUp, Rocket, Zap, Gem, LoaderCircle, Eye, Palette,
-  LayoutTemplate, LayoutGrid, ImagePlus, Upload, Mail, Wallet, Globe, Camera, Music2, Save, Download, Banknote, HandCoins,
+  ImagePlus, Upload, Mail, Wallet, Globe, Camera, Music2, Save, Download, Banknote, HandCoins,
   LocateFixed,
 } from 'lucide-react';
 import { getCurrentPosition, googleMapsUrl } from '../utils/geolocation';
+import { friendlyError } from '../utils/networkErrors';
+import { uploadShopImage, savingsMessage, thumbUrl, fallbackToFull } from '../utils/imageUpload';
+import ThemePicker from '../components/dashboard/ThemePicker';
+import { getShopTheme, isThemeId, DEFAULT_THEME_ID, PENDING_THEME_KEY } from '../components/shop/themes';
 import { QRCodeSVG } from 'qrcode.react';
 import { SHOP_CATEGORIES, CATEGORY_FEATURES } from '../utils/categories';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -32,7 +36,7 @@ export default function MerchantDashboard() {
   const { user, merchant, logout } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('analytics');
-  
+
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,13 +50,13 @@ export default function MerchantDashboard() {
   const [uploading, setUploading] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
-  
+
   // Team (Drivers) State
   const [team, setTeam] = useState([]);
   const [showDriverModal, setShowDriverModal] = useState(false);
   const [newDriver, setNewDriver] = useState({ full_name: '', phone_number: '', vehicle_type: 'Moto', cni_number: '' });
   const [selectedDriverForStats, setSelectedDriverForStats] = useState(null);
-  
+
   // Audio Notifications & Settings
   const [soundEnabled, setSoundEnabled] = useState(false);
   const audioContextRef = useRef(null);
@@ -94,25 +98,25 @@ const DEFAULT_DELIVERY_ZONES = [
 ];
 
   // Settings State
-  const [settingsForm, setSettingsForm] = useState({ 
+  const [settingsForm, setSettingsForm] = useState({
     shop_name: '',
     phone_number: '',
-    description: '', 
-    theme_color: '#059669', 
+    description: '',
+    theme_color: '#059669',
     email: '',
     address: '',
     logo_url: '',
     logoFile: null,
     banner_url: '',
     bannerFile: null,
-    layout_style: 'modern',
+    layout_style: DEFAULT_THEME_ID,
     social_facebook: '',
     social_instagram: '',
     social_tiktok: '',
     payout_provider: 'WAVE',
     payout_phone_number: '',
     delivery_zones: [],
-    isSaving: false 
+    isSaving: false
   });
 
   // Initialize Settings Form when merchant loads
@@ -129,7 +133,7 @@ const DEFAULT_DELIVERY_ZONES = [
         logoFile: null,
         banner_url: merchant.banner_url || '',
         bannerFile: null,
-        layout_style: merchant.layout_style || 'modern',
+        layout_style: getShopTheme(merchant.layout_style).id,
         social_facebook: merchant.social_links?.facebook || '',
         social_instagram: merchant.social_links?.instagram || '',
         social_tiktok: merchant.social_links?.tiktok || '',
@@ -138,7 +142,21 @@ const DEFAULT_DELIVERY_ZONES = [
         delivery_zones: merchant.delivery_zones || DEFAULT_DELIVERY_ZONES,
         isSaving: false
       });
-      
+
+      // Thème choisi sur la page d'accueil avant l'inscription : appliqué une seule fois,
+      // si la boutique n'a pas encore de thème.
+      let pendingTheme = null;
+      try { pendingTheme = localStorage.getItem(PENDING_THEME_KEY); } catch { /* stockage indisponible */ }
+      if (pendingTheme) {
+        try { localStorage.removeItem(PENDING_THEME_KEY); } catch { /* idem */ }
+        if (isThemeId(pendingTheme) && !isThemeId(merchant.layout_style)) {
+          const theme = getShopTheme(pendingTheme);
+          supabase.from('merchants').update({ layout_style: theme.id, theme_color: theme.accent }).eq('id', merchant.id).then(({ error }) => {
+            if (!error) setSettingsForm((prev) => ({ ...prev, layout_style: theme.id, theme_color: theme.accent }));
+          });
+        }
+      }
+
       // Force Billing tab if expired
       if (merchant.subscription_status === 'expired') {
         setActiveTab('billing');
@@ -155,24 +173,24 @@ const DEFAULT_DELIVERY_ZONES = [
       const { data, error: invokeError } = await supabase.functions.invoke('paydunya-checkout', {
         body: { merchantId: user.id, email: user.email, shopName: merchant.shop_name, plan: plan }
       });
-      
+
       if (invokeError) {
         throw invokeError;
       }
-      
+
       if (!data.success) {
         throw new Error(data.error || "Erreur inconnue renvoyée par PayDunya");
       }
-      
+
       if (data && data.invoice_url) {
         // Redirige vers la page sécurisée de PayDunya
-        window.location.href = data.invoice_url; 
+        window.location.href = data.invoice_url;
       } else {
         alert("Erreur de communication avec PayDunya. Veuillez réessayer.");
       }
     } catch (err) {
       console.error("Erreur de paiement PayDunya:", err);
-      alert(`Erreur de paiement : ${err.message || "Impossible de contacter PayDunya"}`);
+      alert(`Paiement impossible : ${friendlyError(err, 'impossible de contacter PayDunya. Réessayez.')}`);
     } finally {
       setIsProcessingPayment(false);
     }
@@ -227,7 +245,7 @@ const DEFAULT_DELIVERY_ZONES = [
       navigate('/login');
       return;
     }
-    
+
     // Vérification du retour PayDunya
     const params = new URLSearchParams(window.location.search);
     let paymentPoll = null;
@@ -241,11 +259,7 @@ const DEFAULT_DELIVERY_ZONES = [
       let attempts = 0;
       paymentPoll = setInterval(async () => {
         attempts += 1;
-        const { data } = await supabase
-          .from('merchants')
-          .select('subscription_plan, subscription_status')
-          .eq('id', user.id)
-          .single();
+        const { data } = await supabase.rpc('get_my_merchant');
         if (data?.subscription_status === 'active' && data?.subscription_plan === plan) {
           clearInterval(paymentPoll);
           window.location.reload(); // Pour recharger le contexte `merchant`
@@ -257,7 +271,7 @@ const DEFAULT_DELIVERY_ZONES = [
     } else {
       fetchData();
     }
-    
+
     // Subscribe to real-time orders
     const ordersSubscription = supabase.channel('custom-all-channel')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `merchant_id=eq.${user.id}` }, payload => {
@@ -277,17 +291,23 @@ const DEFAULT_DELIVERY_ZONES = [
   const fetchData = async () => {
     setLoading(true);
     if (user) {
-      const { data: prodData } = await supabase.from('products').select('*').eq('merchant_id', user.id).order('created_at', { ascending: false });
-      if (prodData) setProducts(prodData);
-      
-      const { data: ordData } = await supabase.from('orders').select('*').eq('merchant_id', user.id).order('created_at', { ascending: false });
-      if (ordData) setOrders(ordData);
+      // Les quatre lectures partent en même temps au lieu de s'attendre l'une l'autre.
+      const [
+        { data: prodData },
+        { data: ordData },
+        { data: teamData, error: teamError },
+        { data: locationData },
+      ] = await Promise.all([
+        supabase.from('products').select('*').eq('merchant_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('orders').select('*').eq('merchant_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('drivers').select('*').eq('merchant_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('merchant_locations').select('*').eq('merchant_id', user.id).maybeSingle(),
+      ]);
 
-      const { data: teamData, error: teamError } = await supabase.from('drivers').select('*').eq('merchant_id', user.id).order('created_at', { ascending: false });
+      if (prodData) setProducts(prodData);
+      if (ordData) setOrders(ordData);
       if (teamData) setTeam(teamData);
       else if (teamError && teamError.code !== '42P01') console.error(teamError); // Ignore if table doesn't exist yet
-
-      const { data: locationData } = await supabase.from('merchant_locations').select('*').eq('merchant_id', user.id).maybeSingle();
       setShopLocation(locationData || null);
     }
     setLoading(false);
@@ -300,35 +320,15 @@ const DEFAULT_DELIVERY_ZONES = [
     try {
       let finalLogoUrl = settingsForm.logo_url;
       let finalBannerUrl = settingsForm.banner_url;
-      
+
       if (settingsForm.logoFile) {
-        const fileExt = settingsForm.logoFile.name.split('.').pop();
-        const fileName = `logo_${Math.random()}.${fileExt}`;
-        const filePath = `${user.id}/${fileName}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('product-images')
-          .upload(filePath, settingsForm.logoFile);
-          
-        if (uploadError) throw uploadError;
-        
-        const { data: publicUrlData } = supabase.storage.from('product-images').getPublicUrl(filePath);
-        finalLogoUrl = publicUrlData.publicUrl;
+        const logo = await uploadShopImage(user.id, settingsForm.logoFile, { prefix: 'logo_', maxSize: 512, keepTransparency: true });
+        finalLogoUrl = logo.url;
       }
 
       if (settingsForm.bannerFile) {
-        const fileExt = settingsForm.bannerFile.name.split('.').pop();
-        const fileName = `banner_${Math.random()}.${fileExt}`;
-        const filePath = `${user.id}/${fileName}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('product-images')
-          .upload(filePath, settingsForm.bannerFile);
-          
-        if (uploadError) throw uploadError;
-        
-        const { data: publicUrlData } = supabase.storage.from('product-images').getPublicUrl(filePath);
-        finalBannerUrl = publicUrlData.publicUrl;
+        const banner = await uploadShopImage(user.id, settingsForm.bannerFile, { prefix: 'banner_', maxSize: 1920 });
+        finalBannerUrl = banner.url;
       }
 
       const { error } = await supabase.from('merchants').update({
@@ -350,12 +350,12 @@ const DEFAULT_DELIVERY_ZONES = [
         },
         delivery_zones: settingsForm.delivery_zones
       }).eq('id', user.id);
-      
+
       if (error) throw error;
       showToast("Paramètres enregistrés avec succès !");
     } catch (err) {
       console.error(err);
-      showToast("Erreur lors de l'enregistrement des paramètres.");
+      showToast(friendlyError(err, "Erreur lors de l'enregistrement des paramètres."));
     }
     setSettingsForm(prev => ({ ...prev, isSaving: false }));
   };
@@ -373,7 +373,7 @@ const DEFAULT_DELIVERY_ZONES = [
 
   const submitProduct = async (e) => {
     e.preventDefault();
-    
+
     // VERIFICATION DES LIMITES (Seulement pour la création)
     if (!editingProductId && merchant?.subscription_plan === 'debutant' && products.length >= 10) {
       alert("Vous avez atteint la limite de 10 produits du forfait Débutant. Veuillez passer au forfait Pro ou Premium pour ajouter plus de produits.");
@@ -386,18 +386,10 @@ const DEFAULT_DELIVERY_ZONES = [
     try {
       let image_url = null;
       if (newProduct.image) {
-        const fileExt = newProduct.image.name.split('.').pop();
-        const fileName = `${Math.random()}.${fileExt}`;
-        const filePath = `${user.id}/${fileName}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('product-images')
-          .upload(filePath, newProduct.image);
-          
-        if (uploadError) throw uploadError;
-        
-        const { data: publicUrlData } = supabase.storage.from('product-images').getPublicUrl(filePath);
-        image_url = publicUrlData.publicUrl;
+        const uploaded = await uploadShopImage(user.id, newProduct.image, { maxSize: 1400, thumbSize: 480 });
+        image_url = uploaded.url;
+        const saved = savingsMessage(uploaded);
+        if (saved) showToast(saved);
       }
 
       let variantsArray = null;
@@ -435,13 +427,13 @@ const DEFAULT_DELIVERY_ZONES = [
         }]);
         if (error) throw error;
       }
-      
+
       setShowProductModal(false);
       setEditingProductId(null);
       setNewProduct({ name: '', description: '', price_fcfa: '', stock: '', category: 'Vêtements', features: {}, tags: [], image: null });
       fetchData();
     } catch (error) {
-      alert("Erreur lors de l'ajout: " + error.message);
+      alert(friendlyError(error, "Le produit n'a pas pu être enregistré. Réessayez."));
     } finally {
       setUploading(false);
     }
@@ -454,14 +446,14 @@ const DEFAULT_DELIVERY_ZONES = [
       if (error) throw error;
       fetchData();
     } catch (err) {
-      alert("Erreur lors de la suppression : " + err.message);
+      alert(friendlyError(err, "Le produit n'a pas pu être supprimé. Réessayez."));
     }
   };
-  
+
   const submitDriver = async (e) => {
     e.preventDefault();
     if (!newDriver.full_name) return;
-    
+
     // VERIFICATION DES LIMITES
     if (merchant?.subscription_plan === 'debutant' && team.length >= 1) {
       alert("Le forfait Débutant est limité à 1 livreur. Passez au forfait Pro ou Premium pour agrandir votre équipe.");
@@ -489,7 +481,7 @@ const DEFAULT_DELIVERY_ZONES = [
       setNewDriver({ full_name: '', phone_number: '', vehicle_type: 'Moto', cni_number: '' });
       fetchData();
     } catch (err) {
-      alert("Erreur lors de l'ajout du livreur: " + err.message);
+      alert(friendlyError(err, "Le livreur n'a pas pu être ajouté. Réessayez."));
     }
   };
 
@@ -500,13 +492,13 @@ const DEFAULT_DELIVERY_ZONES = [
       if (error) throw error;
       fetchData();
     } catch (err) {
-      alert("Erreur de suppression: " + err.message);
+      alert(friendlyError(err, "Le livreur n'a pas pu être supprimé. Réessayez."));
     }
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
     const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
-    if (error) alert("Erreur de mise à jour");
+    if (error) alert(friendlyError(error, "Le statut n'a pas pu être mis à jour. Réessayez."));
     else fetchData();
   };
 
@@ -519,9 +511,9 @@ const DEFAULT_DELIVERY_ZONES = [
       case 'CANCELLED': statusText = "a été annulée"; break;
       default: statusText = "a bien été enregistrée"; break;
     }
-    
+
     const shopUrl = `${window.location.origin}/boutique/${encodeURIComponent(merchant?.shop_name || '')}`;
-    
+
     const text = `Bonjour ${order.customer_name},
 
 📦 Votre commande N° ${order.id.slice(0,6).toUpperCase()} chez *${merchant?.shop_name}* ${statusText}.
@@ -548,7 +540,7 @@ Merci de votre confiance ! 🙏`;
 
   const today = new Date().toDateString();
   const deliveredToday = orders.filter(o => o.status === 'DELIVERED' && new Date(o.created_at).toDateString() === today);
-  
+
   let totalEnbaisse = 0;
   let partLivreur = 0;
   let partMarchand = 0;
@@ -557,7 +549,7 @@ Merci de votre confiance ! 🙏`;
     totalEnbaisse += order.total_amount_fcfa;
     const cartTotal = order.cart_items?.reduce((acc, item) => acc + (item.price * item.quantity), 0) || 0;
     const deliveryFee = order.total_amount_fcfa - cartTotal;
-    
+
     if (order.driver_name) {
       partMarchand += cartTotal;
       partLivreur += deliveryFee;
@@ -579,7 +571,7 @@ Merci de votre confiance ! 🙏`;
         const cartTotal = order.cart_items?.reduce((acc, item) => acc + (item.price * item.quantity), 0) || 0;
         const deliveryFee = order.total_amount_fcfa - cartTotal;
         const collectedCash = order.payment_method === 'MOBILE_MONEY' ? 0 : order.total_amount_fcfa;
-        
+
         dEnbaisse += collectedCash;
         dPartLivreur += deliveryFee;
         aReverser += (collectedCash - deliveryFee);
@@ -748,13 +740,11 @@ Merci de votre confiance ! 🙏`;
   const renderSidebar = (prefix) => (
     <div className="relative flex h-full flex-col overflow-hidden bg-[#06150f] text-slate-300">
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        <div className="aurora-blob aurora-1 -left-32 -top-32 h-80 w-80 bg-emerald-500/20" />
-        <div className="aurora-blob aurora-2 -right-40 bottom-10 h-72 w-72 bg-cyan-500/10" />
       </div>
 
       <div className="relative flex items-center justify-between px-5 pt-6">
-        <div className="flex h-11 w-[104px] items-center justify-center overflow-hidden rounded-xl bg-white shadow-[0_0_24px_rgba(52,211,153,0.25)]">
-          <img src="/logo.png" alt="SamaBoutik" className="h-full w-full scale-[1.6] object-contain" />
+        <div className="flex h-11 w-auto items-center justify-center overflow-hidden px-1.5 py-0.5 rounded-xl bg-white shadow-[0_0_24px_rgba(52,211,153,0.25)]">
+          <img src="/logo.webp" alt="SamaBoutik" width="252" height="186" decoding="async" className="h-full w-auto object-contain" />
         </div>
         {prefix === 'mobile' && (
           <button onClick={() => setIsMobileMenuOpen(false)} className="rounded-xl p-2 text-slate-400 hover:bg-white/5 hover:text-white" aria-label="Fermer le menu">
@@ -768,7 +758,7 @@ Merci de votre confiance ! 🙏`;
           {merchant.logo_url ? (
             <img src={merchant.logo_url} alt="" className="h-11 w-11 shrink-0 rounded-xl bg-white object-contain p-1" />
           ) : (
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 text-lg font-extrabold text-[#06150f]">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-300 text-lg font-extrabold text-[#06150f]">
               {merchant.shop_name?.charAt(0).toUpperCase() || 'M'}
             </span>
           )}
@@ -921,7 +911,7 @@ Merci de votre confiance ! 🙏`;
                 <p className="max-w-[160px] truncate text-sm font-bold text-slate-900">{merchant.shop_name}</p>
                 <p className="text-[11px] text-slate-500">{user?.email}</p>
               </div>
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 font-bold text-[#06150f]">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-300 font-bold text-[#06150f]">
                 {merchant.shop_name?.charAt(0).toUpperCase() || 'M'}
               </span>
             </div>
@@ -1035,7 +1025,7 @@ Merci de votre confiance ! 🙏`;
                       >
                         <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100">
                           {p.image_url ? (
-                            <img src={p.image_url} alt={p.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                            <img src={thumbUrl(p.image_url)} onError={fallbackToFull(p.image_url)} alt={p.name} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" />
                           ) : (
                             <div className="flex h-full items-center justify-center">
                               <ImageOff className="h-10 w-10 text-slate-300" />
@@ -1148,7 +1138,7 @@ Merci de votre confiance ! 🙏`;
                         <span className={`absolute inset-y-0 left-0 w-1.5 ${meta.dot}`} />
                         <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
                           <div className="flex min-w-0 flex-1 items-start gap-4">
-                            <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-indigo-100 text-lg font-extrabold text-indigo-700">
+                            <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-lg font-extrabold text-emerald-800 ring-1 ring-inset ring-emerald-600/15">
                               {(order.customer_name || '?').charAt(0).toUpperCase()}
                               {order.status === 'PENDING' && (
                                 <span className="absolute -right-1 -top-1 flex h-3 w-3">
@@ -1184,7 +1174,7 @@ Merci de votre confiance ! 🙏`;
                                   <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700"><CircleCheck className="h-3 w-3" /> Intégral payé</span>
                                 )}
                                 {order.driver_name && order.status === 'IN_TRANSIT' && (
-                                  <span className="inline-flex items-center gap-1 rounded-lg bg-violet-50 px-2 py-0.5 text-xs font-semibold text-violet-700"><Bike className="h-3 w-3" /> {order.driver_name}</span>
+                                  <span className="inline-flex items-center gap-1 rounded-lg bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-700"><Bike className="h-3 w-3" /> {order.driver_name}</span>
                                 )}
                               </div>
                               {order.cart_items?.length > 0 && (
@@ -1266,7 +1256,7 @@ Merci de votre confiance ! 🙏`;
               <EmptyState icon={Truck} title="Historique vide" text="Aucune livraison n'a encore été validée. Elles apparaîtront ici dès que vos livreurs saisiront le code PIN." />
             ) : (
               <div className="relative">
-                <div className="absolute bottom-6 left-[1.35rem] top-6 w-px bg-gradient-to-b from-violet-300 via-slate-200 to-transparent" />
+                <div className="absolute bottom-6 left-[1.35rem] top-6 w-px bg-gradient-to-b from-emerald-300 via-slate-200 to-transparent" />
                 {deliveredOrders.map((order, i) => {
                   const when = new Date(order.delivered_at || order.created_at);
                   return (
@@ -1277,13 +1267,13 @@ Merci de votre confiance ! 🙏`;
                       transition={{ delay: Math.min(i, 10) * 0.05, duration: 0.5, ease: EASE }}
                       className="relative mb-4 pl-14"
                     >
-                      <span className="absolute left-2 top-6 flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white shadow-lg shadow-emerald-500/30 ring-4 ring-[#f3f5f4]">
+                      <span className="absolute left-2 top-6 flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-white shadow-md shadow-emerald-600/25 ring-4 ring-[#f3f5f4]">
                         <Check className="h-4 w-4" strokeWidth={3} />
                       </span>
                       <div className={`${CARD} p-5 transition-shadow hover:shadow-[0_20px_40px_-20px_rgba(15,23,42,0.25)]`}>
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex items-center gap-3">
-                            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-100 to-fuchsia-100 text-lg font-extrabold text-violet-700">
+                            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-lg font-extrabold text-emerald-800 ring-1 ring-inset ring-emerald-600/15">
                               {order.driver_name ? order.driver_name.charAt(0).toUpperCase() : '?'}
                             </span>
                             <div>
@@ -1349,12 +1339,9 @@ Merci de votre confiance ! 🙏`;
 
             {/* Lien de l'application livreur */}
             <motion.div variants={rise} className="relative mb-8 overflow-hidden rounded-3xl bg-[#06150f] p-6 text-white">
-              <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-                <div className="aurora-blob aurora-1 -left-20 -top-24 h-64 w-64 bg-emerald-500/30" />
-                <div className="aurora-blob aurora-2 -right-10 -bottom-24 h-64 w-64 bg-amber-400/15" />
-              </div>
+              <div className="pointer-events-none absolute -left-20 -top-24 h-64 w-64 rounded-full bg-emerald-500/20 blur-3xl" aria-hidden="true" />
               <div className="relative flex flex-col gap-5 md:flex-row md:items-center">
-                <MagicIcon icon={Smartphone} gradient="emerald" size="lg" sparkle />
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-300 ring-1 ring-inset ring-emerald-300/25"><Smartphone className="h-6 w-6" /></span>
                 <div className="min-w-0 flex-1">
                   <p className="font-bold">Application livreur</p>
                   <p className="mt-0.5 text-sm text-emerald-50/70">Envoyez ce lien à vos livreurs : ils se connectent avec leur téléphone et leur numéro de CNI.</p>
@@ -1389,19 +1376,18 @@ Merci de votre confiance ! 🙏`;
                       initial={{ opacity: 0, y: 24, scale: 0.96 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       transition={{ delay: Math.min(i, 9) * 0.06, duration: 0.5, ease: EASE }}
-                      whileHover={{ y: -6 }}
-                      className={`${CARD} group overflow-hidden transition-shadow hover:shadow-[0_24px_48px_-20px_rgba(15,23,42,0.3)]`}
+                      className={`${CARD} group overflow-hidden transition-[box-shadow,transform] duration-300 hover:-translate-y-1 hover:shadow-[0_24px_48px_-20px_rgba(15,23,42,0.3)]`}
                     >
-                      <div className="relative h-20 overflow-hidden bg-gradient-to-br from-amber-300 via-orange-400 to-rose-400">
-                        <div className="bg-grid-pattern absolute inset-0 opacity-60" />
-                        <motion.div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/20 blur-xl" animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 5, repeat: Infinity }} />
+                      <div className="relative h-20 overflow-hidden bg-[#0b1f17]">
+                        <div className="absolute inset-0 bg-[radial-gradient(rgba(110,231,183,0.18)_1px,transparent_1px)] [background-size:16px_16px]" />
+                        <div className="absolute -left-8 -top-10 h-28 w-28 rounded-full bg-emerald-500/30 blur-2xl" />
                         <button onClick={() => deleteDriver(driver.id)} className="absolute right-3 top-3 rounded-full bg-white/20 p-2 text-white backdrop-blur transition-colors hover:bg-red-500" aria-label={`Supprimer ${driver.full_name}`}>
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                       <div className="px-6 pb-6">
                         <div className="-mt-9 mb-3 flex items-end justify-between">
-                          <span className="relative flex h-[72px] w-[72px] items-center justify-center rounded-3xl bg-white text-3xl font-extrabold text-orange-600 shadow-xl ring-4 ring-white">
+                          <span className="relative flex h-[72px] w-[72px] items-center justify-center rounded-3xl bg-white text-3xl font-extrabold text-emerald-700 shadow-xl ring-4 ring-white">
                             {driver.full_name.charAt(0).toUpperCase()}
                             <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-white ring-2 ring-white">
                               <VehicleIcon className="h-3.5 w-3.5" />
@@ -1468,32 +1454,15 @@ Merci de votre confiance ! 🙏`;
                 </div>
               </SectionCard>
 
-              <SectionCard icon={Palette} gradient="violet" title="Apparence de la vitrine" subtitle="Style d'affichage, bannière et couleur principale">
-                <label className={LABEL}>Style d'affichage</label>
-                <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  {[
-                    { id: 'modern', label: 'Moderne', desc: 'Formes obliques, très visuel', icon: Sparkles },
-                    { id: 'classic', label: 'Classique', desc: 'Bannière droite, rassurant', icon: LayoutTemplate },
-                    { id: 'minimalist', label: 'Minimaliste', desc: 'Épuré, focus produits', icon: LayoutGrid },
-                  ].map((opt) => {
-                    const active = settingsForm.layout_style === opt.id;
-                    const Icon = opt.icon;
-                    return (
-                      <motion.button
-                        type="button"
-                        key={opt.id}
-                        whileHover={{ y: -3 }}
-                        whileTap={{ scale: 0.97 }}
-                        onClick={() => setSettingsForm({ ...settingsForm, layout_style: opt.id })}
-                        className={`relative rounded-2xl border-2 p-4 text-left transition-colors ${active ? 'border-violet-500 bg-violet-50/60' : 'border-slate-200 bg-white hover:border-slate-300'}`}
-                      >
-                        {active && <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-white"><Check className="h-3 w-3" strokeWidth={3} /></span>}
-                        <Icon className={`mb-2 h-6 w-6 ${active ? 'text-violet-600' : 'text-slate-400'}`} />
-                        <p className="font-bold text-slate-900">{opt.label}</p>
-                        <p className="text-xs text-slate-500">{opt.desc}</p>
-                      </motion.button>
-                    );
-                  })}
+              <SectionCard icon={Palette} gradient="violet" title="Apparence de la vitrine" subtitle="Thème, bannière et couleur principale">
+                <label className={LABEL}>Thème de la vitrine</label>
+                <p className="-mt-1 mb-3 text-xs text-slate-500">Chaque thème a ses couleurs, sa police et une photo de bannière (utilisée si vous n'importez pas la vôtre). « Aperçu » ouvre votre vitrine avec ce thème, sans rien enregistrer.</p>
+                <div className="mb-6">
+                  <ThemePicker
+                    value={settingsForm.layout_style}
+                    shopUrl={merchant?.shop_name ? getShopUrl() : null}
+                    onChange={(t) => setSettingsForm({ ...settingsForm, layout_style: t.id, theme_color: t.accent })}
+                  />
                 </div>
 
                 <label className={LABEL}>Bannière d'accueil</label>
@@ -1505,12 +1474,12 @@ Merci de votre confiance ! 🙏`;
                     </button>
                   </div>
                 ) : (
-                  <label className="group relative mb-6 flex h-44 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/60 transition-colors hover:border-violet-400 hover:bg-violet-50/40">
+                  <label className="group relative mb-6 flex h-44 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/60 transition-colors hover:border-emerald-500 hover:bg-emerald-50/40">
                     {settingsForm.bannerFile ? (
                       <FilePreview file={settingsForm.bannerFile} className="absolute inset-0 h-full w-full object-cover" />
                     ) : (
                       <>
-                        <motion.span whileHover={{ scale: 1.1, rotate: -6 }}><ImagePlus className="mb-2 h-8 w-8 text-slate-400 transition-colors group-hover:text-violet-500" /></motion.span>
+                        <motion.span whileHover={{ scale: 1.1, rotate: -6 }}><ImagePlus className="mb-2 h-8 w-8 text-slate-400 transition-colors group-hover:text-emerald-600" /></motion.span>
                         <p className="text-sm font-semibold text-slate-600">Cliquez pour importer une bannière</p>
                         <p className="text-xs text-slate-400">Format paysage recommandé (ex : 1920 × 1080 px)</p>
                       </>
@@ -1520,8 +1489,9 @@ Merci de votre confiance ! 🙏`;
                 )}
 
                 <label className={LABEL}>Couleur principale</label>
+                <p className="-mt-1 mb-3 text-xs text-slate-500">Proposée par le thème. Vous pouvez la remplacer par la couleur de votre marque.</p>
                 <div className="flex flex-wrap items-center gap-3">
-                  {['#059669', '#0ea5e9', '#6366f1', '#db2777', '#f97316', '#ca8a04', '#0f172a'].map((c) => (
+                  {[...new Set([getShopTheme(settingsForm.layout_style).accent, '#059669', '#0ea5e9', '#6366f1', '#db2777', '#f97316', '#ca8a04', '#0f172a'])].map((c) => (
                     <motion.button
                       type="button"
                       key={c}
@@ -1587,9 +1557,9 @@ Merci de votre confiance ! 🙏`;
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-4 rounded-2xl border-2 border-dashed border-slate-200 px-6 py-8 text-center">
-                    <motion.span animate={{ y: [0, -6, 0] }} transition={{ duration: 2.5, repeat: Infinity }} className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-400 to-red-500 text-white shadow-lg shadow-rose-500/30">
+                    <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20">
                       <MapPin className="h-7 w-7" />
-                    </motion.span>
+                    </span>
                     <div>
                       <p className="font-bold text-slate-900">Votre boutique n'est pas encore localisée</p>
                       <p className="mt-1 text-sm text-slate-500">Rendez-vous dans votre boutique, puis appuyez sur le bouton : votre téléphone donnera la position exacte.</p>
@@ -1756,7 +1726,7 @@ Merci de votre confiance ! 🙏`;
               {/* Barre d'enregistrement collante */}
               <motion.div variants={rise} className="sticky bottom-4 z-10">
                 <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200/70 bg-white/85 p-3 pl-5 shadow-[0_20px_50px_-12px_rgba(15,23,42,0.3)] backdrop-blur-xl">
-                  <p className="hidden items-center gap-2 text-sm text-slate-500 sm:flex"><Sparkles className="h-4 w-4 text-violet-500" /> Les changements s'appliquent à votre vitrine dès l'enregistrement.</p>
+                  <p className="hidden items-center gap-2 text-sm text-slate-500 sm:flex"><Sparkles className="h-4 w-4 text-emerald-600" /> Les changements s'appliquent à votre vitrine dès l'enregistrement.</p>
                   <PrimaryButton type="submit" disabled={settingsForm.isSaving} className="w-full sm:w-auto">
                     {settingsForm.isSaving ? <><LoaderCircle className="h-4 w-4 animate-spin" /> Enregistrement...</> : <><Save className="h-4 w-4" /> Enregistrer les paramètres</>}
                   </PrimaryButton>
@@ -1769,13 +1739,10 @@ Merci de votre confiance ! 🙏`;
             <PageHeader icon={Crown} gradient="amber" title="Abonnement & facturation" subtitle="Choisissez le forfait qui accompagne votre croissance" />
 
             <motion.div variants={rise} className="relative mb-10 overflow-hidden rounded-3xl bg-[#06150f] p-6 text-white md:p-8">
-              <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-                <div className="aurora-blob aurora-1 -left-24 -top-24 h-72 w-72 bg-amber-400/20" />
-                <div className="aurora-blob aurora-2 -right-10 -bottom-24 h-72 w-72 bg-emerald-500/25" />
-              </div>
+              <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-amber-400/15 blur-3xl" aria-hidden="true" />
               <div className="relative flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
                 <div className="flex items-center gap-4">
-                  <MagicIcon icon={Crown} gradient="amber" size="lg" sparkle />
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-400/15 text-amber-300 ring-1 ring-inset ring-amber-300/25"><Crown className="h-6 w-6" /></span>
                   <div>
                     <p className="text-sm text-emerald-100/70">Votre forfait actuel</p>
                     <p className="text-3xl font-extrabold">{PLAN_LABELS[planId] || planId}</p>
@@ -1811,16 +1778,16 @@ Merci de votre confiance ! 🙏`;
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 + i * 0.1, duration: 0.6, ease: EASE }}
                     whileHover={{ y: -8 }}
-                    className={`relative rounded-[2rem] ${dark ? 'conic-border md:-translate-y-3' : ''}`}
+                    className={`relative rounded-[2rem] ${dark ? 'md:-translate-y-3' : ''}`}
                   >
-                    <div className={`relative flex h-full flex-col overflow-hidden rounded-[2rem] p-7 ${dark ? 'bg-gradient-to-b from-[#12291f] to-[#06150f] text-white shadow-[0_30px_80px_-20px_rgba(124,58,237,0.35)]' : `${CARD} ${current ? '!border-emerald-400 ring-4 ring-emerald-500/10' : ''}`}`}>
-                      {dark && <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-violet-500/30 blur-3xl" />}
+                    <div className={`relative flex h-full flex-col overflow-hidden rounded-[2rem] p-7 ${dark ? 'bg-[#0b1f17] text-white shadow-[0_30px_70px_-24px_rgba(11,31,23,0.7)]' : `${CARD} ${current ? '!border-emerald-400 ring-4 ring-emerald-500/10' : ''}`}`}>
+                      {dark && <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-emerald-500/25 blur-3xl" />}
                       <div className="relative mb-5 flex items-center justify-between">
-                        <MagicIcon icon={plan.icon} gradient={plan.gradient} sparkle={dark} />
+                        {dark ? <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-300 ring-1 ring-inset ring-emerald-300/25"><plan.icon className="h-5 w-5" /></span> : <MagicIcon icon={plan.icon} gradient={plan.gradient} />}
                         {current ? (
                           <span className={`rounded-full px-3 py-1 text-xs font-bold ${dark ? 'bg-white/15 text-white' : 'bg-emerald-50 text-emerald-700'}`}>Plan actuel</span>
                         ) : plan.popular ? (
-                          <span className="rounded-full bg-gradient-to-r from-amber-300 to-amber-500 px-3 py-1 text-xs font-extrabold text-slate-900">Le plus populaire</span>
+                          <span className="rounded-full bg-amber-300 px-3 py-1 text-xs font-extrabold text-slate-900">Le plus populaire</span>
                         ) : null}
                       </div>
                       <h3 className={`relative text-2xl font-extrabold ${dark ? 'text-white' : 'text-slate-900'}`}>{plan.name}</h3>
@@ -1852,7 +1819,7 @@ Merci de votre confiance ! 🙏`;
                             current
                               ? dark ? 'bg-white/10 text-slate-400' : 'bg-slate-100 text-slate-500'
                               : dark
-                                ? 'shine-btn bg-gradient-to-r from-emerald-400 to-teal-400 text-[#06150f] shadow-[0_0_30px_rgba(52,211,153,0.4)]'
+                                ? 'bg-emerald-400 text-[#06150f] hover:bg-emerald-300'
                                 : 'bg-slate-900 text-white hover:bg-slate-800'
                           }`}
                         >
@@ -1902,9 +1869,7 @@ Merci de votre confiance ! 🙏`;
               <img src={products.find((p) => p.id === editingProductId).image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
             ) : (
               <>
-                <motion.span animate={{ y: [0, -5, 0] }} transition={{ duration: 2.5, repeat: Infinity }}>
-                  <ImagePlus className="mb-2 h-9 w-9 text-slate-400 transition-colors group-hover:text-emerald-500" />
-                </motion.span>
+                <ImagePlus className="mb-2 h-9 w-9 text-slate-400 transition-colors group-hover:text-emerald-600" />
                 <p className="text-sm font-semibold text-slate-600">Cliquez pour importer une photo</p>
                 <p className="text-xs text-slate-400">JPG, PNG ou WebP</p>
               </>
@@ -1983,9 +1948,9 @@ Merci de votre confiance ! 🙏`;
             initial={{ scale: 0.8, rotate: -6, opacity: 0 }}
             animate={{ scale: 1, rotate: 0, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 200, damping: 16, delay: 0.1 }}
-            className="conic-border mb-5 rounded-[2rem]"
+            className="mb-5 rounded-[2rem]"
           >
-            <div className="rounded-[2rem] bg-white p-5 shadow-[0_20px_50px_-12px_rgba(5,150,105,0.35)]">
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[0_20px_50px_-16px_rgba(11,31,23,0.35)]">
               <QRCodeSVG id="shop-qr" value={getShopUrl()} size={200} fgColor="#06150f" />
             </div>
           </motion.div>

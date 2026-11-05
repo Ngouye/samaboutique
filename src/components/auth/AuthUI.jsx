@@ -1,37 +1,55 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Eye, EyeOff, ShieldCheck, Smartphone, Truck } from 'lucide-react';
-import { ParticleField } from '../landing/Magic';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Eye, EyeOff, CircleAlert, LoaderCircle, Check } from 'lucide-react';
 
 export const EASE = [0.16, 1, 0.3, 1];
 
-// Champ à label flottant, icône animée et halo de focus. `dark` pour les fonds sombres.
-export function Field({ id, label, icon: Icon, dark = false, right, className = '', ...inputProps }) {
-  const tone = dark
-    ? 'border-white/10 bg-white/[0.06] text-white focus:border-emerald-400 focus:bg-white/[0.09] focus:ring-emerald-400/15'
-    : 'border-slate-200 bg-slate-50/70 text-slate-900 focus:border-emerald-400 focus:bg-white focus:ring-emerald-500/15';
-  const labelTone = dark
-    ? 'text-white/45 peer-focus:text-emerald-300'
-    : 'text-slate-400 peer-focus:text-emerald-600';
+// Champ de formulaire : label au-dessus, icône, aide ou erreur en dessous.
+// `prefix` affiche un indicatif fixe (ex. +221) ; `dark` pour les fonds sombres.
+export function Field({ id, label, icon: Icon, dark = false, right, prefix, hint, error, labelAside, className = '', ...inputProps }) {
+  const invalid = Boolean(error);
+  const base = dark
+    ? 'border-white/15 bg-white/[0.06] text-white placeholder:text-white/35 focus:border-emerald-400 focus:ring-emerald-400/20'
+    : 'border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-emerald-600/15';
+  const errorTone = dark ? 'border-rose-400/70 focus:border-rose-400 focus:ring-rose-400/20' : 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/15';
+  const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined;
+
   return (
-    <div className={`group relative ${className}`}>
-      <input
-        id={id}
-        placeholder=" "
-        className={`peer w-full rounded-2xl border-2 pb-2.5 pl-12 pr-12 pt-6 text-[15px] font-semibold outline-none ring-0 transition-all duration-300 focus:ring-4 disabled:opacity-60 ${tone}`}
-        {...inputProps}
-      />
-      <Icon className={`pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 transition-all duration-300 group-focus-within:scale-110 ${dark ? 'text-white/40 group-focus-within:text-emerald-300' : 'text-slate-400 group-focus-within:text-emerald-500'}`} />
-      <label
-        htmlFor={id}
-        className={`pointer-events-none absolute left-12 top-2 text-[11px] font-bold uppercase tracking-wider transition-all duration-200
-          peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-sm peer-placeholder-shown:font-medium peer-placeholder-shown:normal-case peer-placeholder-shown:tracking-normal
-          peer-focus:top-2 peer-focus:translate-y-0 peer-focus:text-[11px] peer-focus:font-bold peer-focus:uppercase peer-focus:tracking-wider ${labelTone}`}
-      >
-        {label}
-      </label>
-      {right && <div className="absolute right-3 top-1/2 -translate-y-1/2">{right}</div>}
+    <div className={className}>
+      <div className="mb-1.5 flex items-center justify-between gap-3">
+        <label htmlFor={id} className={`text-sm font-semibold ${dark ? 'text-white/85' : 'text-slate-800'}`}>{label}</label>
+        {labelAside}
+      </div>
+      <div className="relative">
+        {Icon && (
+          <Icon className={`pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 ${invalid ? 'text-rose-500' : dark ? 'text-white/40' : 'text-slate-400'}`} />
+        )}
+        {prefix && (
+          <span className={`pointer-events-none absolute top-1/2 -translate-y-1/2 border-r pr-3 text-[15px] font-semibold ${Icon ? 'left-10' : 'left-3.5'} ${dark ? 'border-white/15 text-white/70' : 'border-slate-200 text-slate-600'}`}>
+            {prefix}
+          </span>
+        )}
+        <input
+          id={id}
+          aria-invalid={invalid || undefined}
+          aria-describedby={describedBy}
+          className={`h-12 w-full rounded-xl border text-[15px] shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition duration-200 focus:ring-4 disabled:cursor-not-allowed disabled:opacity-60 ${invalid ? errorTone : base} ${prefix ? (Icon ? 'pl-[5.25rem]' : 'pl-[4.25rem]') : Icon ? 'pl-11' : 'pl-4'} ${right ? 'pr-12' : 'pr-4'}`}
+          {...inputProps}
+        />
+        {right && <div className="absolute right-2 top-1/2 -translate-y-1/2">{right}</div>}
+      </div>
+      <AnimatePresence initial={false} mode="wait">
+        {error ? (
+          <motion.p key="error" id={`${id}-error`} initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className={`mt-1.5 flex items-start gap-1.5 text-sm font-medium ${dark ? 'text-rose-300' : 'text-rose-600'}`}>
+            <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" /> {error}
+          </motion.p>
+        ) : hint ? (
+          <motion.p key="hint" id={`${id}-hint`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`mt-1.5 text-sm ${dark ? 'text-white/50' : 'text-slate-500'}`}>
+            {hint}
+          </motion.p>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
@@ -46,155 +64,146 @@ export function PasswordField(props) {
         <button
           type="button"
           onClick={() => setVisible((v) => !v)}
-          className={`rounded-lg p-1.5 transition-colors ${props.dark ? 'text-white/50 hover:bg-white/10 hover:text-white' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'}`}
+          className={`rounded-lg p-2 transition-colors ${props.dark ? 'text-white/50 hover:bg-white/10 hover:text-white' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'}`}
           aria-label={visible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
         >
-          {visible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+          {visible ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
         </button>
       }
     />
   );
 }
 
-export function passwordStrength(pw) {
+function passwordStrength(pw) {
   if (!pw) return { score: 0, label: '' };
   let score = 0;
   if (pw.length >= 8) score++;
   if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score++;
   if (/\d/.test(pw)) score++;
   if (/[^A-Za-z0-9]/.test(pw)) score++;
-  if (pw.length < 6) score = 0;
+  if (pw.length < 8) score = 0;
   return { score, label: ['Trop court', 'Faible', 'Moyen', 'Bon', 'Excellent'][score] };
 }
 
 export function StrengthMeter({ password }) {
   const { score, label } = passwordStrength(password);
   if (!password) return null;
-  const colors = ['bg-red-500', 'bg-orange-500', 'bg-amber-400', 'bg-emerald-400', 'bg-emerald-500'];
+  const colors = ['bg-rose-500', 'bg-orange-500', 'bg-amber-400', 'bg-emerald-500', 'bg-emerald-600'];
   return (
-    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-2 px-1">
-      <div className="flex gap-1.5">
+    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-2.5">
+      <div className="flex gap-1.5" aria-hidden="true">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200">
-            <motion.div
-              initial={false}
-              animate={{ width: score >= i ? '100%' : '0%' }}
-              transition={{ duration: 0.4, ease: EASE }}
-              className={`h-full rounded-full ${colors[score]}`}
-            />
+          <div key={i} className="h-1 flex-1 overflow-hidden rounded-full bg-slate-200">
+            <motion.div initial={false} animate={{ width: score >= i ? '100%' : '0%' }} transition={{ duration: 0.35, ease: EASE }} className={`h-full rounded-full ${colors[score]}`} />
           </div>
         ))}
       </div>
-      <p className="mt-1.5 text-xs font-semibold text-slate-500">
-        Robustesse : <span className="text-slate-800">{label}</span>
-        {score < 3 && password.length >= 6 && <span className="font-normal"> — ajoutez majuscules, chiffres ou symboles</span>}
+      <p className="mt-1.5 text-xs text-slate-500">
+        Sécurité du mot de passe : <span className="font-semibold text-slate-800">{label}</span>
+        {score < 3 && password.length >= 8 && ' · ajoutez majuscules, chiffres ou symboles'}
       </p>
     </motion.div>
   );
 }
 
-export function SubmitButton({ loading, success, children, loadingText, className = '', ...props }) {
+export function SubmitButton({ loading, success, children, loadingText, className = '', disabled = false, ...props }) {
   return (
-    <motion.button
-      whileHover={{ y: -2 }}
-      whileTap={{ scale: 0.98 }}
+    <button
       type="submit"
-      disabled={loading || success}
-      className={`shine-btn group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-500 to-teal-500 py-4 text-base font-bold text-white shadow-[0_12px_30px_-8px_rgba(16,185,129,0.6)] transition-shadow hover:shadow-[0_18px_40px_-8px_rgba(16,185,129,0.7)] disabled:cursor-not-allowed ${className}`}
+      disabled={disabled || loading || Boolean(success)}
+      className={`group flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0b1f17] text-[15px] font-bold text-white shadow-[0_8px_20px_-10px_rgba(11,31,23,0.7)] transition-all hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-600/30 active:scale-[0.99] disabled:cursor-not-allowed ${success ? 'bg-emerald-700' : ''} ${loading ? 'opacity-80' : ''} ${className}`}
       {...props}
     >
       {success ? (
-        <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex items-center gap-2">{success}</motion.span>
+        <motion.span initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex items-center gap-2">{success}</motion.span>
       ) : loading ? (
-        <span className="flex items-center gap-2">
-          <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" /> {loadingText}
-        </span>
+        <span className="flex items-center gap-2"><LoaderCircle className="h-5 w-5 animate-spin" /> {loadingText}</span>
       ) : (
         children
       )}
-    </motion.button>
+    </button>
   );
 }
 
-export function ErrorBanner({ message, dark = false }) {
-  if (!message) return null;
+// Message d'erreur (ou de réussite avec tone="success") en tête de formulaire.
+export function ErrorBanner({ message, dark = false, tone = 'error' }) {
   return (
-    <motion.div
-      key={message}
-      initial={{ opacity: 0, x: 0 }}
-      animate={{ opacity: 1, x: [0, -10, 10, -6, 6, 0] }}
-      transition={{ duration: 0.45 }}
-      role="alert"
-      className={`flex items-start gap-3 rounded-2xl p-4 text-sm font-semibold ${dark ? 'bg-rose-500/15 text-rose-200 ring-1 ring-rose-400/30' : 'bg-rose-50 text-rose-700 ring-1 ring-rose-200'}`}
-    >
-      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${dark ? 'bg-rose-400/20' : 'bg-rose-100'}`}>!</span>
-      {message}
-    </motion.div>
-  );
-}
-
-// Mise en page des pages d'authentification : panneau immersif à gauche, formulaire à droite.
-export function AuthShell({ side, badge, title, subtitle, children }) {
-  return (
-    <div className="grid min-h-screen bg-white lg:grid-cols-[1.05fr_1fr]">
-      <aside className="relative hidden flex-col justify-between overflow-hidden bg-[#030a07] p-12 text-white lg:flex">
-        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-          <div className="aurora-blob aurora-1 -left-32 -top-32 h-[30rem] w-[30rem] bg-emerald-500/25" />
-          <div className="aurora-blob aurora-2 -right-24 top-1/3 h-96 w-96 bg-cyan-500/15" />
-          <div className="aurora-blob aurora-3 -bottom-24 left-1/4 h-80 w-80 bg-amber-400/10" />
-          <div className="bg-grid-pattern absolute inset-0" />
-          <ParticleField className="absolute inset-0 h-full w-full" density={45} />
-        </div>
-        <Link to="/" className="relative flex h-12 w-[112px] items-center justify-center overflow-hidden rounded-2xl bg-white shadow-[0_0_30px_rgba(52,211,153,0.3)]">
-          <img src="/logo.png" alt="SamaBoutik" className="h-full w-full scale-[1.6] object-contain" />
-        </Link>
-        <div className="relative">{side}</div>
-        <div className="relative flex flex-wrap gap-5 text-sm text-white/60">
-          <span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-emerald-400" /> Données sécurisées</span>
-          <span className="flex items-center gap-2"><Smartphone className="h-4 w-4 text-sky-400" /> Wave & Orange Money</span>
-          <span className="flex items-center gap-2"><Truck className="h-4 w-4 text-amber-300" /> Livraison suivie</span>
-        </div>
-      </aside>
-
-      <main className="relative flex items-center justify-center overflow-hidden px-5 py-10 sm:px-10">
-        <div className="pointer-events-none absolute inset-0 overflow-hidden lg:hidden" aria-hidden="true">
-          <div className="aurora-blob aurora-1 -left-24 -top-24 h-72 w-72 bg-emerald-300/40" />
-          <div className="aurora-blob aurora-2 -right-24 bottom-0 h-72 w-72 bg-cyan-200/50" />
-        </div>
-        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: EASE }} className="relative w-full max-w-md">
-          <Link to="/" className="mb-8 flex h-14 w-[128px] items-center justify-center overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-slate-200 lg:hidden">
-            <img src="/logo.png" alt="SamaBoutik" className="h-full w-full scale-[1.6] object-contain" />
-          </Link>
-          {badge && (
-            <motion.span initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-4 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-emerald-700 ring-1 ring-emerald-200">
-              {badge}
-            </motion.span>
-          )}
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 md:text-4xl">{title}</h1>
-          <p className="mt-2 text-slate-500">{subtitle}</p>
-          <div className="mt-8">{children}</div>
+    <AnimatePresence>
+      {message && (
+        <motion.div
+          key={message}
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          role={tone === 'error' ? 'alert' : 'status'}
+          className={`flex items-start gap-3 rounded-xl border p-3.5 text-sm font-medium ${
+            tone === 'success'
+              ? dark ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200' : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : dark ? 'border-rose-400/30 bg-rose-500/10 text-rose-200' : 'border-rose-200 bg-rose-50 text-rose-700'
+          }`}
+        >
+          {tone === 'success' ? <Check className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={3} /> : <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />}
+          <span>{message}</span>
         </motion.div>
-      </main>
+      )}
+    </AnimatePresence>
+  );
+}
+
+export function Divider({ children }) {
+  return (
+    <div className="my-7 flex items-center gap-3">
+      <div className="h-px flex-1 bg-slate-200" />
+      <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">{children}</span>
+      <div className="h-px flex-1 bg-slate-200" />
     </div>
   );
 }
 
-// Carte flottante pour les panneaux décoratifs.
-export function FloatingCard({ children, delay = 0, float = 10, duration = 6, className = '' }) {
+// Pages d'authentification : formulaire à gauche, photo à droite (grand écran).
+export function AuthShell({ title, subtitle, headerAction, photo, photoAlt, side, children }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 40, scale: 0.9, filter: 'blur(8px)' }}
-      animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-      transition={{ delay, duration: 0.8, ease: EASE }}
-      className={className}
-    >
-      <motion.div
-        animate={{ y: [0, -float, 0] }}
-        transition={{ duration, repeat: Infinity, ease: 'easeInOut' }}
-        className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl"
-      >
-        {children}
-      </motion.div>
-    </motion.div>
+    <div className="font-jakarta grid min-h-screen bg-white lg:grid-cols-[1fr_1.05fr]">
+      <main className="flex min-h-screen flex-col px-5 py-5 sm:px-10 lg:px-14">
+        <header className="flex items-center justify-between gap-4">
+          <Link to="/" className="flex h-10 w-auto items-center justify-center overflow-hidden px-1.5 py-0.5" aria-label="SamaBoutik, accueil">
+            <img src="/logo.webp" alt="SamaBoutik" width="252" height="186" decoding="async" className="h-full w-auto object-contain" />
+          </Link>
+          {headerAction && <div className="text-sm text-slate-500">{headerAction}</div>}
+        </header>
+
+        <div className="flex flex-1 items-center justify-center py-10">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: EASE }} className="w-full max-w-[420px]">
+            <h1 className="text-[2rem] font-extrabold leading-tight tracking-tight text-[#0b1f17]">{title}</h1>
+            {subtitle && <p className="mt-2 text-[15px] leading-relaxed text-slate-500">{subtitle}</p>}
+            <div className="mt-8">{children}</div>
+          </motion.div>
+        </div>
+
+        <footer className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+          <span>© {new Date().getFullYear()} SamaBoutik</span>
+          <span>Paiements sécurisés par PayDunya</span>
+        </footer>
+      </main>
+
+      <aside className="relative hidden p-3 lg:block">
+        <div className="sticky top-3 h-[calc(100vh-1.5rem)] overflow-hidden rounded-[2rem] bg-[#0b1f17]">
+          <motion.img
+            initial={{ scale: 1.08, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 1.2, ease: EASE }}
+            src={photo}
+            srcSet={photo?.endsWith('.webp') ? `${photo.replace(/\.webp$/, '-1024.webp')} 1024w, ${photo} 1400w` : undefined}
+            sizes="50vw"
+            alt={photoAlt}
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#06140f] via-[#06140f]/35 to-transparent" />
+          <div className="relative flex h-full flex-col justify-end p-10 text-white xl:p-14">{side}</div>
+        </div>
+      </aside>
+    </div>
   );
 }

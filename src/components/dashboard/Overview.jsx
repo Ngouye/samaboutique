@@ -94,12 +94,11 @@ export default function Overview({
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="mx-auto flex max-w-[1400px] flex-col gap-6">
       {/* Bandeau d'accueil */}
-      <motion.section variants={item} className="relative overflow-hidden rounded-[2rem] bg-[#06150f] p-6 text-white md:p-8">
+      <motion.section variants={item} className="relative overflow-hidden rounded-[2rem] bg-[#0b1f17] p-6 text-white md:p-8">
         <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-          <div className="aurora-blob aurora-1 -left-24 -top-32 h-96 w-96 bg-emerald-500/30" />
-          <div className="aurora-blob aurora-2 -right-20 top-0 h-80 w-80 bg-cyan-400/20" />
-          <div className="aurora-blob aurora-3 bottom-[-8rem] left-1/3 h-72 w-72 bg-amber-300/10" />
-          <div className="bg-grid-pattern absolute inset-0" />
+          <div className="absolute -left-24 -top-32 h-96 w-96 rounded-full bg-emerald-500/25 blur-3xl" />
+          <div className="absolute -right-20 bottom-[-6rem] h-72 w-72 rounded-full bg-amber-300/10 blur-3xl" />
+          <div className="absolute inset-0 bg-[radial-gradient(rgba(110,231,183,0.12)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]" />
         </div>
         <div className="relative flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -108,7 +107,7 @@ export default function Overview({
               {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
             </p>
             <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
-              {greeting}, <span className="text-shimmer">{merchant?.shop_name || 'Marchand'}</span>
+              {greeting}, <span className="text-emerald-300">{merchant?.shop_name || 'Marchand'}</span>
             </h1>
             <p className="mt-3 max-w-xl text-emerald-50/80">
               {pending > 0
@@ -116,18 +115,18 @@ export default function Overview({
                 : <>Tout est à jour. Aucune commande en attente{outOfStock > 0 && <>, mais <strong className="text-white">{outOfStock} produit{outOfStock > 1 ? 's' : ''} en rupture</strong></>}.</>}
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
-              <a href={shopUrl} target="_blank" rel="noreferrer" className="shine-btn inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-bold text-[#06150f] shadow-[0_0_30px_rgba(255,255,255,0.2)] transition-transform hover:-translate-y-0.5">
+              <a href={shopUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[#0b1f17] transition-transform hover:-translate-y-0.5">
                 <Store className="h-4 w-4" /> Ouvrir ma vitrine
               </a>
               {pending > 0 && (
-                <button onClick={() => onNavigate('orders')} className="inline-flex items-center gap-2 rounded-2xl bg-emerald-400 px-5 py-3 text-sm font-bold text-[#06150f] transition-transform hover:-translate-y-0.5">
+                <button onClick={() => onNavigate('orders')} className="inline-flex items-center gap-2 rounded-full bg-emerald-400 px-5 py-3 text-sm font-bold text-[#0b1f17] transition-transform hover:-translate-y-0.5">
                   Traiter les commandes <ArrowRight className="h-4 w-4" />
                 </button>
               )}
-              <button onClick={onOpenQR} className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold backdrop-blur transition-colors hover:bg-white/10">
+              <button onClick={onOpenQR} className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold transition-colors hover:bg-white/10">
                 <QrCode className="h-4 w-4" /> QR code
               </button>
-              <button onClick={onCopyDriverLink} className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold backdrop-blur transition-colors hover:bg-white/10">
+              <button onClick={onCopyDriverLink} className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold transition-colors hover:bg-white/10">
                 <Truck className="h-4 w-4" /> Lien livreur
               </button>
             </div>
@@ -183,7 +182,7 @@ export default function Overview({
       {/* Indicateurs clés */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <motion.div variants={item} className="sm:col-span-2 xl:col-span-2">
-          <div className="relative flex h-full flex-col overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800 p-6 text-white shadow-[0_24px_48px_-20px_rgba(5,150,105,0.6)]">
+          <div className="relative flex h-full flex-col overflow-hidden rounded-3xl bg-emerald-700 p-6 text-white shadow-[0_24px_48px_-22px_rgba(4,120,87,0.6)]">
             <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
             <div className="relative mb-2 flex items-center justify-between">
               <p className="text-sm font-medium text-emerald-50/90">Chiffre d'affaires livré</p>
@@ -310,7 +309,7 @@ export default function Overview({
                       <tr key={o.id} onClick={() => onNavigate('orders')} className="cursor-pointer border-t border-slate-100 transition-colors hover:bg-slate-50">
                         <td className="px-2 py-3">
                           <div className="flex items-center gap-3">
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 text-sm font-bold text-emerald-800">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-sm font-bold text-emerald-800 ring-1 ring-inset ring-emerald-600/15">
                               {(o.customer_name || '?').charAt(0).toUpperCase()}
                             </span>
                             <div className="min-w-0">
@@ -346,7 +345,7 @@ export default function Overview({
           <div className="flex flex-col gap-1">
             {driverBalances.slice(0, 6).map((d) => (
               <button key={d.id} onClick={() => onSelectDriver(d)} className="flex items-center gap-3 rounded-2xl p-2 text-left transition-colors hover:bg-slate-50">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-100 to-orange-100 text-sm font-bold text-orange-700">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-50 text-sm font-bold text-amber-800 ring-1 ring-inset ring-amber-600/20">
                   {d.full_name.charAt(0).toUpperCase()}
                 </span>
                 <span className="min-w-0 flex-1">

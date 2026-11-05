@@ -11,7 +11,9 @@ export const lazyWithRetry = (componentImport) => {
       window.sessionStorage.setItem('page-has-been-force-refreshed', 'false');
       return component;
     } catch (error) {
-      if (!pageHasAlreadyBeenForceRefreshed) {
+      // Hors ligne, recharger n'afficherait que la page d'erreur du navigateur :
+      // on laisse l'écran « Pas de connexion internet » proposer de réessayer.
+      if (!pageHasAlreadyBeenForceRefreshed && navigator.onLine !== false) {
         window.sessionStorage.setItem('page-has-been-force-refreshed', 'true');
         window.location.reload();
       }

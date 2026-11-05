@@ -2,56 +2,54 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 
+// Kit d'interface « SamaBoutik Pro » : mêmes codes que la page d'accueil
+// (vert profond #0b1f17, accents émeraude, mises en valeur ambre, cartes blanches à fine bordure).
+
 export const EASE = [0.16, 1, 0.3, 1];
+export const INK = '#0b1f17';
 
 // Variantes alignées sur celles de la page (initial / animate) pour profiter du décalage en cascade.
 export const rise = {
-  initial: { opacity: 0, y: 24, filter: 'blur(6px)' },
-  animate: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.55, ease: EASE } },
+  initial: { opacity: 0, y: 14 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.45, ease: EASE } },
 };
 
-export const CARD = 'rounded-3xl border border-slate-200/70 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-16px_rgba(15,23,42,0.12)]';
-export const INPUT = 'w-full rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 text-sm font-medium text-slate-900 placeholder-slate-400 outline-none transition-all focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10';
-export const LABEL = 'mb-1.5 block text-sm font-semibold text-slate-700';
+export const CARD = 'rounded-3xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-18px_rgba(15,23,42,0.14)]';
+export const INPUT = 'w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-[15px] text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] placeholder:text-slate-400 outline-none transition duration-200 focus:border-emerald-600 focus:ring-4 focus:ring-emerald-600/15 disabled:cursor-not-allowed disabled:opacity-60';
+export const LABEL = 'mb-1.5 block text-sm font-semibold text-slate-800';
 
-export const GRADIENTS = {
-  emerald: 'from-emerald-400 via-emerald-500 to-teal-600 shadow-emerald-500/40',
-  sky: 'from-sky-400 via-blue-500 to-indigo-600 shadow-blue-500/40',
-  amber: 'from-amber-300 via-amber-400 to-orange-500 shadow-amber-500/40',
-  violet: 'from-violet-400 via-purple-500 to-fuchsia-600 shadow-purple-500/40',
-  rose: 'from-rose-400 via-pink-500 to-red-500 shadow-rose-500/40',
-  slate: 'from-slate-500 via-slate-700 to-slate-900 shadow-slate-500/40',
+// Teintes des pastilles d'icônes. Les anciens noms (« violet »…) restent acceptés
+// et retombent sur la palette de la marque.
+export const TONES = {
+  emerald: 'bg-emerald-50 text-emerald-700 ring-emerald-600/15',
+  sky: 'bg-sky-50 text-sky-700 ring-sky-600/15',
+  amber: 'bg-amber-50 text-amber-700 ring-amber-600/20',
+  rose: 'bg-rose-50 text-rose-700 ring-rose-600/15',
+  slate: 'bg-slate-100 text-slate-700 ring-slate-900/10',
+  ink: 'bg-[#0b1f17] text-emerald-300 ring-black/10',
 };
+TONES.violet = TONES.emerald;
+export const GRADIENTS = TONES;
 
-// Icône « magique » : pastille en dégradé, reflet, halo, étincelles, et petite danse au survol.
-export function MagicIcon({ icon: Icon, gradient = 'emerald', size = 'md', sparkle = false, className = '' }) {
-  const dims = { sm: 'h-9 w-9 rounded-xl', md: 'h-12 w-12 rounded-2xl', lg: 'h-14 w-14 rounded-2xl' }[size];
-  const icon = { sm: 'h-4 w-4', md: 'h-5 w-5', lg: 'h-6 w-6' }[size];
+// Pastille d'icône sobre (nom historique conservé : MagicIcon).
+export function MagicIcon({ icon: Icon, gradient = 'emerald', size = 'md', className = '' }) {
+  const dims = { sm: 'h-9 w-9 rounded-xl', md: 'h-11 w-11 rounded-2xl', lg: 'h-12 w-12 rounded-2xl' }[size];
+  const icon = { sm: 'h-[18px] w-[18px]', md: 'h-5 w-5', lg: 'h-6 w-6' }[size];
   return (
-    <motion.span
-      whileHover={{ rotate: [0, -10, 10, -4, 0], scale: 1.08 }}
-      transition={{ duration: 0.5 }}
-      className={`relative inline-flex shrink-0 items-center justify-center bg-gradient-to-br text-white shadow-lg ${GRADIENTS[gradient]} ${dims} ${className}`}
-    >
-      <span className="absolute inset-0 rounded-[inherit] bg-gradient-to-b from-white/40 to-transparent opacity-60" style={{ maskImage: 'linear-gradient(to bottom, black 0%, transparent 55%)' }} />
-      <Icon className={`relative ${icon} drop-shadow-sm`} strokeWidth={2.2} />
-      {sparkle && (
-        <>
-          <motion.span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-white shadow-[0_0_8px_2px_rgba(255,255,255,0.9)]" animate={{ scale: [0, 1, 0], opacity: [0, 1, 0] }} transition={{ duration: 2, repeat: Infinity, delay: 0.3 }} />
-          <motion.span className="absolute -bottom-0.5 -left-1 h-1.5 w-1.5 rounded-full bg-amber-200 shadow-[0_0_6px_2px_rgba(253,230,138,0.9)]" animate={{ scale: [0, 1, 0], opacity: [0, 1, 0] }} transition={{ duration: 2, repeat: Infinity, delay: 1.3 }} />
-        </>
-      )}
-    </motion.span>
+    <span className={`relative inline-flex shrink-0 items-center justify-center ring-1 ring-inset ${TONES[gradient] || TONES.emerald} ${dims} ${className}`}>
+      <Icon className={icon} strokeWidth={2} />
+    </span>
   );
 }
+export const IconBadge = MagicIcon;
 
-export function PageHeader({ icon, gradient, title, subtitle, children }) {
+export function PageHeader({ icon, title, subtitle, children }) {
   return (
     <motion.div variants={rise} className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-4">
-        <MagicIcon icon={icon} gradient={gradient} size="lg" sparkle />
+        <MagicIcon icon={icon} gradient="ink" size="lg" />
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 md:text-3xl">{title}</h1>
+          <h1 className="text-2xl font-extrabold tracking-tight text-[#0b1f17] md:text-3xl">{title}</h1>
           {subtitle && <p className="mt-1 text-slate-500">{subtitle}</p>}
         </div>
       </div>
@@ -60,12 +58,25 @@ export function PageHeader({ icon, gradient, title, subtitle, children }) {
   );
 }
 
+// Bouton principal : pilule vert profond, comme les boutons de la page d'accueil.
 export function PrimaryButton({ children, className = '', ...props }) {
   return (
     <motion.button
-      whileHover={{ y: -2 }}
       whileTap={{ scale: 0.97 }}
-      className={`shine-btn inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/30 transition-shadow hover:shadow-xl hover:shadow-emerald-500/40 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-full bg-[#0b1f17] px-5 py-3 text-sm font-bold text-white shadow-[0_10px_30px_-12px_rgba(11,31,23,0.6)] transition-all hover:-translate-y-0.5 hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 ${className}`}
+      {...props}
+    >
+      {children}
+    </motion.button>
+  );
+}
+
+// Bouton secondaire : pilule blanche bordée.
+export function SecondaryButton({ children, className = '', ...props }) {
+  return (
+    <motion.button
+      whileTap={{ scale: 0.97 }}
+      className={`inline-flex items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-800 transition-colors hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
       {...props}
     >
       {children}
@@ -77,26 +88,26 @@ export function PrimaryButton({ children, className = '', ...props }) {
 export function StatPill({ icon: Icon, label, value, tone = 'slate', active = false, onClick }) {
   const tones = {
     slate: 'bg-slate-100 text-slate-600',
-    emerald: 'bg-emerald-50 text-emerald-600',
-    amber: 'bg-amber-50 text-amber-600',
+    emerald: 'bg-emerald-50 text-emerald-700',
+    amber: 'bg-amber-50 text-amber-700',
     red: 'bg-red-50 text-red-600',
-    sky: 'bg-sky-50 text-sky-600',
-    violet: 'bg-violet-50 text-violet-600',
+    sky: 'bg-sky-50 text-sky-700',
+    violet: 'bg-emerald-50 text-emerald-700',
   };
   const Tag = onClick ? motion.button : motion.div;
   return (
     <Tag
       variants={rise}
       onClick={onClick}
-      whileHover={onClick ? { y: -3 } : undefined}
-      className={`${CARD} flex items-center gap-3 p-4 text-left transition-colors ${active ? '!border-emerald-400 ring-4 ring-emerald-500/10' : ''}`}
+      aria-pressed={onClick ? active : undefined}
+      className={`${CARD} flex flex-col items-start gap-2.5 p-4 text-left transition-[border-color,box-shadow,transform] duration-200 sm:flex-row sm:items-center sm:gap-3 ${onClick ? 'hover:-translate-y-0.5 hover:border-slate-300' : ''} ${active ? '!border-emerald-600 ring-4 ring-emerald-600/10' : ''}`}
     >
-      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tones[tone]}`}>
-        <Icon className="h-5 w-5" />
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-10 sm:w-10 ${tones[tone] || tones.slate}`}>
+        <Icon className="h-[18px] w-[18px] sm:h-5 sm:w-5" />
       </span>
       <span className="min-w-0">
-        <span className="block text-xl font-bold leading-tight text-slate-900">{value}</span>
-        <span className="block truncate text-xs font-medium text-slate-500">{label}</span>
+        <span className="block whitespace-nowrap text-lg font-bold leading-tight text-[#0b1f17] sm:text-xl">{value}</span>
+        <span className="block text-xs font-medium leading-snug text-slate-500">{label}</span>
       </span>
     </Tag>
   );
@@ -104,19 +115,13 @@ export function StatPill({ icon: Icon, label, value, tone = 'slate', active = fa
 
 export function EmptyState({ icon: Icon, title, text, action }) {
   return (
-    <motion.div variants={rise} className={`${CARD} relative overflow-hidden px-6 py-16 text-center`}>
-      <div className="pointer-events-none absolute left-1/2 top-10 h-40 w-40 -translate-x-1/2 rounded-full bg-emerald-200/40 blur-3xl" />
-      <div className="relative mx-auto mb-6 flex h-24 w-24 items-center justify-center">
-        <span className="orbit orbit-slow h-24 w-24 border border-dashed border-emerald-300/60">
-          <span className="absolute -top-1 left-1/2 h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.9)]" />
-        </span>
-        <motion.span animate={{ y: [0, -8, 0] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}>
-          <MagicIcon icon={Icon} size="lg" sparkle />
-        </motion.span>
-      </div>
-      <h3 className="relative text-xl font-bold text-slate-900">{title}</h3>
-      <p className="relative mx-auto mt-2 max-w-sm text-slate-500">{text}</p>
-      {action && <div className="relative mt-6">{action}</div>}
+    <motion.div variants={rise} className={`${CARD} px-6 py-16 text-center`}>
+      <span className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/15">
+        <Icon className="h-7 w-7" />
+      </span>
+      <h3 className="text-xl font-bold text-[#0b1f17]">{title}</h3>
+      <p className="mx-auto mt-2 max-w-sm text-slate-500">{text}</p>
+      {action && <div className="mt-6">{action}</div>}
     </motion.div>
   );
 }
@@ -138,28 +143,28 @@ export function Modal({ open, onClose, icon, gradient, title, subtitle, children
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-slate-950/50 backdrop-blur-md"
+            className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
           />
           <motion.div
             role="dialog"
             aria-modal="true"
-            initial={{ opacity: 0, y: 60, scale: 0.96 }}
+            aria-label={title}
+            initial={{ opacity: 0, y: 40, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 40, scale: 0.97 }}
-            transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+            exit={{ opacity: 0, y: 30, scale: 0.98 }}
+            transition={{ type: 'spring', stiffness: 360, damping: 32 }}
             className={`relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-[2rem] bg-white shadow-2xl sm:rounded-[2rem] ${maxWidth}`}
           >
-            <div className="relative overflow-hidden border-b border-slate-100 px-6 py-5">
-              <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-emerald-200/50 blur-3xl" />
-              <div className="relative flex items-center gap-4">
-                {icon && <MagicIcon icon={icon} gradient={gradient} sparkle />}
+            <div className="border-b border-slate-100 px-6 py-5">
+              <div className="flex items-center gap-4">
+                {icon && <MagicIcon icon={icon} gradient={gradient} />}
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-xl font-extrabold text-slate-900">{title}</h2>
+                  <h2 className="text-xl font-extrabold text-[#0b1f17]">{title}</h2>
                   {subtitle && <p className="mt-0.5 truncate text-sm text-slate-500">{subtitle}</p>}
                 </div>
-                <motion.button whileHover={{ rotate: 90 }} onClick={onClose} className="rounded-full bg-slate-100 p-2 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900" aria-label="Fermer">
+                <button onClick={onClose} className="rounded-full bg-slate-100 p-2 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900" aria-label="Fermer">
                   <X className="h-5 w-5" />
-                </motion.button>
+                </button>
               </div>
             </div>
             <div className="overflow-y-auto px-6 py-6">{children}</div>
@@ -192,7 +197,7 @@ export function Toggle({ checked, onChange, label }) {
       aria-checked={checked}
       aria-label={label}
       onClick={() => onChange(!checked)}
-      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${checked ? 'bg-emerald-500' : 'bg-slate-300'}`}
+      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${checked ? 'bg-emerald-600' : 'bg-slate-300'}`}
     >
       <motion.span layout transition={{ type: 'spring', stiffness: 500, damping: 30 }} className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow ${checked ? 'right-0.5' : 'left-0.5'}`} />
     </button>
@@ -205,7 +210,7 @@ export function SectionCard({ icon, gradient, title, subtitle, children }) {
       <header className="mb-6 flex items-center gap-4">
         <MagicIcon icon={icon} gradient={gradient} size="sm" />
         <div>
-          <h3 className="text-lg font-bold text-slate-900">{title}</h3>
+          <h3 className="text-lg font-bold text-[#0b1f17]">{title}</h3>
           {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
         </div>
       </header>

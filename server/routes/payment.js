@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { DEFAULT_DELIVERY_ZONES } from '../lib/deliveryZones.js';
+import { reportError, reportWarning } from '../lib/monitoring.js';
 
 dotenv.config();
 
@@ -147,7 +148,7 @@ router.post('/create', async (req, res) => {
     }
 
   } catch (error) {
-    console.error("Erreur serveur lors de la création du paiement :", error);
+    reportError(error, 'Création du paiement');
     res.status(500).json({ success: false, error: "Erreur lors de l'initialisation du paiement" });
   }
 });
@@ -180,10 +181,10 @@ async function payoutMerchant(order) {
     if (payoutResponse.data && payoutResponse.data.response_code === '00') {
       console.log(`Transfert réussi vers le vendeur ! Transaction ID: ${payoutResponse.data.transaction_id}`);
     } else {
-      console.error("Échec du transfert PayDunya:", payoutResponse.data);
+      reportWarning(`Reversement PayDunya refusé pour la commande ${order.id}`, { response_code: payoutResponse.data?.response_code });
     }
   } catch (payoutErr) {
-    console.error("Erreur lors du transfert d'argent au vendeur:", payoutErr.response ? payoutErr.response.data : payoutErr.message);
+    reportError(payoutErr, `Reversement au marchand (commande ${order.id})`);
   }
 }
 
@@ -221,7 +222,7 @@ router.post('/webhook', async (req, res) => {
     if (orderError || !order) return res.status(404).send('Commande introuvable');
 
     if (Number(confirmed.invoice?.total_amount) !== Number(order.total_amount_fcfa)) {
-      console.error(`Montant payé (${confirmed.invoice?.total_amount}) différent du montant de la commande ${order.id} (${order.total_amount_fcfa}).`);
+      reportWarning(`Montant payé (${confirmed.invoice?.total_amount}) différent du montant de la commande ${order.id} (${order.total_amount_fcfa}).`);
       await supabase.from('orders').update({ payment_status: 'AMOUNT_MISMATCH' }).eq('id', order.id);
       return res.status(200).send('Montant incohérent');
     }
@@ -244,7 +245,7 @@ router.post('/webhook', async (req, res) => {
 
     res.status(200).send('Webhook reçu');
   } catch (error) {
-    console.error("Erreur Webhook :", error.response ? error.response.data : error);
+    reportError(error, 'Webhook PayDunya');
     res.status(500).send("Erreur interne");
   }
 });

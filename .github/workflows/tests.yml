@@ -1,0 +1,29 @@
+# Tests automatiques à chaque envoi de code sur GitHub (inactif tant que le projet n'y est pas).
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+      - run: npm ci
+      - run: npm ci
+        working-directory: server
+      - name: Tests (base de données, serveur, site)
+        run: npm test
+      - name: Compilation du site
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://exemple.supabase.co
+          VITE_SUPABASE_ANON_KEY: cle-de-test

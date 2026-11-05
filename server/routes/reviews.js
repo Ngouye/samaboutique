@@ -1,6 +1,7 @@
 import express from 'express';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import { reportError } from '../lib/monitoring.js';
 
 dotenv.config();
 
@@ -19,15 +20,15 @@ router.get('/:productId', async (req, res) => {
     const { productId } = req.params;
     const { data, error } = await supabase
       .from('reviews')
-      .select('*')
+      .select('id, product_id, rating, comment, customer_name, verified, created_at')
       .eq('product_id', productId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
     res.json({ success: true, reviews: data });
   } catch (error) {
-    console.error("Erreur serveur lors de la récupération des avis :", error);
-    res.status(500).json({ success: false, error: error.message });
+    reportError(error, 'Lecture des avis');
+    res.status(500).json({ success: false, error: 'Impossible de charger les avis.' });
   }
 });
 

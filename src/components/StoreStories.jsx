@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ShoppingBag } from 'lucide-react';
 import Icon3D from './Icon3D';
+import { thumbUrl, fallbackToFull } from '../utils/imageUpload';
 
 export default function StoreStories({ products = [], onProductClick }) {
   const [activeStoryIndex, setActiveStoryIndex] = useState(null);
@@ -71,15 +72,18 @@ export default function StoreStories({ products = [], onProductClick }) {
                 {/* Anneau rotatif */}
                 <div className="story-ring absolute inset-0 rounded-full"></div>
                 {/* Conteneur image */}
-                <div className="absolute inset-[3px] rounded-full border-2 border-white overflow-hidden bg-white z-10">
+                <div className="absolute inset-[3px] z-10 overflow-hidden rounded-full border-2 border-[color:var(--shop-bg,#fff)] bg-[color:var(--shop-surface,#fff)]">
                   <img 
-                    src={product.image_url} 
+                    src={thumbUrl(product.image_url)}
+                    onError={fallbackToFull(product.image_url)}
+                    loading="lazy"
+                    decoding="async" 
                     alt={product.name} 
                     className="w-full h-full object-cover"
                   />
                 </div>
               </div>
-              <span className="text-[10px] font-bold text-gray-800 w-20 text-center truncate">
+              <span className="w-20 truncate text-center text-[10px] font-bold text-[color:var(--shop-ink,#1f2937)]">
                 {product.name}
               </span>
             </div>

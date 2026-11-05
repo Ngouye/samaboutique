@@ -1,37 +1,22 @@
-import express from 'express';
-import cors from 'cors';
 import dotenv from 'dotenv';
-import paymentRoutes from './routes/payment.js';
-import reviewRoutes from './routes/reviews.js';
-import { startNotificationWorker } from './lib/notificationWorker.js';
+import { initMonitoring, reportError, Sentry } from './lib/monitoring.js';
 
 dotenv.config();
+// La surveillance démarre avant le reste, pour capter aussi les erreurs de démarrage.
+initMonitoring();
 
-const app = express();
+const { default: app } = await import('./app.js');
+const { startNotificationWorker } = await import('./lib/notificationWorker.js');
+
 const PORT = process.env.PORT || 3000;
 
-// Seul le site SamaBoutik peut appeler l'API depuis un navigateur.
-// FRONTEND_URL accepte plusieurs adresses séparées par des virgules.
-const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
-  .split(',')
-  .map((o) => o.trim())
-  .filter(Boolean);
-
-// Middlewares
-app.use(cors({
-  // Les appels serveur à serveur (webhook PayDunya) n'ont pas d'en-tête Origin.
-  origin: (origin, callback) => callback(null, !origin || allowedOrigins.includes(origin)),
-}));
-app.use(express.json({ limit: '100kb' }));
-app.use(express.urlencoded({ extended: true, limit: '100kb' })); // Notifications PayDunya (formulaire)
-
-// Routes
-app.use('/api/payments', paymentRoutes);
-app.use('/api/reviews', reviewRoutes);
-
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Samaboutik Payment API is running' });
+process.on('unhandledRejection', (reason) => reportError(reason, 'Promesse rejetée non gérée'));
+// Exception non rattrapée : l'état du serveur est incertain. On la signale, puis on s'arrête
+// proprement ; l'hébergeur redémarre aussitôt le serveur.
+process.on('uncaughtException', async (error) => {
+  reportError(error, 'Exception non gérée');
+  await Sentry.flush(2000).catch(() => {});
+  process.exit(1);
 });
 
 app.listen(PORT, () => {

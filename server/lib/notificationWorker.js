@@ -4,6 +4,7 @@
 import { supabaseAdmin } from './supabase.js';
 import { whatsappProvider, toWhatsAppNumber, sendWhatsApp } from './whatsapp.js';
 import { buildNotificationMessage } from './notificationMessages.js';
+import { reportError, reportWarning } from './monitoring.js';
 
 const POLL_MS = 5000;
 const MAX_ATTEMPTS = 5;
@@ -32,7 +33,10 @@ async function deliver(notification) {
       last_error: String(err.message || err).slice(0, 500),
       next_attempt_at: new Date(Date.now() + delayMin * 60000).toISOString(),
     });
-    console.warn(`WhatsApp ${notification.event} #${notification.id} : ${giveUp ? 'abandon' : `nouvel essai dans ${delayMin} min`} (${err.message})`);
+    const summary = `WhatsApp ${notification.event} #${notification.id} : ${giveUp ? 'abandon' : `nouvel essai dans ${delayMin} min`} (${err.message})`;
+    // Un message définitivement abandonné est signalé ; les nouveaux essais restent dans les journaux.
+    if (giveUp) reportWarning(summary, { event: notification.event, attempts: notification.attempts });
+    else console.warn(summary);
   }
 }
 
@@ -53,14 +57,14 @@ export function startNotificationWorker() {
       const { data, error } = await supabaseAdmin.rpc('claim_notifications', { p_limit: 10 });
       if (error) {
         // Une seule fois dans les journaux (ex. new_features.sql pas encore exécuté).
-        if (error.message !== lastError) console.error('Notifications WhatsApp :', error.message);
+        if (error.message !== lastError) reportError(error, "Notifications WhatsApp (file d'attente)");
         lastError = error.message;
         return;
       }
       lastError = '';
       for (const notification of data || []) await deliver(notification);
     } catch (err) {
-      console.error('Notifications WhatsApp :', err.message);
+      reportError(err, 'Notifications WhatsApp');
     } finally {
       running = false;
     }

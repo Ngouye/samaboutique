@@ -9,7 +9,7 @@ import { supabase } from '../supabaseClient';
 import { SHOP_CATEGORIES } from '../utils/categories';
 import { nearestCity, distanceKm } from '../components/admin/geo';
 import { getCurrentPosition } from '../utils/geolocation';
-import { BlurWords, ParticleField } from '../components/landing/Magic';
+import { BlurWords } from '../components/landing/Magic';
 import DirectoryMap from '../components/directory/DirectoryMap';
 
 const EASE = [0.16, 1, 0.3, 1];
@@ -35,7 +35,7 @@ function ShopCard({ shop, index, selected, onHover }) {
           {covers.length > 0 && (
             <div className={`grid h-full ${covers.length > 1 ? 'grid-cols-3 gap-0.5' : ''}`}>
               {covers.slice(0, 3).map((src, i) => (
-                <img key={src} src={src} alt="" loading="lazy" className={`h-full w-full object-cover transition-transform duration-700 group-hover:scale-110 ${covers.length > 1 && i === 0 ? 'col-span-2' : ''}`} />
+                <img key={src} src={src} alt="" loading="lazy" decoding="async" className={`h-full w-full object-cover transition-transform duration-700 group-hover:scale-110 ${covers.length > 1 && i === 0 ? 'col-span-2' : ''}`} />
               ))}
             </div>
           )}
@@ -54,7 +54,7 @@ function ShopCard({ shop, index, selected, onHover }) {
         <div className="relative px-5 pb-5">
           <div className="-mt-8 mb-3 flex items-end gap-3">
             <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl text-2xl font-extrabold text-white ring-4 ring-[#071a13]" style={{ background: color }}>
-              {shop.logo_url ? <img src={shop.logo_url} alt="" className="h-full w-full object-cover" /> : shop.shop_name.charAt(0).toUpperCase()}
+              {shop.logo_url ? <img src={shop.logo_url} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : shop.shop_name.charAt(0).toUpperCase()}
             </span>
             {shop.rating > 0 && (
               <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-xs font-bold text-amber-300">
@@ -145,8 +145,8 @@ export default function Directory() {
         {/* Navigation */}
         <nav className="sticky top-0 z-[600] border-b border-white/[0.06] bg-[#04120d]/80 backdrop-blur-xl">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3">
-            <Link to="/" className="flex h-10 w-[92px] items-center justify-center overflow-hidden rounded-xl bg-white shadow-[0_0_20px_rgba(52,211,153,0.25)]">
-              <img src="/logo.png" alt="SamaBoutik" className="h-full w-full scale-[1.6] object-contain" />
+            <Link to="/" className="flex h-10 w-auto items-center justify-center overflow-hidden px-1.5 py-0.5 rounded-xl bg-white shadow-[0_0_20px_rgba(52,211,153,0.25)]">
+              <img src="/logo.webp" alt="SamaBoutik" width="252" height="186" decoding="async" className="h-full w-auto object-contain" />
             </Link>
             <Link to="/register" className="shine-btn rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 px-4 py-2 text-sm font-bold text-[#02130c] shadow-[0_0_25px_rgba(52,211,153,0.35)]">
               <span className="hidden sm:inline">Vous êtes commerçant ? </span>Créer ma boutique
@@ -156,7 +156,7 @@ export default function Directory() {
 
         {/* En-tête */}
         <header className="relative overflow-hidden px-4 pb-10 pt-12 md:pb-14 md:pt-20">
-          <ParticleField className="absolute inset-0 opacity-60" density={45} />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(52,211,153,0.12)_1px,transparent_1px)] [background-size:24px_24px] [mask-image:linear-gradient(to_bottom,black,transparent_80%)]" aria-hidden="true" />
           <div className="pointer-events-none absolute -left-40 top-0 h-96 w-96 rounded-full bg-emerald-500/20 blur-[120px]" />
           <div className="pointer-events-none absolute -right-40 bottom-0 h-96 w-96 rounded-full bg-cyan-500/10 blur-[120px]" />
           <div className="relative mx-auto max-w-4xl text-center">

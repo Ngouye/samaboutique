@@ -1,85 +1,81 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { Store, ArrowRight, Mail, Lock, Phone, Check, Sparkles, ShoppingBag, Globe, MapPin, LocateFixed, X, LoaderCircle } from 'lucide-react';
-import { getCurrentPosition } from '../utils/geolocation';
-import confetti from 'canvas-confetti';
-import { playSuccess, playPop } from '../utils/audio';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Store, ArrowRight, Mail, Lock, Phone, Check, MapPin, LocateFixed, LoaderCircle, Globe, MailCheck } from 'lucide-react';
+import confetti from 'canvas-confetti';
+import { useAuth } from '../contexts/AuthContext';
+import { getCurrentPosition } from '../utils/geolocation';
+import { authErrorMessage } from '../utils/authErrors';
+import Turnstile, { captchaRequired } from '../components/auth/Turnstile';
 import { AuthShell, Field, PasswordField, StrengthMeter, SubmitButton, ErrorBanner, EASE } from '../components/auth/AuthUI';
+import { isThemeId, PENDING_THEME_KEY } from '../components/shop/themes';
 
-// Aperçu en direct de la boutique pendant la saisie.
-function ShopPreview({ shopName, phoneNumber, email, password, location }) {
-  const steps = [
-    { label: 'Boutique nommée', done: shopName.trim().length > 1 },
-    { label: 'Contact WhatsApp', done: phoneNumber.replace(/\D/g, '').length >= 8 },
-    { label: 'Boutique localisée (facultatif)', done: !!location },
-    { label: 'Compte sécurisé', done: /\S+@\S+\.\S+/.test(email) && password.length >= 6 },
-  ];
-  const doneCount = steps.filter((s) => s.done).length;
+const EMAIL_RE = /^\S+@\S+\.\S+$/;
+
+// Numéro sénégalais : on garde les 9 chiffres (77 123 45 67), sans l'indicatif collé devant.
+function localDigits(value) {
+  let digits = String(value).replace(/\D/g, '');
+  if (digits.startsWith('00221')) digits = digits.slice(5);
+  else if (digits.startsWith('221') && digits.length > 9) digits = digits.slice(3);
+  return digits.slice(0, 9);
+}
+const formatPhone = (d) => [d.slice(0, 2), d.slice(2, 5), d.slice(5, 7), d.slice(7, 9)].filter(Boolean).join(' ');
+const phoneIsValid = (d) => /^[37]\d{8}$/.test(d);
+
+function RegisterSide({ shopName, phoneDigits }) {
   const name = shopName.trim() || 'Votre boutique';
-
   return (
-    <div className="max-w-md">
-      <motion.h2 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: EASE }} className="text-4xl font-extrabold leading-tight tracking-tight xl:text-5xl">
-        Votre vitrine prend vie <span className="text-shimmer">en direct.</span>
-      </motion.h2>
-
-      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.8, ease: EASE }} className="mt-8 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.06] shadow-[0_30px_60px_rgba(0,0,0,0.5)] backdrop-blur-xl">
-        <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3 font-mono text-xs text-white/60">
-          <Globe className="h-3.5 w-3.5 text-emerald-300" />
-          <span className="truncate">samaboutik.sn/boutique/<span className="text-emerald-300">{encodeURIComponent(name.toLowerCase().replace(/\s+/g, '-'))}</span></span>
+    <>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.8, ease: EASE }} className="mb-auto ml-auto mt-2 w-80 overflow-hidden rounded-2xl bg-white text-slate-900 shadow-2xl">
+        <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5 text-xs text-slate-500">
+          <Globe className="h-3.5 w-3.5 text-emerald-600" />
+          <span className="truncate">{window.location.host}/boutique/<span className="font-semibold text-slate-800">{name}</span></span>
         </div>
-        <div className="bg-gradient-to-br from-emerald-600 to-teal-800 p-5">
-          <div className="flex items-center gap-3">
-            <motion.span key={name.charAt(0)} initial={{ scale: 0.5, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-xl font-extrabold text-emerald-700 shadow-lg">
-              {name.charAt(0).toUpperCase()}
-            </motion.span>
-            <div className="min-w-0">
-              <AnimatePresence mode="wait">
-                <motion.p key={name} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="truncate text-xl font-extrabold">{name}</motion.p>
-              </AnimatePresence>
-              <p className="text-xs text-emerald-100/80">{phoneNumber || 'Votre numéro WhatsApp'}</p>
-            </div>
+        <div className="flex items-center gap-3 p-4">
+          <motion.span key={name.charAt(0)} initial={{ scale: 0.6 }} animate={{ scale: 1 }} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-800 text-xl font-extrabold text-white">
+            {name.charAt(0).toUpperCase()}
+          </motion.span>
+          <div className="min-w-0">
+            <p className="truncate text-lg font-extrabold">{name}</p>
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> {phoneDigits ? `+221 ${formatPhone(phoneDigits)}` : 'Boutique en ligne'}
+            </p>
           </div>
-        </div>
-        <div className="grid grid-cols-3 gap-2 p-4">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="rounded-xl bg-white/5 p-2">
-              <div className="flex aspect-square items-center justify-center rounded-lg bg-white/10"><ShoppingBag className="h-5 w-5 text-white/30" /></div>
-              <div className="mt-2 h-1.5 w-3/4 rounded bg-white/15" />
-              <div className="mt-1 h-1.5 w-1/2 rounded bg-emerald-400/40" />
-            </div>
-          ))}
         </div>
       </motion.div>
-
-      <div className="mt-6 space-y-2.5">
-        {steps.map((s) => (
-          <div key={s.label} className="flex items-center gap-3">
-            <motion.span
-              animate={{ scale: s.done ? [1, 1.3, 1] : 1, backgroundColor: s.done ? 'rgb(52 211 153)' : 'rgba(255,255,255,0.08)' }}
-              transition={{ duration: 0.4 }}
-              className="flex h-7 w-7 items-center justify-center rounded-full"
-            >
-              {s.done && <Check className="h-4 w-4 text-[#030a07]" strokeWidth={3} />}
-            </motion.span>
-            <span className={`font-semibold transition-colors ${s.done ? 'text-white' : 'text-white/40'}`}>{s.label}</span>
-          </div>
+      <motion.h2 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.8, ease: EASE }} className="max-w-md text-4xl font-extrabold leading-[1.1] tracking-tight xl:text-5xl">
+        Votre vitrine en ligne, en quelques minutes.
+      </motion.h2>
+      <ul className="mt-8 grid max-w-md grid-cols-2 gap-x-6 gap-y-3 text-[15px] text-white/85">
+        {["Jusqu'à 10 produits gratuits", 'Wave, Orange Money, livraison', 'Alertes WhatsApp', 'Suivi des livraisons'].map((t, i) => (
+          <motion.li key={t} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 + i * 0.08 }} className="flex items-center gap-2">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-400 text-[#06140f]"><Check className="h-3 w-3" strokeWidth={3.5} /></span>
+            {t}
+          </motion.li>
         ))}
-        <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10">
-          <motion.div animate={{ width: `${(doneCount / steps.length) * 100}%` }} transition={{ duration: 0.6, ease: EASE }} className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-amber-300" />
-        </div>
-      </div>
-    </div>
+      </ul>
+    </>
+  );
+}
+
+function SectionTitle({ step, children }) {
+  return (
+    <p className="flex items-center gap-2.5 text-xs font-bold uppercase tracking-widest text-slate-400">
+      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-[11px] text-slate-600">{step}</span>
+      {children}
+    </p>
   );
 }
 
 export default function Register() {
+  const { register } = useAuth();
+  const navigate = useNavigate();
+  // Nom et thème choisis dans la démonstration de la page d'accueil (?boutique=…&theme=…)
+  const [shopName, setShopName] = useState(() => (new URLSearchParams(window.location.search).get('boutique') || '').slice(0, 60));
+  const [phoneDigits, setPhoneDigits] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [shopName, setShopName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [touched, setTouched] = useState({});
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -87,6 +83,18 @@ export default function Register() {
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState('');
   const [listInDirectory, setListInDirectory] = useState(true);
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaKey, setCaptchaKey] = useState(0);
+
+  const errors = {
+    shopName: shopName.trim().length < 2 ? 'Donnez un nom à votre boutique (2 caractères minimum).' : '',
+    phone: !phoneIsValid(phoneDigits) ? 'Numéro à 9 chiffres, par exemple 77 123 45 67.' : '',
+    email: !EMAIL_RE.test(email.trim()) ? 'Entrez une adresse email valide.' : '',
+    password: password.length < 8 ? 'Au moins 8 caractères.' : '',
+  };
+  const show = (field) => (touched[field] ? errors[field] : '');
+  const blur = (field) => () => setTouched((t) => ({ ...t, [field]: true }));
 
   const captureLocation = async () => {
     setLocating(true);
@@ -100,116 +108,128 @@ export default function Register() {
     }
   };
 
-  const { register } = useAuth();
-  const navigate = useNavigate();
-
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setTouched({ shopName: true, phone: true, email: true, password: true });
+    if (Object.values(errors).some(Boolean) || (captchaRequired && !captchaToken)) return;
+    setError('');
+    setLoading(true);
     try {
-      setError('');
-      setLoading(true);
-      await register(email, password, shopName, phoneNumber, location ? { ...location, public: listInDirectory } : null);
-
+      const chosenTheme = new URLSearchParams(window.location.search).get('theme');
+      if (isThemeId(chosenTheme)) {
+        try { localStorage.setItem(PENDING_THEME_KEY, chosenTheme); } catch { /* stockage indisponible */ }
+      }
+      const data = await register(email.trim(), password, shopName.trim(), `+221${phoneDigits}`, location ? { ...location, public: listInDirectory } : null, captchaToken);
+      // Confirmation par email activée dans Supabase : pas encore de session.
+      if (!data?.session) {
+        setNeedsConfirmation(true);
+        return;
+      }
       setSuccess(true);
-      playSuccess();
-      confetti({
-        particleCount: 160,
-        spread: 80,
-        origin: { y: 0.6 },
-        colors: ['#10b981', '#2dd4bf', '#fbbf24', '#ffffff']
-      });
-
-      setTimeout(() => {
-        const searchParams = new URLSearchParams(window.location.search);
-        const plan = searchParams.get('plan');
-        if (plan === 'pro' || plan === 'premium') {
-          navigate(`/dashboard?checkout=${plan}`);
-        } else {
-          navigate('/dashboard');
-        }
-      }, 1500);
-
+      confetti({ particleCount: 120, spread: 70, origin: { y: 0.7 }, colors: ['#059669', '#0b1f17', '#f5b82e', '#ffffff'] });
+      const plan = new URLSearchParams(window.location.search).get('plan');
+      setTimeout(() => navigate(plan === 'pro' || plan === 'premium' ? `/dashboard?checkout=${plan}` : '/dashboard'), 1400);
     } catch (err) {
-      setError(err.message || 'Échec de la création du compte');
+      setError(authErrorMessage(err));
+      setCaptchaKey((k) => k + 1);
     } finally {
       setLoading(false);
     }
   };
 
-  const fields = [
-    <Field key="shop" id="shopName" label="Nom de la boutique" icon={Store} required value={shopName} onChange={(e) => setShopName(e.target.value)} />,
-    <Field key="phone" id="phone" type="tel" label="Téléphone (WhatsApp)" icon={Phone} autoComplete="tel" required value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} />,
-    <div key="location" className={`rounded-2xl border-2 p-4 transition-colors ${location ? 'border-emerald-300 bg-emerald-50/60' : 'border-dashed border-slate-200 bg-slate-50/50'}`}>
-      {location ? (
-        <div className="flex items-center gap-3">
-          <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-md shadow-emerald-500/30">
-            <MapPin className="h-5 w-5" />
-          </motion.span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-slate-900">Boutique localisée</p>
-            <p className="truncate text-xs text-slate-500">Précision ± {Math.round(location.accuracy)} m · {location.lat.toFixed(5)}, {location.lng.toFixed(5)}</p>
-          </div>
-          <button type="button" onClick={() => setLocation(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-slate-700" aria-label="Retirer la position">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      ) : null}
-      {location && (
-        <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-xl bg-white/70 p-3 text-xs text-slate-600 ring-1 ring-emerald-200">
-          <input type="checkbox" checked={listInDirectory} onChange={(e) => setListInDirectory(e.target.checked)} className="mt-0.5 h-4 w-4 accent-emerald-600" />
-          <span><span className="font-bold text-slate-900">Afficher ma boutique dans « Boutiques près de moi »</span><br />Les clients du quartier la trouvent sur la carte SamaBoutik. Modifiable à tout moment.</span>
-        </label>
-      )}
-      {location ? null : (
-        <>
-          <motion.button
-            type="button"
-            whileTap={{ scale: 0.97 }}
-            onClick={captureLocation}
-            disabled={locating}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3 text-sm font-bold text-slate-700 shadow-sm ring-1 ring-slate-200 transition-colors hover:text-emerald-700 hover:ring-emerald-300 disabled:opacity-60"
-          >
-            {locating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
-            {locating ? 'Localisation en cours…' : 'Localiser ma boutique'}
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-500">facultatif</span>
-          </motion.button>
-          <p className="mt-2 text-xs text-slate-500">Faites-le depuis votre boutique : elle apparaîtra sur la carte SamaBoutik. Vous pourrez la modifier dans vos paramètres.</p>
-        </>
-      )}
-      {locationError && <p className="mt-2 text-xs font-semibold text-rose-600">{locationError}</p>}
-    </div>,
-    <Field key="email" id="email" type="email" label="Adresse email" icon={Mail} autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />,
-    <div key="pw">
-      <PasswordField id="password" label="Mot de passe (6 caractères min.)" icon={Lock} autoComplete="new-password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
-      <StrengthMeter password={password} />
-    </div>,
-  ];
-
   return (
     <AuthShell
-      side={<ShopPreview shopName={shopName} phoneNumber={phoneNumber} email={email} password={password} location={location} />}
-      badge={<><Sparkles className="h-3.5 w-3.5" /> Gratuit pour démarrer</>}
-      title="Lancez votre boutique"
-      subtitle="Rejoignez SamaBoutik et commencez à vendre en 2 minutes."
+      title="Créez votre boutique"
+      subtitle="Gratuit pour démarrer, sans carte bancaire. Vous pourrez tout modifier plus tard."
+      headerAction={<>Déjà inscrit ? <Link to="/login" className="font-bold text-emerald-700 hover:underline">Se connecter</Link></>}
+      photo="/images/landing/colis-commande.webp"
+      photoAlt="Commerçante qui prépare ses colis"
+      side={<RegisterSide shopName={shopName} phoneDigits={phoneDigits} />}
     >
-      <form className="space-y-4" onSubmit={handleSubmit}>
+      {needsConfirmation ? (
+        <div className="space-y-6">
+          <div className="flex items-start gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white"><MailCheck className="h-5 w-5" /></span>
+            <p className="text-[15px] leading-relaxed text-emerald-900">
+              Votre boutique <span className="font-bold">{shopName.trim()}</span> est créée. Cliquez sur le lien envoyé à <span className="font-bold">{email.trim()}</span> pour activer votre compte, puis connectez-vous.
+            </p>
+          </div>
+          <Link to="/login" className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0b1f17] text-[15px] font-bold text-white hover:bg-emerald-800">
+            Aller à la connexion <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      ) : (
+      <form className="space-y-8" onSubmit={handleSubmit} noValidate>
         <ErrorBanner message={error} />
-        {fields.map((f, i) => (
-          <motion.div key={i} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 + i * 0.08, ease: EASE, duration: 0.6 }}>
-            {f}
-          </motion.div>
-        ))}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="pt-2">
-          <SubmitButton onMouseEnter={playPop} loading={loading} loadingText="Création en cours..." success={success && <><Check className="h-5 w-5" strokeWidth={3} /> Boutique créée !</>}>
-            Créer ma boutique <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-          </SubmitButton>
-        </motion.div>
-      </form>
 
-      <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="mt-8 text-center text-sm text-slate-500">
-        Déjà un compte ?{' '}
-        <Link to="/login" className="font-bold text-emerald-600 hover:text-emerald-700 hover:underline">Connectez-vous</Link>
-      </motion.p>
+        <section className="space-y-5">
+          <SectionTitle step="1">Votre boutique</SectionTitle>
+          <Field
+            id="shopName" label="Nom de la boutique" icon={Store} placeholder="Ex : Chez Awa Mode" required maxLength={60} autoComplete="organization"
+            value={shopName} onChange={(e) => setShopName(e.target.value)} onBlur={blur('shopName')} error={show('shopName')}
+            hint={shopName.trim() ? `Adresse de votre vitrine : ${window.location.host}/boutique/${shopName.trim()}` : 'Le nom affiché à vos clients.'}
+          />
+          <Field
+            id="phone" type="tel" inputMode="numeric" label="Numéro WhatsApp" icon={Phone} prefix="+221" placeholder="77 123 45 67" required autoComplete="tel-national"
+            value={formatPhone(phoneDigits)} onChange={(e) => setPhoneDigits(localDigits(e.target.value))} onBlur={blur('phone')} error={show('phone')}
+            hint="Vous y recevrez vos commandes ; vos clients pourront vous écrire."
+          />
+
+          <div className={`rounded-xl border p-4 transition-colors ${location ? 'border-emerald-300 bg-emerald-50/60' : 'border-slate-200 bg-slate-50/60'}`}>
+            <div className="flex items-start gap-3">
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${location ? 'bg-emerald-600 text-white' : 'bg-white text-slate-500 ring-1 ring-slate-200'}`}>
+                <MapPin className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-slate-900">{location ? 'Boutique localisée' : 'Localiser la boutique'} <span className="font-normal text-slate-400">· facultatif</span></p>
+                <p className="mt-0.5 text-sm text-slate-500">
+                  {location ? `Précision ± ${Math.round(location.accuracy)} m. Modifiable dans vos paramètres.` : 'Depuis votre boutique, pour apparaître sur la carte « Boutiques près de moi ».'}
+                </p>
+              </div>
+              {location ? (
+                <button type="button" onClick={() => setLocation(null)} className="text-sm font-semibold text-slate-500 hover:text-slate-800">Retirer</button>
+              ) : (
+                <button type="button" onClick={captureLocation} disabled={locating} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-50 disabled:opacity-60">
+                  {locating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />} {locating ? 'Recherche…' : 'Localiser'}
+                </button>
+              )}
+            </div>
+            <AnimatePresence>
+              {location && (
+                <motion.label initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mt-3 flex cursor-pointer items-start gap-3 overflow-hidden border-t border-emerald-200/70 pt-3 text-sm text-slate-600">
+                  <input type="checkbox" checked={listInDirectory} onChange={(e) => setListInDirectory(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 rounded accent-emerald-700" />
+                  <span><span className="font-semibold text-slate-900">Afficher ma boutique dans l'annuaire public.</span> Votre numéro n'y apparaît pas.</span>
+                </motion.label>
+              )}
+            </AnimatePresence>
+            {locationError && <p className="mt-2 text-sm font-medium text-rose-600">{locationError}</p>}
+          </div>
+        </section>
+
+        <section className="space-y-5">
+          <SectionTitle step="2">Votre compte</SectionTitle>
+          <Field
+            id="email" type="email" inputMode="email" label="Adresse email" icon={Mail} placeholder="vous@exemple.com" required autoComplete="email"
+            value={email} onChange={(e) => setEmail(e.target.value)} onBlur={blur('email')} error={show('email')}
+          />
+          <div>
+            <PasswordField
+              id="password" label="Mot de passe" icon={Lock} placeholder="8 caractères minimum" required minLength={8} autoComplete="new-password"
+              value={password} onChange={(e) => setPassword(e.target.value)} onBlur={blur('password')} error={show('password')}
+            />
+            {!show('password') && <StrengthMeter password={password} />}
+          </div>
+        </section>
+
+        <div className="space-y-4">
+          <Turnstile onToken={setCaptchaToken} resetKey={captchaKey} />
+          <SubmitButton disabled={captchaRequired && !captchaToken} loading={loading} loadingText="Création de votre boutique…" success={success && <><Check className="h-5 w-5" strokeWidth={3} /> Boutique créée</>}>
+            Créer ma boutique <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          </SubmitButton>
+          <p className="text-center text-xs leading-relaxed text-slate-400">Vous pourrez ajouter vos produits, votre logo et vos zones de livraison juste après.</p>
+        </div>
+      </form>
+      )}
     </AuthShell>
   );
 }

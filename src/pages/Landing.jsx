@@ -1,1128 +1,314 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { motion, AnimatePresence, MotionConfig, useInView, useReducedMotion, useScroll, useMotionValueEvent } from 'framer-motion';
 import {
-  Store, Truck, ArrowRight, ShieldCheck, Check, Users, MapPin, Bell, Sparkles, CreditCard,
-  Menu, X, Zap, Lock, MessageCircle, TrendingUp, ShoppingBag, Star, Shirt, Watch, Footprints,
-  Gem, Wallet, CircleCheck, Rocket, Clock, ArrowUpRight, Plus, Search, Heart,
+  ArrowRight, ArrowUpRight, Check, Menu, X, ShieldCheck, Bike, MapPinned, Star, BadgeCheck, QrCode, ImageDown,
+  BarChart3, Users, Palette, Rocket, Zap, Gem, ChevronDown, Banknote, Bell, LayoutDashboard, Store,
+  ShoppingBag, UserRound, ChevronLeft, ChevronRight, Pause, Play,
 } from 'lucide-react';
-import {
-  motion, useScroll, useTransform, useSpring, useMotionValue, useMotionValueEvent,
-  AnimatePresence, MotionConfig,
-} from 'framer-motion';
-import { playPop } from '../utils/audio';
-import {
-  EASE, ParticleField, SpotlightCard, Magnetic, BlurWords, Reveal, CountUp, SectionLabel,
-} from '../components/landing/Magic';
-import FlowAnimation from '../components/landing/FlowAnimation';
+import { QRCodeSVG } from 'qrcode.react';
+import { SHOP_THEMES, getShopTheme } from '../components/shop/themes';
 
-const FAKE_NOTIFICATIONS = [
-  { name: "Fatou D.", city: "Dakar", action: "vient de créer sa boutique", time: "à l'instant" },
-  { name: "Mamadou N.", city: "Thiès", action: "a reçu 3 commandes", time: "il y a 5 min" },
-  { name: "Awa S.", city: "Saint-Louis", action: "vient de s'inscrire", time: "il y a 12 min" },
-  { name: "Boutique Chez Ali", city: "Dakar", action: "a validé une livraison", time: "il y a 20 min" },
+const EASE = [0.16, 1, 0.3, 1];
+const SCREEN = (name) => `/images/landing/screens/${name}.webp`;
+const photoSet = (name) => `/images/landing/${name}-640.webp 640w, /images/landing/${name}-1024.webp 1024w, /images/landing/${name}.webp 1400w`;
+
+// Boutiques de démonstration affichées pour chaque thème (captures du vrai produit).
+const DEMO_SHOPS = { emeraude: 'Chez Awa', minuit: 'Maison Diouf', terracotta: 'Wax & Couture', ocean: 'Tech Plateau', rose: 'Belle Peau', epure: 'Studio Fall' };
+
+const PAYMENT_LOGOS = [
+  { name: 'Wave', src: '/logos/wave.png', className: 'h-8' },
+  { name: 'Orange Money', src: '/logos/orange-money.svg', className: 'h-6' },
+  { name: 'PayDunya', src: '/logos/paydunya.png', className: 'h-5' },
+  { name: 'WhatsApp', src: '/logos/whatsapp.svg', className: 'h-7' },
+  { name: 'Visa', src: '/logos/visa.svg', className: 'h-6' },
+  { name: 'Mastercard', src: '/logos/mastercard.svg', className: 'h-7' },
 ];
 
-const TABS = [
-  { id: '01', title: 'Vendeurs', description: 'Gérez votre catalogue, suivez vos commandes et encaissez vos paiements en un seul endroit.', icon: Store },
-  { id: '02', title: 'Livreurs', description: 'Une application dédiée pour vos livreurs avec suivi GPS et validation par code PIN.', icon: Truck },
-  { id: '03', title: 'Clients', description: "Une expérience d'achat fluide, optimisée pour mobile avec paiement Wave ou Orange Money.", icon: Users },
-];
-
-const PAYMENT_METHODS = [
-  { name: 'Wave', color: 'bg-sky-400', glow: 'shadow-[0_0_12px_rgba(56,189,248,0.8)]' },
-  { name: 'Orange Money', color: 'bg-orange-500', glow: 'shadow-[0_0_12px_rgba(249,115,22,0.8)]' },
-  { name: 'Free Money', color: 'bg-red-500', glow: 'shadow-[0_0_12px_rgba(239,68,68,0.8)]' },
-  { name: 'PayDunya', color: 'bg-emerald-400', glow: 'shadow-[0_0_12px_rgba(52,211,153,0.8)]' },
-  { name: 'Paiement à la livraison', color: 'bg-amber-400', glow: 'shadow-[0_0_12px_rgba(251,191,36,0.8)]' },
-  { name: 'Partage WhatsApp', color: 'bg-green-500', glow: 'shadow-[0_0_12px_rgba(34,197,94,0.8)]' },
-];
-
-const DEMO_PRODUCTS = [
-  { name: 'Boubou brodé', price: '25 000', icon: Shirt, bg: 'from-emerald-100 to-teal-200' },
-  { name: 'Montre dorée', price: '18 500', icon: Watch, bg: 'from-amber-100 to-orange-200' },
-  { name: 'Sneakers', price: '32 000', icon: Footprints, bg: 'from-sky-100 to-indigo-200' },
-  { name: 'Bijoux or', price: '15 000', icon: Gem, bg: 'from-rose-100 to-pink-200' },
-];
-
+// Mêmes limites que le tableau de bord du marchand (onglet Facturation).
 const PLANS = [
   {
-    name: 'Débutant', desc: 'Pour lancer votre première boutique.', price: '0', cta: 'Commencer gratuitement',
-    features: ["Jusqu'à 50 produits", 'Frais de transaction : 2%', 'Boutique personnalisée', 'Support par email'],
+    id: 'debutant', name: 'Débutant', price: '0', desc: 'Pour lancer votre première boutique.', icon: Rocket, cta: 'Commencer gratuitement', plan: null,
+    features: ["Jusqu'à 10 produits", '1 livreur', 'Les 6 thèmes de vitrine', 'Paiement à la livraison et mobile money', 'Notifications WhatsApp'],
   },
   {
-    name: 'Professionnel', desc: 'Pour les vendeurs en pleine croissance.', price: '5 000', cta: 'Essai gratuit de 14 jours', popular: true,
-    features: ['Produits illimités', 'Frais de transaction : 1%', 'Nom de domaine personnalisé', 'Support prioritaire'],
+    id: 'pro', name: 'Pro', price: '5 000', desc: 'Pour les commerçants qui vendent chaque jour.', icon: Zap, cta: 'Choisir Pro', plan: 'pro', popular: true,
+    features: ['Produits illimités', "Jusqu'à 5 livreurs", 'Statistiques détaillées', 'Personnalisation avancée', 'Mise en avant « À la une » dans l’annuaire'],
   },
   {
-    name: 'Premium', desc: 'Pour les grandes boutiques et agences.', price: '15 000', cta: 'Contacter les ventes',
-    features: ['Tout du forfait Pro', 'Frais de transaction : 0.5%', 'Gestion multi-boutiques', 'Account manager dédié'],
+    id: 'premium', name: 'Premium', price: '15 000', desc: 'Pour les grandes boutiques et les équipes.', icon: Gem, cta: 'Choisir Premium', plan: 'premium',
+    features: ['Tout le forfait Pro', 'Livreurs illimités', 'Support prioritaire', 'Mise en avant « À la une » dans l’annuaire'],
   },
 ];
+
+const FAQ = [
+  { q: 'Combien coûte SamaBoutik ?', a: "Le forfait Débutant est gratuit, sans carte bancaire : vous créez votre boutique et vendez tout de suite. Les forfaits Pro (5 000 F/mois) et Premium (15 000 F/mois) débloquent plus de produits, plus de livreurs et la mise en avant dans l'annuaire." },
+  { q: 'Faut-il savoir créer un site internet ?', a: 'Non. Vous choisissez un nom et un thème, ajoutez vos produits avec une photo et un prix depuis votre téléphone, et votre vitrine est en ligne. Vous la partagez par lien, QR code ou sur WhatsApp.' },
+  { q: 'Comment est-ce que je reçois mon argent ?', a: "Pour un paiement Wave ou Orange Money, l'argent est reversé automatiquement sur le numéro indiqué dans vos paramètres. Pour un paiement à la livraison, votre livreur encaisse directement auprès du client." },
+  { q: 'À quoi sert le code de livraison ?', a: "Chaque commande reçoit un code à 4 chiffres envoyé au client. Le livreur ne peut valider la livraison qu'avec ce code : le colis est remis à la bonne personne." },
+  { q: 'Puis-je travailler avec mes propres livreurs ?', a: 'Oui. Vous ajoutez vos livreurs dans votre tableau de bord ; ils se connectent avec leur téléphone, acceptent les courses et partagent leur position pour que le client les suive en direct.' },
+  { q: 'Mes clients doivent-ils créer un compte ?', a: 'Non. Ils commandent avec leur nom, leur téléphone et leur adresse, puis suivent leur commande avec leur numéro et leur code de livraison.' },
+];
+
+const BUSINESSES = [
+  { title: 'Couture & sur-mesure', img: 'couturier', pos: 'object-[50%_30%]' },
+  { title: 'Mode & prêt-à-porter', img: 'boutique-vetements', pos: 'object-center' },
+  { title: 'Épicerie & alimentation', img: 'epicerie', pos: 'object-[50%_35%]' },
+  { title: 'Artisanat & déco', img: 'artisanat', pos: 'object-[50%_30%]' },
+  { title: 'Fruits & produits frais', img: 'marche-fruits', pos: 'object-[50%_35%]' },
+  { title: 'Accessoires & cadeaux', img: 'cliente-sacs', pos: 'object-[50%_25%]' },
+];
+
+const registerHref = (themeId, plan) => {
+  const params = new URLSearchParams();
+  if (themeId) params.set('theme', themeId);
+  if (plan) params.set('plan', plan);
+  return `/register?${params.toString()}`;
+};
+
+/* ------------------------------------------------------------------ */
+/* Éléments communs                                                    */
+/* ------------------------------------------------------------------ */
+
+// Section construite seulement à l'approche du visiteur : la page s'affiche plus vite
+// sur les téléphones modestes. Les liens du menu font tout apparaître avant de défiler.
+const SHOW_ALL = 'landing:afficher-tout';
+function Deferred({ id, minHeight = 700, children }) {
+  const ref = useRef(null);
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (show) return undefined;
+    const reveal = () => setShow(true);
+    window.addEventListener(SHOW_ALL, reveal);
+    let io;
+    if ('IntersectionObserver' in window) {
+      io = new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting)) reveal(); }, { rootMargin: '900px 0px' });
+      if (ref.current) io.observe(ref.current);
+    } else reveal();
+    return () => { window.removeEventListener(SHOW_ALL, reveal); io?.disconnect(); };
+  }, [show]);
+  return (
+    <div id={id} ref={ref} className="scroll-mt-16" style={show ? undefined : { minHeight }}>
+      {show ? children : null}
+    </div>
+  );
+}
+
+// Lien interne : affiche toutes les sections, puis défile jusqu'à la cible.
+function goTo(event, hash) {
+  event.preventDefault();
+  window.dispatchEvent(new Event(SHOW_ALL));
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    document.querySelector(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    history.replaceState(null, '', hash);
+  }));
+}
+
+function Reveal({ children, delay = 0, className = '' }) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-60px' }} transition={{ duration: 0.7, ease: EASE, delay }} className={className}>
+      {children}
+    </motion.div>
+  );
+}
+
+function SectionTitle({ kicker, title, text, light = false, center = false }) {
+  return (
+    <div className={`max-w-2xl ${center ? 'mx-auto text-center' : ''}`}>
+      <p className={`mb-3 text-sm font-bold uppercase tracking-[0.14em] ${light ? 'text-emerald-300' : 'text-emerald-700'}`}>{kicker}</p>
+      <h2 className={`text-balance text-[2.1rem] font-extrabold leading-[1.08] tracking-tight sm:text-5xl ${light ? 'text-white' : 'text-[#0b1f17]'}`}>{title}</h2>
+      {text && <p className={`mt-5 text-lg leading-relaxed ${light ? 'text-white/70' : 'text-slate-600'}`}>{text}</p>}
+    </div>
+  );
+}
+
+const Em = ({ children, light = false }) => <span className={light ? 'text-emerald-300' : 'text-emerald-600'}>{children}</span>;
+
+// Cadre de téléphone réaliste autour d'une capture du vrai produit.
+function PhoneFrame({ src, alt, className = '', eager = false, children }) {
+  return (
+    <div className={`relative rounded-[2.6rem] bg-[#111] p-[9px] shadow-[0_50px_90px_-40px_rgba(11,31,23,0.75),inset_0_0_0_1.5px_rgba(255,255,255,0.08)] ${className}`}>
+      <div className="relative aspect-[390/844] overflow-hidden rounded-[2.05rem] bg-white">
+        {src ? (
+          <img src={src} alt={alt} width="600" height="1299" loading={eager ? 'eager' : 'lazy'} fetchPriority={eager ? 'high' : undefined} decoding="async" className="absolute inset-0 h-full w-full object-cover object-top" />
+        ) : children}
+        <span className="absolute left-1/2 top-2 h-[22px] w-[84px] -translate-x-1/2 rounded-full bg-black" aria-hidden="true" />
+      </div>
+      <span className="absolute -left-[3px] top-28 h-12 w-[3px] rounded-l bg-[#2a2a2a]" aria-hidden="true" />
+      <span className="absolute -right-[3px] top-36 h-16 w-[3px] rounded-r bg-[#2a2a2a]" aria-hidden="true" />
+    </div>
+  );
+}
+
+// Fenêtre de navigateur autour d'une capture du tableau de bord.
+function BrowserFrame({ children, url = 'samaboutik-nine.vercel.app/dashboard' }) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-[0_60px_120px_-50px_rgba(11,31,23,0.55)]">
+      <div className="flex items-center gap-3 border-b border-black/5 bg-[#f4f5f4] px-4 py-3">
+        <span className="flex gap-1.5" aria-hidden="true"><span className="h-3 w-3 rounded-full bg-[#ff5f57]" /><span className="h-3 w-3 rounded-full bg-[#febc2e]" /><span className="h-3 w-3 rounded-full bg-[#28c840]" /></span>
+        <span className="mx-auto flex max-w-sm flex-1 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-1 text-xs font-medium text-slate-500 ring-1 ring-black/5">
+          <ShieldCheck className="h-3 w-3 text-emerald-600" /> {url}
+        </span>
+        <span className="w-12" aria-hidden="true" />
+      </div>
+      {children}
+    </div>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /* Navigation                                                          */
 /* ------------------------------------------------------------------ */
 
-function Logo() {
-  return (
-    <Link to="/" className="flex h-10 w-[92px] items-center justify-center overflow-hidden rounded-xl bg-white shadow-[0_0_20px_rgba(52,211,153,0.25)]">
-      <img src="/logo.png" alt="SamaBoutik" className="h-full w-full scale-[1.6] object-contain" />
-    </Link>
-  );
-}
-
 function Navbar() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const { scrollY } = useScroll();
-  useMotionValueEvent(scrollY, 'change', (v) => setScrolled(v > 40));
-
+  useMotionValueEvent(scrollY, 'change', (v) => setScrolled(v > 20));
   const links = [
-    { href: '#fonctionnalites', label: 'Fonctionnalités' },
-    { href: '#comment', label: 'Comment ça marche' },
+    { href: '#produit', label: 'Produit' },
+    { href: '#parcours', label: 'Comment ça marche' },
+    { href: '#themes', label: 'Thèmes' },
     { href: '#tarifs', label: 'Tarifs' },
-  ];
-
-  return (
-    <motion.nav
-      initial={{ y: -80, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.9, ease: EASE }}
-      className="fixed inset-x-0 top-4 z-50 flex justify-center px-4"
-    >
-      <div className={`w-full max-w-5xl rounded-3xl border transition-all duration-500 ${scrolled ? 'border-white/10 bg-[#04120d]/80 shadow-[0_8px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl' : 'border-white/[0.06] bg-white/[0.03] backdrop-blur-md'}`}>
-        <div className="flex items-center justify-between py-2 pl-2 pr-2 md:pr-3">
-          <div className="flex items-center gap-6">
-            <Logo />
-            <div className="hidden items-center gap-1 text-sm font-medium text-slate-300 md:flex">
-              {links.map((l) => (
-                <a key={l.href} href={l.href} className="rounded-full px-3 py-1.5 transition-colors hover:bg-white/5 hover:text-white">
-                  {l.label}
-                </a>
-              ))}
-              <Link to="/boutiques" className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-colors hover:bg-white/5 hover:text-white">
-                Boutiques <span className="rounded-full bg-emerald-400/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300">Nouveau</span>
-              </Link>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link to="/login" className="hidden rounded-full px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 hover:text-white sm:block">
-              Se connecter
-            </Link>
-            <Link
-              to="/register"
-              onMouseEnter={playPop}
-              className="shine-btn rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 px-4 py-2 text-sm font-bold text-[#02130c] shadow-[0_0_25px_rgba(52,211,153,0.35)] transition-transform hover:-translate-y-0.5 sm:px-5"
-            >
-              Créer ma boutique
-            </Link>
-            <button onClick={() => setOpen(!open)} className="rounded-full p-2 text-slate-300 hover:bg-white/5 md:hidden" aria-label="Menu">
-              {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
-          </div>
-        </div>
-        <AnimatePresence>
-          {open && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden md:hidden"
-            >
-              <div className="flex flex-col gap-1 border-t border-white/5 p-3">
-                {links.map((l) => (
-                  <a key={l.href} href={l.href} onClick={() => setOpen(false)} className="rounded-xl px-4 py-3 text-sm font-medium text-slate-200 hover:bg-white/5">
-                    {l.label}
-                  </a>
-                ))}
-                <Link to="/boutiques" className="rounded-xl px-4 py-3 text-sm font-medium text-slate-200 hover:bg-white/5">Boutiques près de moi</Link>
-                <Link to="/login" className="rounded-xl px-4 py-3 text-sm font-medium text-slate-200 hover:bg-white/5">Se connecter</Link>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </motion.nav>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Hero                                                                */
-/* ------------------------------------------------------------------ */
-
-function Aurora({ className = '' }) {
-  return (
-    <div className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`} aria-hidden="true">
-      <div className="aurora-blob aurora-1 -left-40 top-0 h-[36rem] w-[36rem] bg-emerald-500/25" />
-      <div className="aurora-blob aurora-2 -right-40 top-20 h-[32rem] w-[32rem] bg-cyan-500/20" />
-      <div className="aurora-blob aurora-3 bottom-0 left-1/3 h-[28rem] w-[28rem] bg-amber-400/10" />
-    </div>
-  );
-}
-
-function FloatingCard({ children, className = '', delay = 0, float = 10, duration = 6, style }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.6, filter: 'blur(10px)' }}
-      animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-      transition={{ delay, type: 'spring', stiffness: 180, damping: 16 }}
-      style={style}
-      className={`absolute z-20 ${className}`}
-    >
-      <motion.div
-        animate={{ y: [0, -float, 0] }}
-        transition={{ duration, repeat: Infinity, ease: 'easeInOut' }}
-        className="rounded-2xl border border-white/10 bg-[#0b1f18]/80 p-3 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl"
-      >
-        {children}
-      </motion.div>
-    </motion.div>
-  );
-}
-
-function PhoneMockup() {
-  const [cartCount, setCartCount] = useState(2);
-  useEffect(() => {
-    const id = setInterval(() => setCartCount((c) => (c >= 5 ? 2 : c + 1)), 2600);
-    return () => clearInterval(id);
-  }, []);
-
-  return (
-    <div className="relative rounded-[2.8rem] bg-gradient-to-b from-slate-600 via-slate-800 to-slate-900 p-[9px] shadow-[0_60px_120px_-20px_rgba(16,185,129,0.45)] ring-1 ring-white/10">
-      <div className="relative h-[520px] overflow-hidden rounded-[2.25rem] bg-[#f5f7f6] sm:h-[560px]">
-        <div className="absolute left-1/2 top-2 z-30 h-6 w-24 -translate-x-1/2 rounded-full bg-black" />
-
-        {/* En-tête de la boutique */}
-        <div className="relative bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800 px-4 pb-5 pt-11 text-white">
-          <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/10 blur-xl" />
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-sm font-black text-emerald-700 shadow-lg">A</div>
-            <div className="flex-1">
-              <p className="text-sm font-bold leading-tight">Chez Awa Mode</p>
-              <p className="flex items-center gap-1 text-[10px] text-emerald-100"><MapPin className="h-3 w-3" /> Dakar, Plateau</p>
-            </div>
-            <div className="relative rounded-full bg-white/15 p-2">
-              <ShoppingBag className="h-4 w-4" />
-              <motion.span
-                key={cartCount}
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 15 }}
-                className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[9px] font-black text-slate-900"
-              >
-                {cartCount}
-              </motion.span>
-            </div>
-          </div>
-          <div className="mt-4 flex items-center gap-2 rounded-xl bg-white/15 px-3 py-2 text-[11px] text-emerald-50">
-            <Search className="h-3.5 w-3.5" /> Rechercher un produit…
-          </div>
-        </div>
-
-        {/* Catégories */}
-        <div className="flex gap-2 px-4 pt-4">
-          {['Tout', 'Mode', 'Beauté', 'Tech'].map((c, i) => (
-            <span key={c} className={`rounded-full px-3 py-1 text-[10px] font-bold ${i === 0 ? 'bg-slate-900 text-white' : 'bg-white text-slate-500 shadow-sm'}`}>{c}</span>
-          ))}
-        </div>
-
-        {/* Grille produits */}
-        <div className="grid grid-cols-2 gap-3 p-4">
-          {DEMO_PRODUCTS.map((p, i) => {
-            const Icon = p.icon;
-            return (
-              <motion.div
-                key={p.name}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1 + i * 0.12, duration: 0.6, ease: EASE }}
-                className="rounded-2xl bg-white p-2 shadow-sm"
-              >
-                <div className={`relative flex aspect-square items-center justify-center rounded-xl bg-gradient-to-br ${p.bg}`}>
-                  <Icon className="h-9 w-9 text-slate-700/70" strokeWidth={1.5} />
-                  <Heart className="absolute right-1.5 top-1.5 h-3.5 w-3.5 text-slate-500/60" />
-                </div>
-                <p className="mt-2 truncate text-[11px] font-bold text-slate-800">{p.name}</p>
-                <div className="mt-1 flex items-center justify-between">
-                  <p className="text-[11px] font-black text-emerald-700">{p.price} F</p>
-                  <span className="relative flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-white">
-                    {i === 1 && <span className="absolute inset-0 animate-ping rounded-full bg-emerald-500/60" />}
-                    <Plus className="relative h-3 w-3" />
-                  </span>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-
-        {/* Barre de paiement */}
-        <div className="absolute inset-x-3 bottom-3 rounded-2xl bg-slate-900 p-3 text-white shadow-2xl">
-          <div className="mb-2 flex items-center justify-between text-[11px]">
-            <span className="text-slate-400">{cartCount} articles</span>
-            <span className="font-black">43 500 FCFA</span>
-          </div>
-          <div className="shine-btn flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-400 to-cyan-400 py-2.5 text-xs font-black text-slate-900">
-            <Wallet className="h-3.5 w-3.5" /> Payer avec Wave
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function HeroVisual() {
-  const mx = useMotionValue(0);
-  const my = useMotionValue(0);
-  const sx = useSpring(mx, { stiffness: 60, damping: 20 });
-  const sy = useSpring(my, { stiffness: 60, damping: 20 });
-  const rotateY = useTransform(sx, [-1, 1], [-12, 12]);
-  const rotateX = useTransform(sy, [-1, 1], [8, -8]);
-  const nearX = useTransform(sx, [-1, 1], [-28, 28]);
-  const nearY = useTransform(sy, [-1, 1], [-20, 20]);
-  const farX = useTransform(sx, [-1, 1], [14, -14]);
-  const farY = useTransform(sy, [-1, 1], [10, -10]);
-
-  useEffect(() => {
-    if (!window.matchMedia('(pointer: fine)').matches) return;
-    const onMove = (e) => {
-      mx.set((e.clientX / window.innerWidth) * 2 - 1);
-      my.set((e.clientY / window.innerHeight) * 2 - 1);
-    };
-    window.addEventListener('mousemove', onMove);
-    return () => window.removeEventListener('mousemove', onMove);
-  }, [mx, my]);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 60, scale: 0.9 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 1.2, delay: 0.4, ease: EASE }}
-      className="relative mx-auto flex w-full max-w-[520px] justify-center py-10"
-      style={{ perspective: 1200 }}
-    >
-      {/* Orbites */}
-      <div className="orbit orbit-slow h-[440px] w-[440px] border border-emerald-400/15 sm:h-[520px] sm:w-[520px]">
-        <span className="absolute -top-1.5 left-1/2 h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_20px_6px_rgba(52,211,153,0.6)]" />
-      </div>
-      <div className="orbit orbit-reverse h-[340px] w-[340px] border border-dashed border-cyan-300/15 sm:h-[400px] sm:w-[400px]">
-        <span className="absolute -bottom-1 left-1/4 h-2 w-2 rounded-full bg-amber-300 shadow-[0_0_16px_4px_rgba(252,211,77,0.6)]" />
-      </div>
-      <div className="absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-500/30 blur-[100px]" />
-
-      <motion.div style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }} className="relative w-[250px] sm:w-[280px]">
-        <PhoneMockup />
-      </motion.div>
-
-      {/* Cartes flottantes (profondeur par parallaxe) */}
-      <FloatingCard delay={1.6} style={{ x: nearX, y: nearY }} className="-left-2 top-16 sm:-left-12">
-        <div className="flex items-center gap-3 pr-2">
-          <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/15">
-            <Bell className="h-4 w-4 text-emerald-300" />
-            <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 animate-ping rounded-full bg-emerald-400" />
-          </div>
-          <div>
-            <p className="text-[10px] font-medium text-slate-400">Nouvelle commande</p>
-            <p className="text-sm font-black text-white">+ 43 500 FCFA</p>
-          </div>
-        </div>
-      </FloatingCard>
-
-      <FloatingCard delay={1.9} float={14} duration={7} style={{ x: farX, y: farY }} className="-right-2 top-40 sm:-right-4">
-        <div className="flex items-center gap-2.5 pr-1">
-          <CircleCheck className="h-8 w-8 text-sky-300" />
-          <div>
-            <p className="text-[10px] font-medium text-slate-400">Paiement reçu</p>
-            <p className="text-xs font-bold text-white">via Wave · 2 s</p>
-          </div>
-        </div>
-      </FloatingCard>
-
-      <FloatingCard delay={2.2} float={8} duration={5} style={{ x: nearX, y: farY }} className="bottom-24 -left-4 hidden sm:block sm:-left-10">
-        <p className="mb-2 text-[10px] font-medium text-slate-400">Livraison · Code PIN</p>
-        <div className="flex items-center gap-1.5">
-          {[4, 8, 2, 7].map((d, i) => (
-            <motion.span
-              key={i}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 2.5 + i * 0.2 }}
-              className="flex h-7 w-6 items-center justify-center rounded-md border border-emerald-400/40 bg-emerald-400/10 text-xs font-black text-emerald-200"
-            >
-              {d}
-            </motion.span>
-          ))}
-          <Check className="ml-1 h-4 w-4 text-emerald-400" />
-        </div>
-      </FloatingCard>
-
-      <FloatingCard delay={2.5} float={12} duration={8} style={{ x: farX, y: nearY }} className="-right-4 bottom-16 hidden sm:block sm:-right-8">
-        <p className="mb-2 flex items-center gap-1 text-[10px] font-medium text-slate-400"><TrendingUp className="h-3 w-3 text-emerald-400" /> Ventes de la semaine</p>
-        <div className="flex h-12 items-end gap-1">
-          {[35, 55, 40, 70, 60, 85, 100].map((h, i) => (
-            <motion.span
-              key={i}
-              initial={{ height: 0 }}
-              animate={{ height: `${h}%` }}
-              transition={{ delay: 2.8 + i * 0.08, duration: 0.8, ease: EASE }}
-              className="w-3 rounded-t bg-gradient-to-t from-emerald-600 to-emerald-300"
-            />
-          ))}
-        </div>
-      </FloatingCard>
-    </motion.div>
-  );
-}
-
-function Hero() {
-  const ref = useRef(null);
-  const onMouseMove = (e) => {
-    const rect = ref.current.getBoundingClientRect();
-    ref.current.style.setProperty('--mx', `${e.clientX - rect.left}px`);
-    ref.current.style.setProperty('--my', `${e.clientY - rect.top}px`);
-  };
-
-  return (
-    <section ref={ref} onMouseMove={onMouseMove} className="relative flex min-h-screen items-center overflow-hidden pb-20 pt-32" style={{ '--mx': '50%', '--my': '30%' }}>
-      <Aurora />
-      <div className="bg-grid-pattern absolute inset-0" />
-      <ParticleField className="absolute inset-0 h-full w-full" />
-      <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(600px circle at var(--mx) var(--my), rgba(16,185,129,0.10), transparent 60%)' }} />
-
-      <div className="relative z-10 mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-8 px-6 lg:grid-cols-2 lg:gap-4">
-        <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: EASE }}
-            className="conic-border mb-8 rounded-full bg-white/[0.04] px-4 py-1.5 backdrop-blur"
-          >
-            <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-emerald-200">
-              <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-              Nouveau : SamaBoutik v2.0
-            </span>
-          </motion.div>
-
-          <h1 className="mb-6 text-5xl font-extrabold leading-[1.05] tracking-tight text-white md:text-6xl lg:text-7xl">
-            <BlurWords text="La plateforme e-commerce" delay={0.2} />
-            <br className="hidden md:block" />{' '}
-            <motion.span
-              initial={{ opacity: 0, clipPath: 'inset(0 100% 0 0)' }}
-              animate={{ opacity: 1, clipPath: 'inset(0 0% 0 0)' }}
-              transition={{ duration: 1.2, delay: 0.7, ease: EASE }}
-              className="text-shimmer inline-block pb-2"
-            >
-              des vendeurs ambitieux.
-            </motion.span>
-          </h1>
-
-          <motion.p
-            initial={{ opacity: 0, y: 20, filter: 'blur(8px)' }}
-            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            transition={{ duration: 0.9, delay: 1, ease: EASE }}
-            className="mb-10 max-w-xl text-lg leading-relaxed text-slate-300 md:text-xl"
-          >
-            Sécurisez vos paiements, gérez vos stocks en temps réel et coordonnez vos livraisons grâce à notre solution tout-en-un.
-          </motion.p>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 1.2, ease: EASE }}
-            className="flex w-full flex-col items-center gap-4 sm:w-auto sm:flex-row"
-          >
-            <Magnetic className="w-full sm:w-auto">
-              <Link
-                to="/register"
-                onMouseEnter={playPop}
-                className="shine-btn group flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-400 px-8 py-4 text-base font-black text-[#02130c] shadow-[0_0_40px_rgba(52,211,153,0.45)] transition-shadow hover:shadow-[0_0_60px_rgba(52,211,153,0.7)] sm:w-auto"
-              >
-                Commencer gratuitement
-                <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </Link>
-            </Magnetic>
-            <Magnetic className="w-full sm:w-auto" strength={0.2}>
-              <a
-                href="#comment"
-                className="flex w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-white/5 px-8 py-4 text-base font-bold text-white backdrop-blur transition-colors hover:border-white/30 hover:bg-white/10 sm:w-auto"
-              >
-                Voir comment ça marche
-              </a>
-            </Magnetic>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.6, duration: 1 }}
-            className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-400 lg:justify-start"
-          >
-            {['Gratuit pour démarrer', 'Wave & Orange Money', 'Prête en 2 minutes'].map((t) => (
-              <span key={t} className="flex items-center gap-1.5"><Check className="h-4 w-4 text-emerald-400" /> {t}</span>
-            ))}
-          </motion.div>
-        </div>
-
-        <HeroVisual />
-      </div>
-
-      {/* Indicateur de scroll */}
-      <motion.a
-        href="#paiements"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 2.5 }}
-        className="absolute bottom-6 left-1/2 hidden -translate-x-1/2 md:block"
-        aria-label="Défiler vers le bas"
-      >
-        <div className="flex h-10 w-6 justify-center rounded-full border-2 border-white/20 pt-2">
-          <motion.span animate={{ y: [0, 12, 0], opacity: [1, 0.2, 1] }} transition={{ duration: 1.8, repeat: Infinity }} className="h-2 w-1 rounded-full bg-emerald-400" />
-        </div>
-      </motion.a>
-
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-[#030a07]" />
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Moyens de paiement                                                  */
-/* ------------------------------------------------------------------ */
-
-function PaymentMarquee() {
-  const items = [...PAYMENT_METHODS, ...PAYMENT_METHODS, ...PAYMENT_METHODS];
-  return (
-    <section id="paiements" className="relative overflow-hidden border-y border-white/5 py-14">
-      <p className="mb-8 text-center text-xs font-bold uppercase tracking-[0.25em] text-slate-500">
-        Paiements & outils intégrés
-      </p>
-      <div className="relative">
-        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-[#030a07] to-transparent md:w-40" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-[#030a07] to-transparent md:w-40" />
-        <div className="marquee-track gap-4">
-          {[...items, ...items].map((m, i) => (
-            <div key={i} className="flex shrink-0 items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-6 py-3.5 transition-colors hover:border-white/20 hover:bg-white/[0.06]">
-              <span className={`h-3 w-3 rounded-full ${m.color} ${m.glow}`} />
-              <span className="whitespace-nowrap text-lg font-bold text-slate-200">{m.name}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Tableau de bord (rotation 3D au scroll)                             */
-/* ------------------------------------------------------------------ */
-
-function DashboardShowcase() {
-  const ref = useRef(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'center center'] });
-  const rotateX = useTransform(scrollYProgress, [0, 1], [32, 0]);
-  const scale = useTransform(scrollYProgress, [0, 1], [0.82, 1]);
-  const y = useTransform(scrollYProgress, [0, 1], [120, 0]);
-  const opacity = useTransform(scrollYProgress, [0, 0.35], [0.1, 1]);
-
-  return (
-    <section className="relative overflow-hidden py-28">
-      <div className="mx-auto max-w-7xl px-6">
-        <Reveal className="mb-16 text-center">
-          <SectionLabel>Tableau de bord</SectionLabel>
-          <h2 className="mt-6 text-4xl font-extrabold tracking-tight text-white md:text-6xl">
-            Gardez le contrôle total <br className="hidden md:block" />
-            <span className="text-shimmer">sur votre activité.</span>
-          </h2>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-400">
-            Un tableau de bord puissant, conçu pour vous donner une vue d'ensemble instantanée sur vos ventes, vos livraisons et vos performances.
-          </p>
-        </Reveal>
-
-        <div ref={ref} style={{ perspective: 1400 }} className="relative mx-auto max-w-6xl">
-          <div className="absolute inset-x-10 top-10 -z-0 h-3/4 rounded-full bg-gradient-to-r from-emerald-500/30 via-cyan-500/20 to-amber-400/20 blur-[100px]" />
-          <motion.div
-            style={{ rotateX, scale, y, opacity, transformOrigin: 'center top' }}
-            className="relative rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-2 shadow-[0_50px_120px_-20px_rgba(0,0,0,0.8)] backdrop-blur md:rounded-[2rem]"
-          >
-            <div className="overflow-hidden rounded-[1.25rem] border border-white/10 bg-white md:rounded-[1.5rem]">
-              <div className="flex h-10 items-center gap-2 border-b border-slate-100 bg-slate-50 px-4 md:h-12 md:px-5">
-                <span className="h-3 w-3 rounded-full bg-red-400" />
-                <span className="h-3 w-3 rounded-full bg-amber-400" />
-                <span className="h-3 w-3 rounded-full bg-green-400" />
-                <div className="mx-auto flex items-center gap-2 rounded-full bg-white px-4 py-1 font-mono text-[11px] text-slate-500 shadow-sm">
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" /> admin.samaboutik.sn
-                </div>
-              </div>
-              <img src="/dashboard-preview.png" alt="Interface du tableau de bord SamaBoutik" className="h-auto w-full" loading="lazy" />
-            </div>
-
-            <motion.div
-              initial={{ opacity: 0, x: -40 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.4, duration: 0.8, ease: EASE }}
-              className="absolute -left-4 top-1/3 hidden items-center gap-3 rounded-2xl border border-white/10 bg-[#0b1f18]/90 px-4 py-3 shadow-2xl backdrop-blur-xl md:flex lg:-left-12"
-            >
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
-              </span>
-              <span className="text-sm font-bold text-white">Commandes en temps réel</span>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, x: 40 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.6, duration: 0.8, ease: EASE }}
-              className="absolute -right-4 bottom-1/4 hidden items-center gap-3 rounded-2xl border border-white/10 bg-[#0b1f18]/90 px-4 py-3 shadow-2xl backdrop-blur-xl md:flex lg:-right-12"
-            >
-              <Truck className="h-5 w-5 text-amber-300" />
-              <span className="text-sm font-bold text-white">Livreurs synchronisés</span>
-            </motion.div>
-          </motion.div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Fonctionnalités (bento animé)                                       */
-/* ------------------------------------------------------------------ */
-
-function BentoCard({ icon: Icon, title, desc, children, className = '', delay = 0 }) {
-  return (
-    <Reveal delay={delay} className={className}>
-      <SpotlightCard className="flex h-full flex-col overflow-hidden rounded-[2rem] border border-white/[0.08] bg-white/[0.03] p-6 md:p-8">
-        <div className="mb-6 min-h-[180px] flex-1">{children}</div>
-        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-400/10">
-          <Icon className="h-5 w-5 text-emerald-300" />
-        </div>
-        <h3 className="mb-2 text-xl font-bold text-white">{title}</h3>
-        <p className="leading-relaxed text-slate-400">{desc}</p>
-      </SpotlightCard>
-    </Reveal>
-  );
-}
-
-function StoreBuilderDemo() {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-[#07140f] p-4">
-      <div className="mb-4 flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 font-mono text-xs text-slate-300 md:text-sm">
-        <Lock className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
-        <span className="typewriter">samaboutik.sn/boutique/chez-awa</span>
-      </div>
-      <div className="grid grid-cols-4 gap-2 md:gap-3">
-        {DEMO_PRODUCTS.map((p, i) => {
-          const Icon = p.icon;
-          return (
-            <motion.div
-              key={p.name}
-              initial={{ opacity: 0, scale: 0.5, rotate: -8 }}
-              whileInView={{ opacity: 1, scale: 1, rotate: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 1.2 + i * 0.25, type: 'spring', stiffness: 200, damping: 14 }}
-              className="rounded-xl bg-white/[0.06] p-1.5 md:p-2"
-            >
-              <div className={`flex aspect-square items-center justify-center rounded-lg bg-gradient-to-br ${p.bg}`}>
-                <Icon className="h-6 w-6 text-slate-700/70" strokeWidth={1.5} />
-              </div>
-              <div className="mt-2 h-1.5 w-3/4 rounded bg-white/20" />
-              <div className="mt-1 h-1.5 w-1/2 rounded bg-emerald-400/50" />
-            </motion.div>
-          );
-        })}
-      </div>
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ delay: 2.4 }}
-        className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-emerald-400/10 py-2 text-xs font-bold text-emerald-300"
-      >
-        <Rocket className="h-3.5 w-3.5" /> Boutique en ligne !
-      </motion.div>
-    </div>
-  );
-}
-
-function MobileMoneyDemo() {
-  const chips = [
-    { name: 'Wave', cls: 'bg-sky-400/15 text-sky-300 border-sky-400/30', pos: 'left-0 top-2' },
-    { name: 'Orange Money', cls: 'bg-orange-400/15 text-orange-300 border-orange-400/30', pos: 'right-0 top-10' },
-    { name: 'Free Money', cls: 'bg-red-400/15 text-red-300 border-red-400/30', pos: 'left-4 bottom-2' },
+    { href: '#faq', label: 'Questions' },
   ];
   return (
-    <div className="relative flex h-full min-h-[180px] items-center justify-center">
-      <div className="relative flex h-20 w-20 items-center justify-center">
-        <span className="absolute inset-0 animate-ping rounded-full bg-emerald-400/20" />
-        <span className="absolute -inset-4 rounded-full border border-emerald-400/20" />
-        <span className="absolute -inset-9 rounded-full border border-emerald-400/10" />
-        <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 shadow-[0_0_40px_rgba(52,211,153,0.6)]">
-          <CreditCard className="h-7 w-7 text-[#02130c]" />
+    <header className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${scrolled || open ? 'border-b border-black/5 bg-white/85 backdrop-blur-xl' : ''}`}>
+      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 lg:px-8" aria-label="Navigation principale">
+        <div className="flex items-center gap-8">
+          <Link to="/" className="flex h-10 items-center" aria-label="SamaBoutik, accueil">
+            <img src="/logo.webp" alt="SamaBoutik" width="252" height="186" decoding="async" className="h-full w-auto object-contain" />
+          </Link>
+          <div className="hidden items-center gap-0.5 lg:flex">
+            {links.map((l) => <a key={l.href} href={l.href} onClick={(e) => goTo(e, l.href)} className="rounded-full px-3.5 py-2 text-[15px] font-semibold text-slate-600 transition-colors hover:text-[#0b1f17]">{l.label}</a>)}
+            <Link to="/boutiques" className="rounded-full px-3.5 py-2 text-[15px] font-semibold text-slate-600 transition-colors hover:text-[#0b1f17]">Boutiques près de moi</Link>
+          </div>
         </div>
-      </div>
-      {chips.map((c, i) => (
-        <motion.span
-          key={c.name}
-          initial={{ opacity: 0, scale: 0 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.3 + i * 0.2, type: 'spring' }}
-          className={`absolute ${c.pos}`}
-        >
-          <motion.span
-            animate={{ y: [0, -6, 0] }}
-            transition={{ duration: 3 + i, repeat: Infinity, ease: 'easeInOut' }}
-            className={`block rounded-full border px-3 py-1 text-xs font-bold ${c.cls}`}
-          >
-            {c.name}
-          </motion.span>
-        </motion.span>
+        <div className="flex items-center gap-2">
+          <Link to="/login" className="hidden rounded-full px-4 py-2.5 text-[15px] font-semibold text-slate-700 hover:text-[#0b1f17] sm:block">Se connecter</Link>
+          <Link to="/register" className="rounded-full bg-[#0b1f17] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-800 sm:px-5">Créer ma boutique</Link>
+          <button onClick={() => setOpen(!open)} className="rounded-full p-2.5 text-slate-700 hover:bg-black/5 lg:hidden" aria-label="Menu" aria-expanded={open}>
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
+      </nav>
+      <AnimatePresence>
+        {open && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden lg:hidden">
+            <div className="flex flex-col gap-1 px-5 pb-5">
+              {links.map((l) => <a key={l.href} href={l.href} onClick={(e) => { setOpen(false); goTo(e, l.href); }} className="rounded-xl px-4 py-3 font-semibold text-slate-700 hover:bg-black/5">{l.label}</a>)}
+              <Link to="/boutiques" className="rounded-xl px-4 py-3 font-semibold text-slate-700 hover:bg-black/5">Boutiques près de moi</Link>
+              <Link to="/login" className="rounded-xl px-4 py-3 font-semibold text-slate-700 hover:bg-black/5">Se connecter</Link>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </header>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Héros                                                                */
+/* ------------------------------------------------------------------ */
+
+const NOTIFICATIONS = [
+  { icon: <img src="/logos/whatsapp.svg" alt="" className="h-5 w-5" />, title: 'Nouvelle commande', text: 'Fatou D. · Robe wax · 19 500 F', time: 'à l’instant' },
+  { icon: <img src="/logos/wave.png" alt="" className="h-4 w-auto" />, title: 'Paiement Wave reçu', text: '38 000 F · commande #A4F2', time: 'il y a 2 min' },
+  { icon: <Bike className="h-5 w-5 text-sky-600" />, title: 'Livreur en route', text: 'Lamine arrive dans 6 min', time: 'il y a 5 min' },
+  { icon: <ShieldCheck className="h-5 w-5 text-emerald-600" />, title: 'Commande livrée', text: 'Code client 4827 validé', time: 'il y a 9 min' },
+];
+
+function LiveNotification() {
+  const ref = useRef(null);
+  const inView = useInView(ref);
+  const reduce = useReducedMotion();
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    if (!inView || reduce) return undefined;
+    const timer = setInterval(() => setIndex((i) => (i + 1) % NOTIFICATIONS.length), 3400);
+    return () => clearInterval(timer);
+  }, [inView, reduce]);
+  const n = NOTIFICATIONS[index];
+  return (
+    <div ref={ref} className="pointer-events-none absolute right-3 top-6 z-20 w-[248px] sm:-right-6 sm:top-10" aria-hidden="true">
+      <AnimatePresence mode="wait">
+        <motion.div key={index} initial={{ opacity: 0, y: -10, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.97 }} transition={{ duration: 0.4, ease: EASE }}
+          className="flex items-center gap-3 rounded-2xl bg-white/95 p-3 shadow-[0_20px_45px_-18px_rgba(11,31,23,0.5)] ring-1 ring-black/5 backdrop-blur">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50">{n.icon}</span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-baseline justify-between gap-2"><span className="text-[13px] font-bold text-[#0b1f17]">{n.title}</span><span className="hidden shrink-0 text-[10px] text-slate-500 sm:inline">{n.time}</span></span>
+            <span className="block truncate text-xs text-slate-500">{n.text}</span>
+          </span>
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function ThemeDots({ themeId, onPick }) {
+  return (
+    <div className="flex items-center gap-2" role="radiogroup" aria-label="Thème de la vitrine">
+      {SHOP_THEMES.map((t) => (
+        <button key={t.id} type="button" role="radio" aria-checked={t.id === themeId} aria-label={`Thème ${t.name}`} title={t.name} onClick={() => onPick(t.id)}
+          className={`h-7 w-7 rounded-full ring-offset-2 transition-transform hover:scale-110 ${t.id === themeId ? 'ring-2 ring-[#0b1f17]' : 'ring-1 ring-black/10'}`}
+          style={{ background: `linear-gradient(135deg, ${t.accent} 50%, ${t.preview.panel} 50%)` }} />
       ))}
     </div>
   );
 }
 
-const ROUTE = 'M 30 150 C 80 150, 70 70, 140 80 S 220 40, 270 30';
-
-function DeliveryMapDemo() {
+function Hero({ themeId, setThemeId }) {
+  const theme = getShopTheme(themeId);
   return (
-    <div className="relative h-full min-h-[180px] overflow-hidden rounded-2xl border border-white/10 bg-[#07140f]">
-      <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(circle, rgba(148,163,184,0.5) 1px, transparent 1px)', backgroundSize: '14px 14px' }} />
-      <svg viewBox="0 0 300 180" className="absolute inset-0 h-full w-full" preserveAspectRatio="xMidYMid meet">
-        <path d={ROUTE} fill="none" stroke="rgba(52,211,153,0.15)" strokeWidth="6" strokeLinecap="round" />
-        <motion.path
-          d={ROUTE}
-          fill="none"
-          stroke="#34d399"
-          strokeWidth="3"
-          strokeLinecap="round"
-          initial={{ pathLength: 0 }}
-          whileInView={{ pathLength: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 2, ease: 'easeInOut' }}
-        />
-        <circle cx="30" cy="150" r="6" fill="#fbbf24" />
-        <circle cx="270" cy="30" r="7" fill="#34d399" />
-        <circle cx="270" cy="30" r="14" fill="none" stroke="#34d399" strokeOpacity="0.4">
-          <animate attributeName="r" values="7;18;7" dur="2s" repeatCount="indefinite" />
-          <animate attributeName="stroke-opacity" values="0.6;0;0.6" dur="2s" repeatCount="indefinite" />
-        </circle>
-        <g>
-          <circle r="8" fill="#fff" />
-          <circle r="4" fill="#10b981" />
-          <animateMotion dur="4s" repeatCount="indefinite" path={ROUTE} />
-        </g>
-      </svg>
-      <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-black/40 px-2.5 py-1 text-[10px] font-bold text-emerald-300 backdrop-blur">
-        <MapPin className="h-3 w-3" /> En route · GPS
-      </div>
-    </div>
-  );
-}
-
-function PinDemo() {
-  const digits = ['4', '8', '2', '7'];
-  return (
-    <div className="flex h-full min-h-[180px] flex-col items-center justify-center gap-5">
-      <div className="flex gap-2.5">
-        {digits.map((d, i) => (
-          <motion.div
-            key={i}
-            initial={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.03)' }}
-            whileInView={{ borderColor: 'rgba(52,211,153,0.6)', backgroundColor: 'rgba(52,211,153,0.1)' }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.4 + i * 0.35, duration: 0.3 }}
-            className="flex h-14 w-12 items-center justify-center rounded-xl border-2 text-2xl font-black text-white"
-          >
-            <motion.span
-              initial={{ opacity: 0, scale: 0.3 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.4 + i * 0.35, type: 'spring', stiffness: 400 }}
-            >
-              {d}
-            </motion.span>
-          </motion.div>
-        ))}
-      </div>
-      <motion.div
-        initial={{ opacity: 0, scale: 0.8 }}
-        whileInView={{ opacity: 1, scale: 1 }}
-        viewport={{ once: true }}
-        transition={{ delay: 2, type: 'spring' }}
-        className="flex items-center gap-2 rounded-full bg-emerald-400/15 px-4 py-1.5 text-sm font-bold text-emerald-300"
-      >
-        <CircleCheck className="h-4 w-4" /> Livraison confirmée
-      </motion.div>
-    </div>
-  );
-}
-
-function WhatsAppDemo() {
-  const lines = ['🛍️ Nouvelle commande', '👤 Fatou · Dakar', '💰 Total : 43 500 FCFA', '🔐 Code : 4827'];
-  return (
-    <div className="flex h-full min-h-[180px] flex-col justify-center">
-      <div className="max-w-[240px] rounded-2xl rounded-tl-sm bg-[#1f3a2e] p-3 shadow-lg">
-        {lines.map((l, i) => (
-          <motion.p
-            key={l}
-            initial={{ opacity: 0, x: -10 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.3 + i * 0.3 }}
-            className="text-sm text-emerald-50"
-          >
-            {l}
-          </motion.p>
-        ))}
-        <p className="mt-1 text-right text-[10px] text-emerald-200/60">12:04 ✓✓</p>
-      </div>
-      <motion.div
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
-        transition={{ delay: 1.8 }}
-        className="ml-auto mt-3 flex items-center gap-1 rounded-2xl rounded-tr-sm bg-white/10 px-3 py-2 text-sm text-white"
-      >
-        Bien reçu, merci ! 🙏
-      </motion.div>
-    </div>
-  );
-}
-
-function Features() {
-  return (
-    <section id="fonctionnalites" className="relative py-28">
-      <div className="mx-auto max-w-7xl px-6">
-        <Reveal className="mb-16 max-w-2xl">
-          <SectionLabel>Fonctionnalités</SectionLabel>
-          <h2 className="mt-6 text-4xl font-extrabold tracking-tight text-white md:text-5xl">
-            Tout ce qu'il faut pour vendre, <span className="text-shimmer">rien de superflu.</span>
-          </h2>
-        </Reveal>
-
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-          <BentoCard className="md:col-span-2" icon={Zap} title="Votre boutique en ligne en 2 minutes" desc="Ajoutez vos produits et générez une vitrine élégante, prête à partager, en quelques clics.">
-            <StoreBuilderDemo />
-          </BentoCard>
-          <BentoCard delay={0.1} icon={Wallet} title="Mobile Money intégré" desc="Encaissez via Wave, Orange Money ou Free Money. Chaque transaction est vérifiée.">
-            <MobileMoneyDemo />
-          </BentoCard>
-          <BentoCard icon={Truck} title="Livreurs suivis en direct" desc="Assignez vos livreurs et suivez chaque course grâce à la position GPS du client.">
-            <DeliveryMapDemo />
-          </BentoCard>
-          <BentoCard delay={0.1} icon={ShieldCheck} title="Code PIN anti-fraude" desc="La livraison n'est validée que lorsque le client communique son code secret.">
-            <PinDemo />
-          </BentoCard>
-          <BentoCard delay={0.2} icon={MessageCircle} title="Commandes sur WhatsApp" desc="Chaque commande peut être partagée en un clic à vos clients et à votre équipe.">
-            <WhatsAppDemo />
-          </BentoCard>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Écosystème : Client → Marchand → Livreur                            */
-/* ------------------------------------------------------------------ */
-
-function Ecosystem() {
-  return (
-    <section id="ecosysteme" className="relative scroll-mt-10 py-28">
-      <div className="mx-auto max-w-6xl px-6">
-        <Reveal className="mb-12 text-center">
-          <SectionLabel>Écosystème connecté</SectionLabel>
-          <h2 className="mt-6 text-4xl font-extrabold tracking-tight text-white md:text-5xl">
-            Trois acteurs. <span className="text-shimmer">Une seule plateforme.</span>
-          </h2>
-          <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-400">
-            Chaque commande circule en temps réel entre vos clients, votre boutique et vos livreurs, jusqu'à la remise sécurisée par code PIN.
-          </p>
-        </Reveal>
-        <Reveal delay={0.15}>
-          <div className="relative overflow-hidden rounded-[2.5rem] border border-white/[0.08] bg-white/[0.02] px-4 py-10 md:px-10 md:py-14">
-            <div className="aurora-blob aurora-1 -left-20 -top-20 h-72 w-72 bg-sky-500/10" />
-            <div className="aurora-blob aurora-2 -right-20 bottom-0 h-72 w-72 bg-amber-400/10" />
-            <div className="bg-grid-pattern absolute inset-0" />
-            <FlowAnimation className="relative mx-auto max-w-4xl" />
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Comment ça marche (ligne tracée au scroll)                          */
-/* ------------------------------------------------------------------ */
-
-function HowItWorks() {
-  const ref = useRef(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start 80%', 'end 60%'] });
-  const lineScale = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
-
-  const steps = [
-    { title: 'Création instantanée', desc: 'Ajoutez vos produits et générez une vitrine en quelques clics.', image: '/card-creation.jpg', icon: Store },
-    { title: 'Paiement sécurisé', desc: 'Encaissez via Mobile Money. Chaque transaction est vérifiée.', image: '/card-payment.jpg', icon: Lock },
-    { title: 'Livraison suivie', desc: "Assignez vos livreurs et suivez l'acheminement en temps réel.", image: '/card-delivery.jpg', icon: Truck },
-  ];
-
-  return (
-    <section id="comment" ref={ref} className="relative py-28">
-      <div className="mx-auto max-w-7xl px-6">
-        <Reveal className="mb-20 text-center">
-          <SectionLabel>Comment ça marche</SectionLabel>
-          <h2 className="mt-6 text-4xl font-extrabold tracking-tight text-white md:text-5xl">
-            Trois étapes. <span className="text-shimmer">Zéro prise de tête.</span>
-          </h2>
-        </Reveal>
-
-        <div className="relative grid grid-cols-1 gap-10 md:grid-cols-3 md:gap-8">
-          <div className="absolute left-[16.66%] right-[16.66%] top-7 hidden h-px bg-white/10 md:block">
-            <motion.div style={{ scaleX: lineScale }} className="h-full origin-left bg-gradient-to-r from-emerald-400 via-cyan-400 to-amber-300 shadow-[0_0_12px_rgba(52,211,153,0.8)]" />
-          </div>
-
-          {steps.map((s, i) => {
-            const Icon = s.icon;
-            return (
-              <Reveal key={s.title} delay={i * 0.15} className="flex flex-col items-center text-center">
-                <motion.div
-                  whileHover={{ rotate: 12, scale: 1.1 }}
-                  className="relative z-10 mb-8 flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-400/30 bg-[#06150f] shadow-[0_0_30px_rgba(52,211,153,0.3)]"
-                >
-                  <Icon className="h-6 w-6 text-emerald-300" />
-                  <span className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 to-amber-500 text-xs font-black text-slate-900">{i + 1}</span>
-                </motion.div>
-                <SpotlightCard className="group w-full overflow-hidden rounded-[2rem] border border-white/[0.08] bg-white/[0.03] p-3">
-                  <div className="aspect-[4/3] overflow-hidden rounded-[1.5rem]">
-                    <img src={s.image} alt={s.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                  </div>
-                  <div className="px-3 pb-4 pt-6">
-                    <h3 className="mb-2 text-xl font-bold text-white">{s.title}</h3>
-                    <p className="text-slate-400">{s.desc}</p>
-                  </div>
-                </SpotlightCard>
-              </Reveal>
-            );
-          })}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Cas d'usage (onglets)                                               */
-/* ------------------------------------------------------------------ */
-
-function UseCases() {
-  const [activeTab, setActiveTab] = useState(TABS[0].id);
-
-  return (
-    <section className="relative py-28">
-      <div className="mx-auto max-w-7xl px-6">
-        <Reveal className="mb-16">
-          <SectionLabel>Cas d'usage</SectionLabel>
-          <h2 className="mt-6 max-w-2xl text-4xl font-extrabold tracking-tight text-white md:text-5xl">
-            Un impact direct sur toutes les strates de votre entreprise.
-          </h2>
-        </Reveal>
-
-        <div className="flex flex-col gap-10 md:flex-row">
-          <div className="flex w-full flex-col gap-2 md:w-1/3">
-            {TABS.map((tab) => {
-              const Icon = tab.icon;
-              const active = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className="relative rounded-2xl p-6 text-left transition-colors"
-                >
-                  {active && (
-                    <motion.div
-                      layoutId="tab-highlight"
-                      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                      className="absolute inset-0 rounded-2xl border border-emerald-400/25 bg-emerald-400/[0.06] shadow-[0_0_30px_rgba(52,211,153,0.12)]"
-                    />
-                  )}
-                  <div className="relative flex items-center gap-4">
-                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${active ? 'bg-emerald-400 text-[#02130c]' : 'bg-white/5 text-slate-400'}`}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <h3 className={`text-lg font-bold transition-colors ${active ? 'text-white' : 'text-slate-400'}`}>{tab.title}</h3>
-                  </div>
-                  <AnimatePresence initial={false}>
-                    {active && (
-                      <motion.p
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="relative mt-3 overflow-hidden text-sm leading-relaxed text-slate-300"
-                      >
-                        {tab.description}
-                      </motion.p>
-                    )}
-                  </AnimatePresence>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="w-full md:w-2/3">
-            <div className="relative flex h-[400px] items-center justify-center overflow-hidden rounded-[2rem] border border-white/[0.08] bg-white/[0.02] p-8">
-              <div className="aurora-blob aurora-1 right-0 top-0 h-64 w-64 bg-emerald-500/20" />
-              <div className="aurora-blob aurora-2 bottom-0 left-0 h-64 w-64 bg-cyan-500/15" />
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeTab}
-                  initial={{ opacity: 0, scale: 0.92, filter: 'blur(10px)' }}
-                  animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-                  exit={{ opacity: 0, scale: 1.05, filter: 'blur(10px)' }}
-                  transition={{ duration: 0.4, ease: EASE }}
-                  className="relative z-10 w-full"
-                >
-                  {activeTab === '01' && <SellerMock />}
-                  {activeTab === '02' && <DriverMock />}
-                  {activeTab === '03' && <CustomerMock />}
-                </motion.div>
-              </AnimatePresence>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function SellerMock() {
-  const orders = [
-    { name: 'Fatou D.', amount: '43 500', status: 'Payée', cls: 'bg-emerald-400/15 text-emerald-300' },
-    { name: 'Moussa K.', amount: '18 000', status: 'En livraison', cls: 'bg-amber-400/15 text-amber-300' },
-    { name: 'Aïcha B.', amount: '27 250', status: 'Nouvelle', cls: 'bg-sky-400/15 text-sky-300' },
-  ];
-  return (
-    <div className="mx-auto w-full max-w-md rounded-2xl border border-white/10 bg-[#0b1f18]/90 p-5 shadow-2xl backdrop-blur">
-      <div className="mb-4 flex items-center justify-between border-b border-white/5 pb-4">
-        <p className="font-bold text-white">Commandes du jour</p>
-        <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-xs font-bold text-emerald-300">+3</span>
-      </div>
-      <div className="space-y-2.5">
-        {orders.map((o, i) => (
-          <motion.div
-            key={o.name}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 + i * 0.1 }}
-            className="flex items-center justify-between rounded-xl bg-white/[0.04] px-4 py-3"
-          >
-            <div>
-              <p className="text-sm font-bold text-white">{o.name}</p>
-              <p className="text-xs text-slate-400">{o.amount} FCFA</p>
-            </div>
-            <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${o.cls}`}>{o.status}</span>
-          </motion.div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function DriverMock() {
-  return (
-    <div className="mx-auto w-full max-w-sm rounded-[2rem] border border-white/10 bg-[#0b1f18]/90 p-5 shadow-2xl backdrop-blur">
-      <div className="mb-4 h-40 overflow-hidden rounded-xl">
-        <DeliveryMapDemo />
-      </div>
-      <div className="mb-4 flex items-center justify-between">
+    <section className="relative overflow-hidden pb-16 pt-28 lg:pb-24 lg:pt-36">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(55%_50%_at_85%_10%,rgba(16,185,129,0.12),transparent_70%),radial-gradient(40%_40%_at_0%_100%,rgba(245,158,11,0.08),transparent_70%)]" aria-hidden="true" />
+      <div className="relative mx-auto grid max-w-7xl items-center gap-14 px-5 lg:grid-cols-[1.05fr_1fr] lg:gap-10 lg:px-8">
         <div>
-          <p className="text-sm font-bold text-white">Livraison #4029</p>
-          <p className="text-xs text-slate-400">En cours d'acheminement</p>
+          <a href="#themes" onClick={(e) => goTo(e, '#themes')} className="mb-6 inline-flex items-center gap-2 rounded-full border border-black/10 bg-white py-1 pl-1 pr-3.5 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:border-emerald-700/30">
+            <span className="rounded-full bg-emerald-700 px-2.5 py-0.5 text-xs font-bold text-white">Nouveau</span>
+            6 thèmes de vitrine professionnels <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
+          </a>
+          <h1 className="text-balance text-[2.6rem] font-extrabold leading-[1.03] tracking-[-0.035em] text-[#0b1f17] sm:text-6xl lg:text-[4.25rem]">
+            Votre boutique en ligne, <Em>prête à vendre</Em> au Sénégal.
+          </h1>
+          <p className="mt-6 max-w-xl text-lg leading-relaxed text-slate-600 sm:text-xl">
+            Une vitrine à votre image, le paiement par Wave, Orange Money ou à la livraison, les commandes sur WhatsApp et des livreurs suivis en direct. Tout se gère depuis votre téléphone.
+          </p>
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+            <Link to={registerHref(themeId)} className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#0b1f17] px-7 py-4 text-[15px] font-bold text-white shadow-[0_14px_30px_-12px_rgba(11,31,23,0.7)] transition-all hover:-translate-y-0.5 hover:bg-emerald-800">
+              Créer ma boutique gratuitement <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+            <a href="#produit" onClick={(e) => goTo(e, '#produit')} className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-7 py-4 text-[15px] font-bold text-slate-800 transition-colors hover:border-slate-400">
+              <LayoutDashboard className="h-4 w-4 text-emerald-700" /> Voir le produit
+            </a>
+          </div>
+          <div className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3">
+            <span className="text-sm font-semibold text-slate-500">Paiements acceptés</span>
+            <img src="/logos/wave.png" alt="Wave" className="h-7 w-auto" />
+            <img src="/logos/orange-money.svg" alt="Orange Money" className="h-5 w-auto" />
+            <span className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-700"><Banknote className="h-5 w-5 text-emerald-600" /> À la livraison</span>
+          </div>
         </div>
-        <span className="rounded bg-emerald-400/15 px-2 py-1 text-xs font-bold text-emerald-300">Actif</span>
-      </div>
-      <div className="flex h-11 w-full items-center justify-center rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 text-sm font-black text-[#02130c]">
-        Valider la livraison
-      </div>
-    </div>
-  );
-}
 
-function CustomerMock() {
-  return (
-    <div className="flex items-center justify-center gap-4">
-      {DEMO_PRODUCTS.slice(0, 2).map((p, i) => {
-        const Icon = p.icon;
-        return (
-          <motion.div
-            key={p.name}
-            initial={{ rotate: 0, y: 20 }}
-            animate={{ rotate: i === 0 ? -6 : 4, y: i === 0 ? 16 : 0 }}
-            transition={{ type: 'spring', stiffness: 150, damping: 14 }}
-            className={`w-40 rounded-2xl bg-white p-3 shadow-2xl sm:w-48 ${i === 1 ? 'z-10' : ''}`}
-          >
-            <div className={`mb-3 flex h-28 items-center justify-center rounded-xl bg-gradient-to-br sm:h-32 ${p.bg}`}>
-              <Icon className="h-12 w-12 text-slate-700/70" strokeWidth={1.5} />
-            </div>
-            <p className="text-sm font-bold text-slate-800">{p.name}</p>
-            <div className="mb-3 flex items-center gap-1 text-amber-400">
-              {[0, 1, 2, 3, 4].map((s) => <Star key={s} className="h-3 w-3 fill-current" />)}
-            </div>
-            <div className={`flex h-9 items-center justify-center rounded-lg text-xs font-bold text-white ${i === 1 ? 'bg-emerald-600' : 'bg-slate-900'}`}>
-              {i === 1 ? 'Ajouter au panier' : `${p.price} FCFA`}
-            </div>
+        <div className="relative mx-auto w-full max-w-[560px]">
+          <div className="relative">
+          <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.9, ease: EASE }} className="relative ml-auto aspect-[4/5] w-[86%] overflow-hidden rounded-[2.25rem] bg-emerald-950 shadow-[0_40px_80px_-35px_rgba(11,31,23,0.6)]">
+            <img src="/images/landing/hero-commercante-1024.webp" srcSet={photoSet('hero-commercante')} sizes="(min-width: 1024px) 480px, 86vw" alt="Commerçante qui consulte ses commandes sur son téléphone" width="1400" height="2097" fetchPriority="high" decoding="async" className="h-full w-full object-cover object-[50%_18%]" />
+            <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/45 to-transparent" />
           </motion.div>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Résultats                                                           */
-/* ------------------------------------------------------------------ */
-
-function Metrics() {
-  return (
-    <section className="relative py-28">
-      <div className="mx-auto max-w-7xl px-6">
-        <Reveal className="mb-12 text-center">
-          <SectionLabel>Résultats mesurables</SectionLabel>
-        </Reveal>
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-          <Reveal className="md:row-span-2">
-            <SpotlightCard className="relative flex h-full flex-col justify-center overflow-hidden rounded-[2rem] border border-white/[0.08] bg-gradient-to-br from-emerald-500/10 via-white/[0.02] to-transparent p-10 md:p-12">
-              <div className="aurora-blob aurora-3 -right-20 -top-20 h-80 w-80 bg-emerald-500/25" />
-              <ShieldCheck className="relative mb-6 h-12 w-12 text-emerald-300" />
-              <p className="relative mb-4 bg-gradient-to-r from-white to-emerald-200 bg-clip-text text-7xl font-extrabold tracking-tight text-transparent md:text-8xl">
-                <CountUp to={99.9} decimals={1} suffix="%" />
-              </p>
-              <p className="relative text-lg text-slate-300">Fiabilité des transactions et disponibilité de la plateforme.</p>
-            </SpotlightCard>
-          </Reveal>
-          <Reveal delay={0.1} className="md:col-span-2">
-            <SpotlightCard className="flex h-full flex-col gap-2 rounded-[2rem] border border-white/[0.08] bg-white/[0.03] p-8 md:flex-row md:items-center md:gap-10 md:p-10">
-              <p className="text-6xl font-extrabold text-white md:text-7xl"><CountUp to={3} suffix="x" /></p>
-              <div>
-                <p className="mb-1 text-xs font-bold uppercase tracking-wider text-emerald-300">Croissance</p>
-                <p className="text-slate-400">En moyenne, nos marchands voient leurs ventes tripler grâce à la simplification du processus d'achat.</p>
-              </div>
-            </SpotlightCard>
-          </Reveal>
-          <Reveal delay={0.2} className="md:col-span-2">
-            <SpotlightCard className="flex h-full flex-col gap-2 rounded-[2rem] border border-white/[0.08] bg-white/[0.03] p-8 md:flex-row md:items-center md:gap-10 md:p-10">
-              <p className="flex items-baseline gap-2 text-6xl font-extrabold text-white md:text-7xl">
-                <Clock className="h-10 w-10 self-center text-amber-300" />
-                &lt;<CountUp to={2} /><span className="text-3xl text-slate-400">min</span>
-              </p>
-              <div>
-                <p className="mb-1 text-xs font-bold uppercase tracking-wider text-emerald-300">Déploiement</p>
-                <p className="text-slate-400">Le temps moyen nécessaire pour créer une boutique complète et encaisser sa première vente.</p>
-              </div>
-            </SpotlightCard>
-          </Reveal>
+          <LiveNotification />
+          <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, ease: EASE, delay: 0.15 }} className="absolute -bottom-6 left-0 w-[44%] max-w-[230px] sm:left-2">
+            <AnimatePresence mode="wait">
+              <motion.div key={theme.id} initial={{ opacity: 0.4 }} animate={{ opacity: 1 }} exit={{ opacity: 0.4 }} transition={{ duration: 0.25 }}>
+                <PhoneFrame src={SCREEN(`vitrine-${theme.id}`)} alt={`Vitrine « ${DEMO_SHOPS[theme.id]} » sur téléphone, thème ${theme.name}`} eager={theme.id === 'emeraude'} />
+              </motion.div>
+            </AnimatePresence>
+          </motion.div>
+          </div>
+          <div className="mt-12 flex flex-col items-center gap-2 sm:ml-[46%] sm:mt-6 sm:items-start">
+            <ThemeDots themeId={themeId} onPick={setThemeId} />
+            <p className="text-sm text-slate-500">Essayez un thème · <span className="font-semibold text-[#0b1f17]">{theme.name}</span></p>
+          </div>
         </div>
       </div>
     </section>
@@ -1130,60 +316,50 @@ function Metrics() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Tarifs                                                              */
+/* Moyens de paiement et outils                                         */
 /* ------------------------------------------------------------------ */
 
-function Pricing() {
+function LogoStrip() {
   return (
-    <section id="tarifs" className="relative py-28">
-      <div className="mx-auto max-w-7xl px-6">
-        <Reveal className="mb-16 text-center">
-          <SectionLabel>Tarifs simples et transparents</SectionLabel>
-          <h2 className="mx-auto mt-6 max-w-2xl text-4xl font-extrabold tracking-tight text-white md:text-5xl">
-            Payez uniquement <span className="text-shimmer">quand vous encaissez.</span>
-          </h2>
-        </Reveal>
+    <section className="border-y border-black/5 bg-[#f6f7f6] py-8" aria-label="Moyens de paiement et outils intégrés">
+      <div className="mx-auto flex max-w-7xl flex-col items-center gap-6 px-5 lg:flex-row lg:justify-between lg:px-8">
+        <p className="text-sm font-bold text-slate-600">Paiements et outils intégrés, sans rien installer</p>
+        <ul className="flex flex-wrap items-center justify-center gap-x-10 gap-y-5">
+          {PAYMENT_LOGOS.map((l) => <li key={l.name}><img src={l.src} alt={l.name} loading="lazy" decoding="async" className={`${l.className} w-auto opacity-75 grayscale transition hover:opacity-100 hover:grayscale-0`} /></li>)}
+        </ul>
+      </div>
+    </section>
+  );
+}
 
-        <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-3">
-          {PLANS.map((plan, i) => (
-            <Reveal key={plan.name} delay={i * 0.12} className={plan.popular ? 'md:-translate-y-4' : ''}>
-              <motion.div whileHover={{ y: -8 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }} className={`h-full rounded-[2rem] ${plan.popular ? 'conic-border' : ''}`}>
-                <SpotlightCard
-                  className={`relative flex h-full flex-col rounded-[2rem] p-8 ${plan.popular
-                    ? 'bg-gradient-to-b from-[#0b2a1f] to-[#06150f] shadow-[0_30px_80px_-20px_rgba(52,211,153,0.35)]'
-                    : 'border border-white/[0.08] bg-white/[0.03]'}`}
-                >
-                  {plan.popular && (
-                    <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-amber-300 to-amber-500 px-4 py-1 text-xs font-black uppercase tracking-wider text-slate-900 shadow-[0_0_20px_rgba(251,191,36,0.5)]">
-                      Le plus populaire
-                    </span>
-                  )}
-                  <h3 className="mb-2 text-xl font-bold text-white">{plan.name}</h3>
-                  <p className="mb-6 text-sm text-slate-400">{plan.desc}</p>
-                  <div className="mb-8 flex items-baseline gap-1">
-                    <span className="text-4xl font-extrabold text-white">{plan.price} FCFA</span>
-                    <span className="text-slate-500">/mois</span>
-                  </div>
-                  <ul className="mb-8 flex-1 space-y-4">
-                    {plan.features.map((f) => (
-                      <li key={f} className="flex items-start gap-3">
-                        <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${plan.popular ? 'bg-emerald-400 text-[#02130c]' : 'bg-emerald-400/15 text-emerald-300'}`}>
-                          <Check className="h-3 w-3" strokeWidth={3} />
-                        </span>
-                        <span className="text-sm text-slate-300">{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <Link
-                    to="/register"
-                    className={`block w-full rounded-xl py-3.5 text-center text-sm font-bold transition-all ${plan.popular
-                      ? 'shine-btn bg-gradient-to-r from-emerald-400 to-teal-400 text-[#02130c] shadow-[0_0_30px_rgba(52,211,153,0.4)] hover:shadow-[0_0_45px_rgba(52,211,153,0.6)]'
-                      : 'border border-white/10 bg-white/5 text-white hover:border-white/25 hover:bg-white/10'}`}
-                  >
-                    {plan.cta}
-                  </Link>
-                </SpotlightCard>
-              </motion.div>
+/* ------------------------------------------------------------------ */
+/* Le tableau de bord                                                   */
+/* ------------------------------------------------------------------ */
+
+function ProductShowcase() {
+  return (
+    <section className="overflow-hidden py-20 lg:py-28">
+      <div className="mx-auto max-w-7xl px-5 lg:px-8">
+        <Reveal><SectionTitle center kicker="Le produit" title={<>Un vrai tableau de bord, <Em>pensé pour le commerce</Em>.</>} text="Commandes en temps réel, chiffre d’affaires, livreurs, stock : tout ce qui compte, au même endroit, sur ordinateur comme sur téléphone." /></Reveal>
+        <motion.div initial={{ opacity: 0, y: 60, rotateX: 14 }} whileInView={{ opacity: 1, y: 0, rotateX: 0 }} viewport={{ once: true, margin: '-80px' }} transition={{ duration: 1.1, ease: EASE }} style={{ transformPerspective: 1800 }} className="relative mx-auto mt-14 max-w-6xl">
+          <BrowserFrame>
+            <img src={SCREEN('tableau-de-bord')} srcSet={`${SCREEN('tableau-de-bord-960')} 960w, ${SCREEN('tableau-de-bord')} 1600w`} sizes="(min-width: 1200px) 1150px, 100vw" alt="Tableau de bord SamaBoutik : chiffre d’affaires, commandes, panier moyen" width="1600" height="1000" loading="lazy" decoding="async" className="block w-full" />
+          </BrowserFrame>
+          <div className="absolute -bottom-10 -right-2 hidden w-[200px] lg:block xl:-right-10">
+            <PhoneFrame src={SCREEN('panier')} alt="Panier et formulaire de commande sur téléphone" />
+          </div>
+        </motion.div>
+        <div className="mx-auto mt-16 grid max-w-5xl gap-6 sm:grid-cols-3">
+          {[
+            { icon: Bell, title: 'Commandes en direct', text: 'Chaque commande arrive avec un son et sur WhatsApp. Vous la traitez en un geste.' },
+            { icon: BarChart3, title: 'Vos chiffres, clairs', text: 'Chiffre d’affaires, panier moyen, taux de livraison : sur 7, 30 ou 90 jours.' },
+            { icon: Users, title: 'Votre équipe', text: 'Vos livreurs, leurs courses du jour et ce qu’ils doivent vous reverser.' },
+          ].map((f, i) => (
+            <Reveal key={f.title} delay={i * 0.06}>
+              <div className="flex gap-4">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><f.icon className="h-5 w-5" /></span>
+                <div><p className="font-bold text-[#0b1f17]">{f.title}</p><p className="mt-1 text-sm leading-relaxed text-slate-600">{f.text}</p></div>
+              </div>
             </Reveal>
           ))}
         </div>
@@ -1193,157 +369,482 @@ function Pricing() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Appel à l'action final + pied de page                               */
+/* Comment ça marche : parcours interactif en 5 étapes                  */
 /* ------------------------------------------------------------------ */
 
-function FinalCTA() {
+function WhatsAppScreen() {
   return (
-    <section className="relative px-4 py-20 md:px-6">
-      <Reveal>
-        <div className="relative mx-auto max-w-6xl overflow-hidden rounded-[2.5rem] border border-white/10 bg-gradient-to-br from-emerald-900/60 via-[#06150f] to-[#030a07] px-6 py-20 text-center md:py-28">
-          <Aurora />
-          <ParticleField className="absolute inset-0 h-full w-full" density={50} color="253, 230, 138" />
-          <div className="relative z-10">
-            <motion.div
-              animate={{ rotate: [0, 10, -10, 0], scale: [1, 1.1, 1] }}
-              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-              className="mx-auto mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-300 to-amber-500 shadow-[0_0_50px_rgba(251,191,36,0.5)]"
-            >
-              <Sparkles className="h-8 w-8 text-slate-900" />
-            </motion.div>
-            <h2 className="mx-auto mb-6 max-w-3xl text-4xl font-extrabold tracking-tight text-white md:text-6xl">
-              L'innovation e-commerce <br className="hidden md:block" />
-              <span className="text-shimmer">au rythme de votre ambition.</span>
-            </h2>
-            <p className="mx-auto mb-10 max-w-xl text-lg text-slate-300">
-              Rejoignez les vendeurs qui ont déjà digitalisé leur commerce. Votre boutique vous attend.
-            </p>
-            <Magnetic>
-              <Link
-                to="/register"
-                onMouseEnter={playPop}
-                className="shine-btn group inline-flex items-center gap-2 rounded-full bg-white px-10 py-5 text-lg font-black text-[#02130c] shadow-[0_0_60px_rgba(255,255,255,0.3)] transition-shadow hover:shadow-[0_0_80px_rgba(52,211,153,0.6)]"
-              >
-                Créer ma boutique gratuitement
-                <ArrowUpRight className="h-5 w-5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-              </Link>
-            </Magnetic>
+    <PhoneFrame>
+      <div className="absolute inset-0 flex flex-col bg-[#efeae2]">
+        <div className="flex items-center gap-2.5 bg-[#075e54] px-4 pb-3 pt-10 text-white">
+          <img src="/logos/whatsapp.svg" alt="" className="h-8 w-8 rounded-full bg-white p-1.5" />
+          <div><p className="text-[13px] font-bold">SamaBoutik</p><p className="text-[10px] text-white/70">Notifications de commande</p></div>
+        </div>
+        <div className="flex-1 space-y-2 p-3">
+          <p className="mx-auto w-max rounded-md bg-white/80 px-2 py-0.5 text-[9px] font-semibold text-slate-500">AUJOURD’HUI</p>
+          <div className="max-w-[94%] rounded-xl rounded-tl-sm bg-white p-2.5 text-[11px] leading-relaxed text-slate-800 shadow-sm">
+            <p>🛍️ <strong>Nouvelle commande sur Chez Awa !</strong></p>
+            <p>Réf. #A4F2</p>
+            <p className="mt-1">👤 Fatou Diop · 📞 77 123 45 67</p>
+            <p>📍 Médina, rue 11 (Dakar Plateau / Médina)</p>
+            <p>📦 1× Robe wax Teranga</p>
+            <p>💰 Total : <strong>19 500 F</strong> — à payer à la livraison</p>
+            <p className="mt-1">👉 Gérez-la ici : samaboutik…/dashboard</p>
+            <p className="mt-0.5 text-right text-[9px] text-slate-500">10:42</p>
+          </div>
+          <div className="max-w-[80%] rounded-xl rounded-tl-sm bg-white p-2.5 text-[11px] leading-relaxed text-slate-800 shadow-sm">
+            <p>✅ Commande #9C31 livrée ! Code client validé.</p>
+            <p className="mt-0.5 text-right text-[9px] text-slate-500">11:58</p>
           </div>
         </div>
-      </Reveal>
+      </div>
+    </PhoneFrame>
+  );
+}
+
+const STEP_DURATION_MS = 6500;
+
+const ACTORS = {
+  client: { label: 'Côté client', icon: UserRound, cls: 'bg-sky-400/15 text-sky-200 ring-sky-300/30' },
+  boutique: { label: 'Côté boutique', icon: Store, cls: 'bg-emerald-400/15 text-emerald-200 ring-emerald-300/30' },
+  livreur: { label: 'Côté livreur', icon: Bike, cls: 'bg-amber-400/15 text-amber-200 ring-amber-300/30' },
+};
+
+const STEPS = [
+  {
+    tab: 'Commande', actor: 'client', icon: ShoppingBag,
+    title: 'Le client commande en une minute, sans compte',
+    text: 'Depuis votre vitrine, il choisit ses articles et laisse seulement son nom, son téléphone et son adresse.',
+    points: ['Aucun compte ni mot de passe à créer', 'Sa position GPS partagée en un geste', 'Paiement à la livraison, par Wave ou par Orange Money'],
+    chip: 'Commande envoyée',
+    visual: () => <PhoneFrame src={SCREEN('panier')} alt="Panier et formulaire de commande sur la vitrine" />,
+  },
+  {
+    tab: 'Notification', actor: 'boutique', icon: Bell,
+    title: 'Vous êtes prévenu tout de suite sur WhatsApp',
+    text: 'La commande arrive sur votre téléphone avec tout ce qu’il faut pour la préparer.',
+    points: ['Articles, adresse et téléphone du client', 'Une alerte sonore dans votre tableau de bord', 'Le client reçoit sa confirmation et son code de livraison'],
+    chip: 'Nouvelle commande',
+    visual: () => <WhatsAppScreen />,
+  },
+  {
+    tab: 'Livraison', actor: 'livreur', icon: Bike,
+    title: 'Le livreur part, le client le suit en direct',
+    text: 'Votre livreur accepte la course depuis son téléphone. Sa position est partagée pendant tout le trajet.',
+    points: ['La course apparaît dans l’application du livreur', 'Le client voit son livreur arriver sur la carte', 'Appel ou WhatsApp en un geste'],
+    chip: 'Position en direct',
+    visual: () => <PhoneFrame src={SCREEN('livreur-course')} alt="Application livreur avec une course en cours" />,
+  },
+  {
+    tab: 'Code PIN', actor: 'livreur', icon: ShieldCheck,
+    title: 'Remis avec un code, à la bonne personne',
+    text: 'À l’arrivée, le livreur demande au client son code secret à 4 chiffres.',
+    points: ['Un code différent pour chaque commande', 'Impossible de valider la livraison sans lui', 'Les essais au hasard sont bloqués'],
+    chip: 'Livraison validée',
+    visual: () => <PhoneFrame src={SCREEN('livreur-code')} alt="Saisie du code client pour valider la livraison" />,
+  },
+  {
+    tab: 'Paiement', actor: 'boutique', icon: Banknote,
+    title: 'L’argent arrive chez vous',
+    text: 'Votre journée se lit d’un coup d’œil : ce qui est encaissé, ce que doivent les livreurs, et votre part.',
+    points: ['Wave et Orange Money reversés sur votre numéro', 'Espèces encaissées par votre livreur', 'Le bilan de chaque livreur, chaque jour'],
+    chip: '+ 67 000 F aujourd’hui',
+    visual: () => <PhoneFrame src={SCREEN('tableau-mobile')} alt="Tableau de bord sur téléphone : encaissé aujourd’hui, frais livreurs, votre part" />,
+  },
+];
+
+function HowItWorks() {
+  const sectionRef = useRef(null);
+  const tabsRef = useRef(null);
+  const inView = useInView(sectionRef, { amount: 0.35 });
+  const reduce = useReducedMotion();
+  const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const running = !reduce && !paused && !hovered && inView;
+  const step = STEPS[active];
+  const actor = ACTORS[step.actor];
+
+  const go = (i) => setActive((i + STEPS.length) % STEPS.length);
+
+  // Garde l'onglet actif visible dans la barre défilante (téléphone), sans faire défiler la page.
+  useEffect(() => {
+    const bar = tabsRef.current;
+    const tab = bar?.children[active];
+    if (!bar || !tab || bar.scrollWidth <= bar.clientWidth) return;
+    bar.scrollTo({ left: tab.offsetLeft - bar.clientWidth / 2 + tab.clientWidth / 2, behavior: 'smooth' });
+  }, [active]);
+
+  const onTabKey = (e) => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    e.preventDefault();
+    const next = (active + (e.key === 'ArrowRight' ? 1 : -1) + STEPS.length) % STEPS.length;
+    go(next);
+    tabsRef.current?.children[next]?.focus();
+  };
+
+  return (
+    <section ref={sectionRef} className="relative overflow-hidden bg-[#0b1f17] py-20 text-white lg:py-28">
+      <div className="pointer-events-none absolute -left-40 top-0 h-[520px] w-[520px] rounded-full bg-emerald-500/15 blur-3xl" aria-hidden="true" />
+      <div className="pointer-events-none absolute -right-40 bottom-0 h-[420px] w-[420px] rounded-full bg-amber-400/10 blur-3xl" aria-hidden="true" />
+      <div className="relative mx-auto max-w-7xl px-5 lg:px-8">
+        <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
+          <Reveal><SectionTitle light kicker="Comment ça marche" title={<>De la commande à l’argent encaissé, <Em light>en 5 étapes</Em>.</>} /></Reveal>
+          <div className="flex items-center gap-2" aria-label="Commandes du parcours">
+            <button type="button" onClick={() => go(active - 1)} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 transition-colors hover:bg-white/10" aria-label="Étape précédente"><ChevronLeft className="h-5 w-5" /></button>
+            <button type="button" onClick={() => go(active + 1)} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 transition-colors hover:bg-white/10" aria-label="Étape suivante"><ChevronRight className="h-5 w-5" /></button>
+            {!reduce && (
+              <button type="button" onClick={() => setPaused((p) => !p)} className="ml-1 inline-flex h-11 items-center gap-2 rounded-full border border-white/15 px-4 text-sm font-bold transition-colors hover:bg-white/10" aria-pressed={paused}>
+                {paused ? <><Play className="h-4 w-4" /> Lecture</> : <><Pause className="h-4 w-4" /> Pause</>}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Onglets des 5 étapes, avec barre de progression */}
+        <div ref={tabsRef} role="tablist" aria-label="Étapes" onKeyDown={onTabKey} className="scrollbar-hide -mx-5 mt-12 flex gap-3 overflow-x-auto px-5 pb-1 lg:mx-0 lg:grid lg:grid-cols-5 lg:overflow-visible lg:px-0">
+          {STEPS.map((s, i) => {
+            const selected = i === active;
+            const Icon = s.icon;
+            return (
+              <button
+                key={s.tab}
+                id={`how-tab-${i}`}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                aria-controls="how-panel"
+                tabIndex={selected ? 0 : -1}
+                onClick={() => go(i)}
+                className={`relative min-w-[170px] shrink-0 overflow-hidden rounded-2xl border px-4 pb-4 pt-5 text-left transition-colors lg:min-w-0 ${selected ? 'border-white/25 bg-white/10' : 'border-white/10 hover:bg-white/5'}`}
+              >
+                <span className="absolute inset-x-4 top-2.5 h-[3px] overflow-hidden rounded-full bg-white/10" aria-hidden="true">
+                  {selected ? (
+                    reduce
+                      ? <span className="block h-full w-full bg-emerald-400" />
+                      : <span key={`${i}-${active}`} className="step-progress block h-full w-full bg-emerald-400" style={{ animationDuration: `${STEP_DURATION_MS}ms`, animationPlayState: running ? 'running' : 'paused' }} onAnimationEnd={() => go(active + 1)} />
+                  ) : i < active ? <span className="block h-full w-full bg-emerald-400/60" /> : null}
+                </span>
+                <span className="flex items-center gap-3">
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${selected ? 'bg-emerald-400 text-[#0b1f17]' : 'bg-white/10 text-white/70'}`}><Icon className="h-[18px] w-[18px]" /></span>
+                  <span className="min-w-0">
+                    <span className={`block text-[11px] font-bold uppercase tracking-wider ${selected ? 'text-emerald-300' : 'text-white/45'}`}>Étape {i + 1}</span>
+                    <span className={`block truncate font-bold ${selected ? 'text-white' : 'text-white/75'}`}>{s.tab}</span>
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Scène de l'étape active */}
+        <div
+          id="how-panel"
+          role="tabpanel"
+          aria-labelledby={`how-tab-${active}`}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          className="mt-6 grid items-center gap-12 overflow-hidden rounded-[2.5rem] border border-white/10 bg-white/[0.04] p-6 sm:p-10 lg:grid-cols-[1.15fr_1fr] lg:gap-16 lg:p-14"
+        >
+          <AnimatePresence mode="wait">
+            <motion.div key={active} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.4, ease: EASE }}>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-sm font-bold tabular-nums text-white/50">0{active + 1} / 0{STEPS.length}</span>
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset ${actor.cls}`}><actor.icon className="h-3.5 w-3.5" /> {actor.label}</span>
+              </div>
+              <h3 className="mt-5 text-balance text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">{step.title}</h3>
+              <p className="mt-4 max-w-lg text-lg leading-relaxed text-white/70">{step.text}</p>
+              <ul className="mt-8 space-y-3.5">
+                {step.points.map((p) => (
+                  <li key={p} className="flex items-start gap-3">
+                    <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-400/15 text-emerald-300"><Check className="h-3.5 w-3.5" strokeWidth={3} /></span>
+                    <span className="text-white/85">{p}</span>
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+          </AnimatePresence>
+
+          <div className="relative mx-auto w-[240px] sm:w-[268px]">
+            <div className="pointer-events-none absolute -inset-10 rounded-full bg-emerald-400/20 blur-3xl" aria-hidden="true" />
+            <AnimatePresence mode="wait">
+              <motion.div key={active} initial={{ opacity: 0, y: 28, rotate: -2 }} animate={{ opacity: 1, y: 0, rotate: 0 }} exit={{ opacity: 0, y: -18, rotate: 2 }} transition={{ duration: 0.5, ease: EASE }} className="relative">
+                {step.visual()}
+                <motion.div initial={{ opacity: 0, x: -14, scale: 0.95 }} animate={{ opacity: 1, x: 0, scale: 1 }} transition={{ delay: 0.35, duration: 0.45, ease: EASE }} className="absolute -left-10 top-[42%] flex items-center gap-2.5 rounded-2xl bg-white px-3.5 py-2.5 text-[#0b1f17] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] sm:-left-16" aria-hidden="true">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><step.icon className="h-4 w-4" /></span>
+                  <span className="whitespace-nowrap text-sm font-bold">{step.chip}</span>
+                </motion.div>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Thèmes                                                               */
+/* ------------------------------------------------------------------ */
+
+function Themes({ themeId, onPick }) {
+  const theme = getShopTheme(themeId);
+  return (
+    <section className="overflow-hidden py-20 lg:py-28">
+      <div className="mx-auto max-w-7xl px-5 lg:px-8">
+        <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
+          <Reveal><SectionTitle kicker="6 thèmes professionnels" title={<>Une vitrine qui <Em>ressemble à votre commerce</Em>.</>} text="Couleurs, police, photo de bannière : chaque thème est prêt à l’emploi. Vous en changez quand vous voulez, et gardez votre couleur de marque." /></Reveal>
+          <Reveal delay={0.1}>
+            <Link to={registerHref(themeId)} className="group inline-flex shrink-0 items-center gap-2 rounded-full bg-[#0b1f17] px-6 py-3.5 text-sm font-bold text-white transition-colors hover:bg-emerald-800">
+              Créer ma boutique avec {theme.name} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </Reveal>
+        </div>
+      </div>
+      <div className="scrollbar-hide mt-14 flex snap-x snap-mandatory gap-5 overflow-x-auto px-5 pb-6 lg:mx-auto lg:grid lg:max-w-7xl lg:grid-cols-6 lg:gap-5 lg:overflow-visible lg:px-8" role="radiogroup" aria-label="Thème de la vitrine">
+        {SHOP_THEMES.map((t, i) => {
+          const selected = t.id === themeId;
+          return (
+            <Reveal key={t.id} delay={i * 0.05} className="w-[46vw] max-w-[220px] shrink-0 snap-center lg:w-auto lg:max-w-none">
+              <button type="button" role="radio" aria-checked={selected} onClick={() => onPick(t.id)} className="group block w-full text-left">
+                <div className={`transition-transform duration-500 ${selected ? '-translate-y-2' : 'group-hover:-translate-y-1'}`}>
+                  <PhoneFrame src={SCREEN(`vitrine-${t.id}`)} alt={`Vitrine « ${DEMO_SHOPS[t.id]} », thème ${t.name}`} className={selected ? 'ring-4 ring-emerald-500 ring-offset-4 ring-offset-white' : ''} />
+                </div>
+                <div className="mt-5 flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-full" style={{ background: t.accent }} />
+                  <span className="font-bold text-[#0b1f17]">{t.name}</span>
+                  {selected && <Check className="h-4 w-4 text-emerald-600" />}
+                </div>
+                <p className="mt-0.5 text-sm text-slate-500">{t.idealFor}</p>
+              </button>
+            </Reveal>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Tout est inclus                                                      */
+/* ------------------------------------------------------------------ */
+
+function Tile({ icon: Icon, title, text, children, className = '', dark = false }) {
+  return (
+    <Reveal className={className}>
+      <div className={`flex h-full flex-col rounded-[1.75rem] p-6 transition-transform duration-300 hover:-translate-y-1 ${dark ? 'bg-[#0b1f17] text-white' : 'border border-black/5 bg-white'}`}>
+        <span className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl ${dark ? 'bg-emerald-400/15 text-emerald-300' : 'bg-emerald-50 text-emerald-700'}`}><Icon className="h-5 w-5" /></span>
+        <h3 className={`text-lg font-bold ${dark ? 'text-white' : 'text-[#0b1f17]'}`}>{title}</h3>
+        <p className={`mt-1.5 text-sm leading-relaxed ${dark ? 'text-white/65' : 'text-slate-600'}`}>{text}</p>
+        {children && <div className="mt-5 flex-1">{children}</div>}
+      </div>
+    </Reveal>
+  );
+}
+
+function Included() {
+  const bars = [32, 48, 40, 64, 56, 78, 70];
+  return (
+    <section className="bg-[#f6f7f6] py-20 lg:py-28">
+      <div className="mx-auto max-w-7xl px-5 lg:px-8">
+        <Reveal><SectionTitle kicker="Tout est inclus" title={<>Les outils d’une grande enseigne, <Em>dans votre poche</Em>.</>} /></Reveal>
+        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:auto-rows-fr lg:grid-cols-4">
+          <Tile icon={QrCode} title="QR code de boutique" text="À coller sur votre comptoir ou vos sacs : un scan, et le client est sur votre vitrine." className="lg:row-span-2" dark>
+            <div className="flex h-full items-center justify-center"><div className="rounded-2xl bg-white p-3"><QRCodeSVG value="https://samaboutik-nine.vercel.app/boutiques" size={128} fgColor="#0b1f17" /></div></div>
+          </Tile>
+          <Tile icon={BarChart3} title="Statistiques" text="Chiffre d’affaires, commandes, panier moyen : tout se lit en un coup d’œil.">
+            <div className="flex h-16 items-end gap-1.5">{bars.map((h, i) => <span key={i} className={`flex-1 rounded-t-md ${i === bars.length - 1 ? 'bg-emerald-600' : 'bg-emerald-100'}`} style={{ height: `${h}%` }} />)}</div>
+          </Tile>
+          <Tile icon={ImageDown} title="Photos allégées" text="Vos photos sont compressées automatiquement : la vitrine s’ouvre vite, même en 3G.">
+            <p className="flex items-baseline gap-2 font-extrabold text-[#0b1f17]"><span className="text-slate-400 line-through">4,2 Mo</span><ArrowRight className="h-4 w-4 self-center text-emerald-600" /><span className="text-2xl">180 Ko</span></p>
+          </Tile>
+          <Tile icon={MapPinned} title="Boutiques près de moi" text="Apparaissez sur la carte des commerçants de votre quartier.">
+            <Link to="/boutiques" className="inline-flex items-center gap-1.5 text-sm font-bold text-emerald-700 hover:underline">Voir l’annuaire <ArrowUpRight className="h-4 w-4" /></Link>
+          </Tile>
+          <Tile icon={Users} title="Équipe de livreurs" text="Ajoutez vos livreurs : ils acceptent les courses et vous voyez le bilan de chacun.">
+            <div className="flex -space-x-2">{['L', 'M', 'B', 'A'].map((l, i) => <span key={l} className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold text-white ring-2 ring-white ${['bg-emerald-700', 'bg-amber-600', 'bg-sky-700', 'bg-[#0b1f17]'][i]}`}>{l}</span>)}</div>
+          </Tile>
+          <Tile icon={BadgeCheck} title="Avis vérifiés" text="Les avis de vos clients livrés portent le badge « achat vérifié ».">
+            <div className="flex items-center gap-1">{[1, 2, 3, 4, 5].map((s) => <Star key={s} className="h-5 w-5 fill-amber-400 text-amber-400" />)}</div>
+          </Tile>
+          <Tile icon={Palette} title="6 thèmes" text="Changez l’allure de votre vitrine en un geste, sans toucher à vos produits.">
+            <div className="flex gap-1.5">{SHOP_THEMES.map((t) => <span key={t.id} className="h-7 flex-1 rounded-lg" style={{ background: t.accent }} title={t.name} />)}</div>
+          </Tile>
+          <Tile icon={ShieldCheck} title="Données protégées" text="Les informations de vos clients restent privées, et chaque livraison est confirmée par un code." />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Commerces                                                            */
+/* ------------------------------------------------------------------ */
+
+function Businesses() {
+  return (
+    <section className="overflow-hidden py-20 lg:py-28">
+      <div className="mx-auto max-w-7xl px-5 lg:px-8">
+        <Reveal><SectionTitle kicker="Pour tous les commerces" title={<>Du marché de Sandaga <Em>au concept store</Em>.</>} text="Couturiers, épiceries, créateurs, vendeurs de fruits ou d’accessoires : chaque commerce a sa vitrine." /></Reveal>
+      </div>
+      <div className="scrollbar-hide mt-12 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-2 lg:mx-auto lg:grid lg:max-w-7xl lg:grid-cols-3 lg:overflow-visible lg:px-8">
+        {BUSINESSES.map((b, i) => (
+          <Reveal key={b.title} delay={(i % 3) * 0.06} className="w-[72vw] max-w-[320px] shrink-0 snap-start lg:w-auto lg:max-w-none">
+            <figure className="group relative aspect-[4/5] overflow-hidden rounded-[1.75rem] lg:aspect-[16/11]">
+              <img src={`/images/landing/${b.img}-1024.webp`} srcSet={photoSet(b.img)} sizes="(min-width: 1024px) 33vw, 72vw" alt={b.title} loading="lazy" decoding="async" className={`h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-105 ${b.pos}`} />
+              <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-5 pt-16 text-lg font-bold text-white">{b.title}</figcaption>
+            </figure>
+          </Reveal>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Tarifs                                                               */
+/* ------------------------------------------------------------------ */
+
+function Pricing({ themeId }) {
+  return (
+    <section className="bg-[#f6f7f6] py-20 lg:py-28">
+      <div className="mx-auto max-w-7xl px-5 lg:px-8">
+        <Reveal><SectionTitle center kicker="Tarifs" title={<>Commencez à <Em>0 franc</Em>. Grandissez à votre rythme.</>} text="Pas de carte bancaire, pas d’engagement : changez de forfait quand vous voulez." /></Reveal>
+        <div className="mx-auto mt-14 grid max-w-5xl gap-5 lg:grid-cols-3 lg:items-center">
+          {PLANS.map((p, i) => (
+            <Reveal key={p.id} delay={i * 0.08}>
+              <div className={`relative flex flex-col rounded-[2rem] p-7 ${p.popular ? 'bg-[#0b1f17] text-white shadow-[0_40px_80px_-40px_rgba(11,31,23,0.9)] lg:py-10' : 'border border-black/10 bg-white'}`}>
+                {p.popular && <span className="absolute -top-3 left-7 rounded-full bg-amber-300 px-3 py-1 text-xs font-extrabold text-[#0b1f17]">Recommandé</span>}
+                <span className={`flex h-11 w-11 items-center justify-center rounded-2xl ${p.popular ? 'bg-emerald-400/15 text-emerald-300' : 'bg-emerald-50 text-emerald-700'}`}><p.icon className="h-5 w-5" /></span>
+                <p className="mt-5 text-xl font-bold">{p.name}</p>
+                <p className={`mt-1 text-sm ${p.popular ? 'text-white/65' : 'text-slate-500'}`}>{p.desc}</p>
+                <p className="mt-6 flex items-baseline gap-1.5"><span className="text-5xl font-extrabold tracking-tight">{p.price}</span><span className={`text-sm font-semibold ${p.popular ? 'text-white/60' : 'text-slate-500'}`}>FCFA / mois</span></p>
+                <ul className="mt-6 space-y-3 text-sm">
+                  {p.features.map((f) => <li key={f} className="flex gap-2.5"><Check className={`mt-0.5 h-4 w-4 shrink-0 ${p.popular ? 'text-emerald-300' : 'text-emerald-600'}`} /> {f}</li>)}
+                </ul>
+                <Link to={registerHref(themeId, p.plan)} className={`mt-8 inline-flex items-center justify-center gap-2 rounded-full px-5 py-3.5 text-sm font-bold transition-colors ${p.popular ? 'bg-emerald-400 text-[#0b1f17] hover:bg-emerald-300' : 'bg-[#0b1f17] text-white hover:bg-emerald-800'}`}>
+                  {p.cta} <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Questions fréquentes                                                 */
+/* ------------------------------------------------------------------ */
+
+function Faq() {
+  const [open, setOpen] = useState(0);
+  return (
+    <section className="py-20 lg:py-28">
+      <div className="mx-auto grid max-w-7xl gap-12 px-5 lg:grid-cols-[1fr_1.4fr] lg:px-8">
+        <Reveal><SectionTitle kicker="Questions fréquentes" title={<>Tout ce que vous <Em>vous demandez</Em>.</>} text="Une autre question ? Écrivez-nous depuis votre tableau de bord, on vous répond vite." /></Reveal>
+        <div className="divide-y divide-black/10 border-y border-black/10">
+          {FAQ.map((item, i) => {
+            const isOpen = open === i;
+            return (
+              <div key={item.q}>
+                <button type="button" onClick={() => setOpen(isOpen ? -1 : i)} aria-expanded={isOpen} className="flex w-full items-center justify-between gap-6 py-5 text-left">
+                  <span className="text-lg font-bold text-[#0b1f17]">{item.q}</span>
+                  <ChevronDown className={`h-5 w-5 shrink-0 text-slate-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                </button>
+                <AnimatePresence initial={false}>
+                  {isOpen && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3, ease: EASE }} className="overflow-hidden">
+                      <p className="pb-6 pr-10 leading-relaxed text-slate-600">{item.a}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Appel final et pied de page                                          */
+/* ------------------------------------------------------------------ */
+
+function FinalCta({ themeId }) {
+  return (
+    <section className="px-3 pb-3 sm:px-5 sm:pb-5">
+      <div className="relative mx-auto max-w-[1400px] overflow-hidden rounded-[2rem] bg-[#0b1f17] sm:rounded-[2.5rem]">
+        <img src="/images/landing/rue-dakar-1024.webp" srcSet={photoSet('rue-dakar')} sizes="100vw" alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover object-[50%_40%] opacity-40" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0b1f17] via-[#0b1f17]/70 to-[#0b1f17]/30" />
+        <div className="relative mx-auto max-w-3xl px-6 py-24 text-center text-white sm:py-32">
+          <Reveal>
+            <h2 className="text-balance text-[2.4rem] font-extrabold leading-[1.05] tracking-tight sm:text-6xl">Votre boutique peut être en ligne <Em light>aujourd’hui</Em>.</h2>
+            <p className="mx-auto mt-6 max-w-xl text-lg text-white/75">Gratuit pour démarrer, sans carte bancaire. Créez votre vitrine, ajoutez vos produits et partagez le lien à vos clients.</p>
+            <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
+              <Link to={registerHref(themeId)} className="group inline-flex items-center justify-center gap-2 rounded-full bg-emerald-400 px-7 py-4 font-bold text-[#0b1f17] transition-colors hover:bg-emerald-300">
+                Créer ma boutique gratuitement <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+              <Link to="/boutiques" className="inline-flex items-center justify-center gap-2 rounded-full border border-white/25 bg-white/5 px-7 py-4 font-bold text-white transition-colors hover:bg-white/10">
+                <Store className="h-4 w-4" /> Voir les boutiques
+              </Link>
+            </div>
+          </Reveal>
+        </div>
+      </div>
     </section>
   );
 }
 
 function Footer() {
-  const columns = [
-    { title: 'Produit', links: [['Fonctionnalités', '#fonctionnalites'], ['Tarifs', '#tarifs'], ['Sécurité', '#fonctionnalites']] },
-    { title: 'Ressources', links: [['Documentation', '#'], ['Blog', '#'], ['Support', '#']] },
-    { title: 'Légal', links: [['Confidentialité', '#'], ['Conditions', '#']] },
-  ];
   return (
-    <footer className="border-t border-white/5 py-16 text-slate-400">
-      <div className="mx-auto grid max-w-7xl grid-cols-2 gap-8 px-6 md:grid-cols-5">
-        <div className="col-span-2">
-          <Logo />
-          <p className="mb-8 mt-6 max-w-xs text-sm text-slate-500">La plateforme e-commerce moderne pour les entrepreneurs sénégalais.</p>
+    <footer className="py-12 text-slate-500">
+      <div className="mx-auto flex max-w-7xl flex-col gap-8 px-5 md:flex-row md:items-center md:justify-between lg:px-8">
+        <div className="flex items-center gap-3">
+          <img src="/logo.webp" alt="SamaBoutik" width="252" height="186" loading="lazy" decoding="async" className="h-10 w-auto" />
+          <span className="text-sm">La boutique en ligne des commerçants du Sénégal.</span>
         </div>
-        {columns.map((col) => (
-          <div key={col.title}>
-            <h4 className="mb-4 text-sm font-bold text-white">{col.title}</h4>
-            <ul className="space-y-3 text-sm">
-              {col.links.map(([label, href]) => (
-                <li key={label}><a href={href} className="transition-colors hover:text-emerald-300">{label}</a></li>
-              ))}
-            </ul>
-          </div>
-        ))}
+        <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm font-semibold" aria-label="Liens du pied de page">
+          <Link to="/boutiques" className="hover:text-[#0b1f17]">Boutiques près de moi</Link>
+          <a href="#tarifs" onClick={(e) => goTo(e, '#tarifs')} className="hover:text-[#0b1f17]">Tarifs</a>
+          <a href="#faq" onClick={(e) => goTo(e, '#faq')} className="hover:text-[#0b1f17]">Questions</a>
+          <Link to="/login" className="hover:text-[#0b1f17]">Se connecter</Link>
+          <Link to="/register" className="hover:text-[#0b1f17]">Créer ma boutique</Link>
+        </nav>
       </div>
-      <div className="mx-auto mt-16 flex max-w-7xl flex-col items-center justify-between gap-4 border-t border-white/5 px-6 pt-8 text-xs text-slate-500 md:flex-row">
+      <div className="mx-auto mt-8 flex max-w-7xl flex-col gap-2 border-t border-black/5 px-5 pt-6 text-xs sm:flex-row sm:justify-between lg:px-8">
         <p>© {new Date().getFullYear()} SamaBoutik. Tous droits réservés.</p>
-        <div className="flex items-center gap-2 font-mono">
-          Statut : tous les systèmes sont opérationnels
-          <span className="relative ml-1 flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-          </span>
-        </div>
+        <p className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> Paiements sécurisés par PayDunya</p>
       </div>
     </footer>
   );
 }
 
-function LiveToast() {
-  const [current, setCurrent] = useState(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const cycle = () => {
-      setCurrent(FAKE_NOTIFICATIONS[Math.floor(Math.random() * FAKE_NOTIFICATIONS.length)]);
-      setVisible(true);
-      setTimeout(() => setVisible(false), 4000);
-    };
-    const initialTimer = setTimeout(cycle, 3000);
-    const interval = setInterval(cycle, 15000);
-    return () => {
-      clearTimeout(initialTimer);
-      clearInterval(interval);
-    };
-  }, []);
-
-  return (
-    <div className="pointer-events-none fixed bottom-6 left-6 z-50 hidden sm:block">
-      <AnimatePresence>
-        {visible && current && (
-          <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.9, filter: 'blur(10px)' }}
-            animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, y: 20, scale: 0.9, filter: 'blur(5px)' }}
-            transition={{ type: 'spring', damping: 15, stiffness: 200 }}
-            className="pointer-events-auto flex max-w-sm items-start gap-4 rounded-2xl border border-white/10 bg-[#0b1f18]/90 p-4 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl"
-          >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-400/10">
-              <Bell className="h-5 w-5 text-emerald-300" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-white">
-                {current.name} <span className="text-xs font-normal text-slate-400">({current.city})</span>
-              </p>
-              <p className="mt-0.5 text-sm text-slate-300">{current.action}</p>
-              <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">{current.time}</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
 /* ------------------------------------------------------------------ */
-/* Page                                                                */
+/* Page                                                                 */
 /* ------------------------------------------------------------------ */
 
 export default function Landing() {
-  const { scrollYProgress } = useScroll();
-  const progress = useSpring(scrollYProgress, { stiffness: 120, damping: 30 });
-
+  const [themeId, setThemeId] = useState('emeraude');
   return (
     <MotionConfig reducedMotion="user">
-      <div className="min-h-screen overflow-x-hidden bg-[#030a07] text-slate-200 selection:bg-emerald-400/30 selection:text-white">
-        <motion.div style={{ scaleX: progress }} className="fixed inset-x-0 top-0 z-[60] h-[3px] origin-left bg-gradient-to-r from-emerald-400 via-cyan-400 to-amber-300" />
+      <div className="min-h-screen overflow-x-clip bg-white font-sans text-[#0b1f17]">
         <Navbar />
-        <Hero />
-        <PaymentMarquee />
-        <DashboardShowcase />
-        <Features />
-        <Ecosystem />
-        <HowItWorks />
-        <UseCases />
-        <Metrics />
-        <Pricing />
-        <FinalCTA />
+        <main>
+          <Hero themeId={themeId} setThemeId={setThemeId} />
+          <LogoStrip />
+          <Deferred id="produit" minHeight={1300}><ProductShowcase /></Deferred>
+          <Deferred id="parcours" minHeight={1150}><HowItWorks /></Deferred>
+          <Deferred id="themes" minHeight={900}><Themes themeId={themeId} onPick={setThemeId} /></Deferred>
+          <Deferred minHeight={1100}><Included /></Deferred>
+          <Deferred minHeight={800}><Businesses /></Deferred>
+          <Deferred id="tarifs" minHeight={1000}><Pricing themeId={themeId} /></Deferred>
+          <Deferred id="faq" minHeight={700}><Faq /></Deferred>
+          <Deferred minHeight={600}><FinalCta themeId={themeId} /></Deferred>
+        </main>
         <Footer />
-        <LiveToast />
       </div>
     </MotionConfig>
   );

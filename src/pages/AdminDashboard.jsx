@@ -12,6 +12,7 @@ import ShopsMap, { PLAN_META } from '../components/admin/ShopsMap';
 import { nearestCity } from '../components/admin/geo';
 import { ChartCard, AreaChart, ColumnChart, DonutChart, BarList, Sparkline } from '../components/dashboard/Charts';
 import { MagicIcon, CARD, rise } from '../components/dashboard/ui';
+import { friendlyError } from '../utils/networkErrors';
 import { fmt, compact } from '../components/dashboard/analytics';
 
 // Tarifs mensuels des forfaits (FCFA), identiques à la page Facturation et au webhook.
@@ -61,7 +62,7 @@ function ShopAvatar({ merchant, size = 'h-11 w-11 text-base' }) {
   return merchant.logo_url ? (
     <img src={merchant.logo_url} alt="" className={`${size} shrink-0 rounded-xl bg-white object-cover ring-1 ring-slate-200`} />
   ) : (
-    <span className={`${size} flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 font-extrabold text-white`}>
+    <span className={`${size} flex shrink-0 items-center justify-center rounded-xl bg-emerald-600 font-extrabold text-white`}>
       {(merchant.shop_name || '?').charAt(0).toUpperCase()}
     </span>
   );
@@ -155,11 +156,8 @@ function MerchantDrawer({ merchant, onClose, onToggleSuspension, onShowOnMap, bu
             transition={{ type: 'spring', stiffness: 300, damping: 34 }}
             className="relative flex h-full w-full max-w-xl flex-col overflow-hidden bg-[#f6f8f7] shadow-2xl"
           >
-            <div className="relative overflow-hidden bg-[#06150f] p-6 text-white">
-              <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-                <div className="aurora-blob aurora-1 -left-16 -top-16 h-56 w-56 bg-emerald-500/30" />
-                <div className="aurora-blob aurora-2 -right-10 bottom-0 h-48 w-48 bg-cyan-400/15" />
-              </div>
+            <div className="relative overflow-hidden bg-[#0b1f17] p-6 text-white">
+              <div className="pointer-events-none absolute -left-24 -top-28 h-80 w-80 rounded-full bg-emerald-500/20 blur-3xl" aria-hidden="true" />
               <div className="relative flex items-start gap-4">
                 <ShopAvatar merchant={merchant} size="h-16 w-16 text-2xl" />
                 <div className="min-w-0 flex-1">
@@ -360,7 +358,7 @@ export default function AdminDashboard() {
       if (error) throw error;
       setMerchants((list) => list.map((m) => (m.id === merchant.id ? { ...m, is_suspended: !merchant.is_suspended } : m)));
     } catch (err) {
-      alert(`Mise à jour impossible : ${err.message}`);
+      alert(`Mise à jour impossible : ${friendlyError(err, 'réessayez dans un instant.')}`);
     } finally {
       setBusyId(null);
     }
@@ -499,19 +497,15 @@ export default function AdminDashboard() {
 
   const sidebar = (prefix) => (
     <div className="relative flex h-full flex-col overflow-hidden bg-[#06150f] text-slate-300">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        <div className="aurora-blob aurora-1 -left-32 -top-32 h-80 w-80 bg-emerald-500/20" />
-        <div className="aurora-blob aurora-2 -right-40 bottom-10 h-72 w-72 bg-amber-400/10" />
-      </div>
       <div className="relative flex items-center justify-between px-5 pt-6">
-        <div className="flex h-11 w-[104px] items-center justify-center overflow-hidden rounded-xl bg-white shadow-[0_0_24px_rgba(52,211,153,0.25)]">
-          <img src="/logo.png" alt="SamaBoutik" className="h-full w-full scale-[1.6] object-contain" />
+        <div className="flex h-11 w-auto items-center justify-center overflow-hidden px-1.5 py-0.5 rounded-xl bg-white shadow-[0_0_24px_rgba(52,211,153,0.25)]">
+          <img src="/logo.webp" alt="SamaBoutik" width="252" height="186" decoding="async" className="h-full w-auto object-contain" />
         </div>
         {prefix === 'mobile' && <button onClick={() => setMobileNav(false)} className="rounded-xl p-2 text-slate-400 hover:bg-white/5" aria-label="Fermer le menu"><X className="h-5 w-5" /></button>}
       </div>
       <div className="relative mx-4 mt-6 rounded-2xl border border-amber-300/20 bg-gradient-to-br from-amber-300/15 to-transparent p-4">
         <div className="flex items-center gap-3">
-          <MagicIcon icon={ShieldCheck} gradient="amber" size="sm" sparkle />
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-300/15 text-amber-300 ring-1 ring-inset ring-amber-300/25"><ShieldCheck className="h-[18px] w-[18px]" /></span>
           <div className="min-w-0">
             <p className="text-sm font-bold text-white">Espace administrateur</p>
             <p className="truncate text-xs text-slate-400">{user?.email}</p>
@@ -586,23 +580,22 @@ export default function AdminDashboard() {
 
                   {tab === 'overview' && (
                     <>
-                      <motion.section variants={rise} className="relative overflow-hidden rounded-[2rem] bg-[#06150f] p-6 text-white md:p-8">
+                      <motion.section variants={rise} className="relative overflow-hidden rounded-[2rem] bg-[#0b1f17] p-6 text-white md:p-8">
                         <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-                          <div className="aurora-blob aurora-1 -left-24 -top-32 h-96 w-96 bg-emerald-500/30" />
-                          <div className="aurora-blob aurora-2 -right-20 top-0 h-80 w-80 bg-cyan-400/20" />
-                          <div className="bg-grid-pattern absolute inset-0" />
+                          <div className="absolute -left-24 -top-32 h-96 w-96 rounded-full bg-emerald-500/25 blur-3xl" />
+                          <div className="absolute inset-0 bg-[radial-gradient(rgba(110,231,183,0.12)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]" />
                         </div>
                         <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                           <div>
                             <p className="mb-2 flex items-center gap-2 text-sm font-medium capitalize text-emerald-200/80"><CalendarDays className="h-4 w-4" /> {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                            <h2 className="text-3xl font-extrabold tracking-tight md:text-4xl">Plateforme <span className="text-shimmer">SamaBoutik</span></h2>
+                            <h2 className="text-3xl font-extrabold tracking-tight md:text-4xl">Plateforme <span className="text-emerald-300">SamaBoutik</span></h2>
                             <p className="mt-3 max-w-xl text-emerald-50/80">
                               <strong className="text-white">{merchants.length} boutique{merchants.length > 1 ? 's' : ''}</strong> inscrite{merchants.length > 1 ? 's' : ''}, dont <strong className="text-white">{a.located.length}</strong> localisée{a.located.length > 1 ? 's' : ''} et <strong className="text-white">{a.paid.length}</strong> sur un forfait payant.
                             </p>
                           </div>
                           <div className="flex flex-wrap gap-3">
-                            <button onClick={() => setTab('map')} className="shine-btn inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-bold text-[#06150f]"><MapIcon className="h-4 w-4" /> Voir la carte</button>
-                            <button onClick={() => setTab('merchants')} className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold backdrop-blur hover:bg-white/10"><Store className="h-4 w-4" /> Tous les marchands</button>
+                            <button onClick={() => setTab('map')} className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[#0b1f17] transition-transform hover:-translate-y-0.5"><MapIcon className="h-4 w-4" /> Voir la carte</button>
+                            <button onClick={() => setTab('merchants')} className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold hover:bg-white/10"><Store className="h-4 w-4" /> Tous les marchands</button>
                           </div>
                         </div>
                       </motion.section>
@@ -680,7 +673,7 @@ export default function AdminDashboard() {
                       <div className={`${CARD} flex max-h-[72vh] flex-col overflow-hidden`}>
                         <div className="border-b border-slate-100 p-4">
                           <div className="mb-3 flex items-center gap-3">
-                            <MagicIcon icon={MapPin} gradient="rose" size="sm" sparkle />
+                            <MagicIcon icon={MapPin} gradient="rose" size="sm" />
                             <div>
                               <p className="font-bold">{a.located.length} boutiques localisées</p>
                               <p className="text-xs text-slate-500">{merchants.length - a.located.length} restent à localiser</p>
@@ -817,13 +810,12 @@ export default function AdminDashboard() {
                           const count = merchants.filter((m) => planOf(m) === id).length;
                           const active = merchants.filter((m) => planOf(m) === id && isPaidActive(m)).length;
                           return (
-                            <motion.div key={id} variants={rise} whileHover={{ y: -6 }} className={`${CARD} relative overflow-hidden p-6`}>
-                              <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full opacity-20 blur-2xl" style={{ background: meta.color }} />
+                            <motion.div key={id} variants={rise} className={`${CARD} relative overflow-hidden p-6`}>
                               <div className="relative mb-4 flex items-center justify-between">
                                 <MagicIcon icon={id === 'premium' ? Sparkles : id === 'pro' ? TrendingUp : Store} gradient={id === 'premium' ? 'amber' : id === 'pro' ? 'violet' : 'sky'} />
                                 <span className="text-sm font-semibold text-slate-500">{fmt(PLAN_PRICES[id])} FCFA / mois</span>
                               </div>
-                              <p className="relative text-lg font-bold">{meta.label}</p>
+                              <p className="relative flex items-center gap-2 text-lg font-bold"><span className="h-2.5 w-2.5 rounded-full" style={{ background: meta.color }} aria-hidden="true" />{meta.label}</p>
                               <p className="relative mt-1 text-4xl font-extrabold">{count}</p>
                               <p className="relative text-sm text-slate-500">boutique{count > 1 ? 's' : ''}{id !== 'debutant' ? ` · ${active} active${active > 1 ? 's' : ''} · ${fmt(active * PLAN_PRICES[id])} F / mois` : ''}</p>
                             </motion.div>

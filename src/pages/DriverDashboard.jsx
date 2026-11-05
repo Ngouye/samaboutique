@@ -11,6 +11,7 @@ import confetti from 'canvas-confetti';
 import { playSuccess, playPop } from '../utils/audio';
 import { CountUp } from '../components/landing/Magic';
 import { Field, ErrorBanner, EASE } from '../components/auth/AuthUI';
+import { friendlyError } from '../utils/networkErrors';
 import LiveLocationShare from '../components/driver/LiveLocationShare';
 
 const fmt = (n) => Math.round(n || 0).toLocaleString('fr-FR');
@@ -21,9 +22,8 @@ const EMPTY_PIN = { isOpen: false, orderId: null, pinValue: '', error: '', isLoa
 function Aurora() {
   return (
     <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden="true">
-      <div className="aurora-blob aurora-1 -left-32 -top-32 h-96 w-96 bg-emerald-500/20" />
-      <div className="aurora-blob aurora-2 -right-32 top-1/3 h-96 w-96 bg-cyan-500/10" />
-      <div className="aurora-blob aurora-3 bottom-0 left-1/4 h-80 w-80 bg-amber-400/5" />
+      <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-emerald-500/15 blur-3xl" />
+      <div className="absolute inset-0 bg-[radial-gradient(rgba(110,231,183,0.08)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black,transparent_60%)]" />
     </div>
   );
 }
@@ -264,7 +264,7 @@ export default function DriverDashboard() {
       playPop();
       fetchDriverOrders();
     } catch (err) {
-      alert(err.message);
+      alert(friendlyError(err, "La course n'a pas pu être acceptée. Réessayez."));
       fetchDriverOrders(); // Rafraîchir au cas où elle aurait disparu
     } finally {
       setAssigningId(null);
@@ -297,7 +297,7 @@ export default function DriverDashboard() {
 
       if (error) {
         if (isSessionError(error)) return expireSession();
-        setPinModal(prev => ({ ...prev, error: error.message, isLoading: false, shake: prev.shake + 1 }));
+        setPinModal(prev => ({ ...prev, error: friendlyError(error, 'Validation impossible. Réessayez.'), isLoading: false, shake: prev.shake + 1 }));
         return;
       }
 
@@ -344,9 +344,9 @@ export default function DriverDashboard() {
 
   // Écran de chargement uniquement au premier chargement (les rafraîchissements gardent l'affichage).
   if (loading && !merchant) return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#050b09] text-white">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#06150f] text-white">
       <Aurora />
-      <motion.span animate={{ x: [-30, 30, -30] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }} className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 shadow-[0_0_40px_rgba(52,211,153,0.5)]">
+      <motion.span animate={{ x: [-30, 30, -30] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }} className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-400 shadow-[0_0_40px_rgba(52,211,153,0.5)]">
         <Bike className="h-8 w-8" />
       </motion.span>
       <p className="font-semibold text-white/70">Chargement des courses…</p>
@@ -354,7 +354,7 @@ export default function DriverDashboard() {
   );
 
   if (!merchant) return (
-    <div className="flex min-h-screen items-center justify-center bg-[#050b09] p-4 text-white">
+    <div className="flex min-h-screen items-center justify-center bg-[#06150f] p-4 text-white">
       <Aurora />
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm rounded-[2rem] border border-white/10 bg-white/[0.04] p-10 text-center backdrop-blur-xl">
         <span className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-500/15"><Store className="h-8 w-8 text-rose-300" /></span>
@@ -372,15 +372,15 @@ export default function DriverDashboard() {
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className="relative min-h-screen bg-[#050b09] pb-32 font-sans text-white">
+    <div className="relative min-h-screen bg-[#06150f] pb-32 font-sans text-white">
       <Aurora />
 
       {/* En-tête */}
-      <header className="sticky top-0 z-40 border-b border-white/5 bg-[#050b09]/75 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-white/5 bg-[#06150f]/75 backdrop-blur-xl">
         <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3.5">
           <div className="flex items-center gap-3">
             <span className="relative">
-              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 text-xl font-extrabold text-[#050b09] shadow-[0_0_24px_rgba(52,211,153,0.4)]">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-400 text-xl font-extrabold text-[#050b09] shadow-[0_0_24px_rgba(52,211,153,0.4)]">
                 {driverName.charAt(0).toUpperCase() || '?'}
               </span>
               <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4">
@@ -434,11 +434,11 @@ export default function DriverDashboard() {
                   <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/50">
                     <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" /> Course en cours
                   </h2>
-                  <div className="conic-border rounded-[2rem]">
+                  <div className="rounded-[2rem] border border-emerald-400/25">
                     <div className="overflow-hidden rounded-[2rem] bg-[#0b1a14]">
                       <div className="flex items-center justify-between border-b border-white/5 bg-emerald-400/10 px-5 py-3.5">
                         <span className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-emerald-300">
-                          <motion.span animate={{ x: [0, 4, 0] }} transition={{ duration: 0.8, repeat: Infinity }}><Bike className="h-4 w-4" /></motion.span> En route
+                          <Bike className="h-4 w-4" /> En route
                         </span>
                         <span className="rounded-lg bg-white/5 px-2.5 py-1 font-mono text-xs text-white/60">#{activeOrder.id.slice(0, 5).toUpperCase()}</span>
                       </div>
@@ -451,7 +451,7 @@ export default function DriverDashboard() {
                         {/* Trajet */}
                         <div className="relative mb-6 pl-8">
                           <div className="absolute bottom-3 left-[11px] top-3 w-0.5 bg-gradient-to-b from-emerald-400 to-amber-300" />
-                          <motion.span animate={{ top: ['8%', '72%', '8%'] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} className="absolute left-0 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#050b09] shadow-[0_0_16px_rgba(255,255,255,0.6)]">
+                          <motion.span initial={{ top: '8%' }} animate={{ top: '40%' }} transition={{ duration: 1.2, ease: EASE }} className="absolute left-0 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#050b09] shadow-[0_0_16px_rgba(255,255,255,0.6)]">
                             <Bike className="h-3.5 w-3.5" />
                           </motion.span>
                           <div className="mb-5">
@@ -483,7 +483,7 @@ export default function DriverDashboard() {
                         <motion.button
                           whileTap={{ scale: 0.97 }}
                           onClick={() => openPinModal(activeOrder.id)}
-                          className="shine-btn relative mt-4 flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-400 py-5 text-lg font-extrabold text-[#050b09] shadow-[0_0_40px_rgba(52,211,153,0.35)]"
+                          className="relative mt-4 flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-emerald-400 hover:bg-emerald-300 py-5 text-lg font-extrabold text-[#050b09] shadow-[0_0_40px_rgba(52,211,153,0.35)]"
                         >
                           <ShieldCheck className="h-6 w-6" /> Livré & encaissé
                         </motion.button>
@@ -531,7 +531,7 @@ export default function DriverDashboard() {
                           exit={{ opacity: 0, x: -60 }}
                           className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-5"
                         >
-                          <span className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-emerald-400 to-teal-500" />
+                          <span className="absolute inset-y-0 left-0 w-1 bg-emerald-400" />
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <span className="mb-2 inline-flex items-center gap-1 rounded-md bg-white/5 px-2 py-0.5 font-mono text-[10px] text-white/50">#{order.id.slice(0, 5).toUpperCase()}</span>
@@ -548,7 +548,7 @@ export default function DriverDashboard() {
                               whileTap={{ scale: 0.96 }}
                               onClick={() => assignOrder(order.id)}
                               disabled={!!activeOrder || assigningId === order.id}
-                              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 py-3 font-extrabold text-[#050b09] shadow-[0_8px_24px_-8px_rgba(52,211,153,0.6)] disabled:cursor-not-allowed disabled:from-white/10 disabled:to-white/10 disabled:text-white/40 disabled:shadow-none"
+                              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-400 hover:bg-emerald-300 py-3 font-extrabold text-[#050b09] shadow-[0_8px_24px_-8px_rgba(52,211,153,0.6)] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/40 disabled:shadow-none"
                             >
                               {assigningId === order.id ? <LoaderCircle className="h-5 w-5 animate-spin" /> : activeOrder ? <><Clock className="h-4 w-4" /> Course en cours</> : <>Accepter <ArrowRight className="h-4 w-4" /></>}
                             </motion.button>
@@ -564,7 +564,7 @@ export default function DriverDashboard() {
 
           {activeTab === 'gains' && (
             <motion.div key="gains" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.4, ease: EASE }} className="space-y-6">
-              <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 p-6 shadow-[0_24px_48px_-20px_rgba(16,185,129,0.6)]">
+              <div className="relative overflow-hidden rounded-[2rem] bg-emerald-700 p-6 shadow-[0_24px_48px_-20px_rgba(16,185,129,0.6)]">
                 <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
                 <p className="relative text-sm font-medium text-emerald-50/90">Total encaissé aujourd'hui (espèces)</p>
                 <p className="relative mt-1 text-5xl font-extrabold tracking-tight">
@@ -610,7 +610,7 @@ export default function DriverDashboard() {
             <motion.div key="profil" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.4, ease: EASE }}>
               <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04] p-8 text-center">
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-emerald-400/20 to-transparent" />
-                <motion.span initial={{ scale: 0.6, rotate: -12 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 200 }} className="relative mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-[1.75rem] bg-gradient-to-br from-emerald-400 to-teal-600 text-4xl font-extrabold text-[#050b09] shadow-[0_0_40px_rgba(52,211,153,0.4)]">
+                <motion.span initial={{ scale: 0.6, rotate: -12 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 200 }} className="relative mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-[1.75rem] bg-emerald-400 text-4xl font-extrabold text-[#050b09] shadow-[0_0_40px_rgba(52,211,153,0.4)]">
                   {driverName.charAt(0).toUpperCase() || '?'}
                 </motion.span>
                 <h3 className="relative text-2xl font-extrabold">{driverName}</h3>
@@ -678,7 +678,7 @@ export default function DriverDashboard() {
                   </motion.div>
                 ) : (
                   <motion.form key="form" onSubmit={submitPinCode} className="relative">
-                    <motion.span animate={{ rotate: [0, -8, 8, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }} className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-300">
+                    <motion.span className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-300">
                       <ShieldCheck className="h-8 w-8" />
                     </motion.span>
                     <h3 className="text-2xl font-extrabold">Code client</h3>
@@ -732,7 +732,7 @@ export default function DriverDashboard() {
                       type="submit"
                       disabled={pinModal.isLoading || pinModal.pinValue.length !== 4}
                       onMouseEnter={playPop}
-                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-400 py-4 text-lg font-extrabold text-[#050b09] shadow-[0_0_30px_rgba(52,211,153,0.35)] transition-opacity disabled:opacity-30 disabled:shadow-none"
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 hover:bg-emerald-300 py-4 text-lg font-extrabold text-[#050b09] shadow-[0_0_30px_rgba(52,211,153,0.35)] transition-opacity disabled:opacity-30 disabled:shadow-none"
                     >
                       {pinModal.isLoading ? <LoaderCircle className="h-6 w-6 animate-spin" /> : <><CheckCircle2 className="h-6 w-6" /> Valider la livraison</>}
                     </motion.button>
@@ -747,38 +747,32 @@ export default function DriverDashboard() {
       {/* Connexion du livreur */}
       <AnimatePresence>
         {showDriverNameModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] overflow-y-auto bg-[#050b09]">
-            <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-              <div className="aurora-blob aurora-1 -left-24 -top-24 h-96 w-96 bg-emerald-500/25" />
-              <div className="aurora-blob aurora-2 -right-24 bottom-0 h-96 w-96 bg-cyan-500/15" />
-              <div className="bg-grid-pattern absolute inset-0" />
-            </div>
-            <div className="relative mx-auto flex min-h-full max-w-md flex-col justify-center px-5 py-10">
-              <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: EASE }}>
-                <div className="relative mb-8 h-28">
-                  <div className="absolute inset-x-0 bottom-3 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-                  <motion.span
-                    animate={{ x: ['-10%', '85%'] }}
-                    transition={{ duration: 3.2, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' }}
-                    className="absolute bottom-3 flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-400 to-teal-600 text-[#050b09] shadow-[0_0_50px_rgba(52,211,153,0.5)]"
-                  >
-                    <Bike className="h-10 w-10" />
-                  </motion.span>
-                </div>
-                <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-xs font-bold uppercase tracking-widest text-emerald-300 ring-1 ring-white/10">
-                  <Store className="h-3.5 w-3.5" /> {shopLabel}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="font-jakarta fixed inset-0 z-[100] overflow-y-auto bg-[#06140f]">
+            <div className="pointer-events-none absolute left-1/2 top-0 h-80 w-[640px] -translate-x-1/2 rounded-full bg-emerald-500/15 blur-[120px]" aria-hidden="true" />
+            <div className="relative mx-auto flex min-h-full max-w-[420px] flex-col px-5 py-6">
+              <a href="/" className="flex h-10 w-auto items-center justify-center overflow-hidden px-1.5 py-0.5 rounded-xl bg-white" aria-label="SamaBoutik">
+                <img src="/logo.webp" alt="SamaBoutik" width="252" height="186" decoding="async" className="h-full w-auto object-contain" />
+              </a>
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: EASE }} className="flex flex-1 flex-col justify-center py-10">
+                <span className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-400 text-[#06140f]">
+                  <Bike className="h-7 w-7" />
+                </span>
+                <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-emerald-300">
+                  <Store className="h-4 w-4" /> {shopLabel}
                 </p>
-                <h2 className="text-4xl font-extrabold tracking-tight text-white">Portail livreur</h2>
-                <p className="mt-2 text-white/60">Connectez-vous avec votre téléphone et votre numéro de CNI pour voir vos courses.</p>
+                <h2 className="text-[2rem] font-extrabold leading-tight tracking-tight text-white">Espace livreur</h2>
+                <p className="mt-2 text-[15px] leading-relaxed text-white/60">Connectez-vous avec le téléphone et le numéro de CNI enregistrés par la boutique.</p>
 
-                <form onSubmit={handleLogin} className="mt-8 space-y-4">
+                <form onSubmit={handleLogin} className="mt-8 space-y-5" noValidate>
                   <ErrorBanner message={loginForm.error} dark />
                   <Field
                     dark
                     id="driver-phone"
                     type="tel"
+                    inputMode="tel"
                     label="Numéro de téléphone"
                     icon={Phone}
+                    placeholder="77 000 00 00"
                     autoComplete="tel"
                     required
                     value={loginForm.phone}
@@ -790,22 +784,22 @@ export default function DriverDashboard() {
                     id="driver-cni"
                     label="Numéro de CNI"
                     icon={IdCard}
+                    placeholder="Tel qu'enregistré par la boutique"
                     required
                     value={loginForm.cni}
                     onChange={(e) => setLoginForm({ ...loginForm, cni: e.target.value, error: '' })}
                     disabled={loginForm.isLoading}
                   />
-                  <motion.button
-                    whileTap={{ scale: 0.97 }}
+                  <button
                     type="submit"
                     disabled={!loginForm.phone.trim() || !loginForm.cni.trim() || loginForm.isLoading}
-                    className="shine-btn flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-400 py-4 text-lg font-extrabold text-[#050b09] shadow-[0_0_40px_rgba(52,211,153,0.35)] transition-opacity disabled:opacity-40 disabled:shadow-none"
+                    className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-400 text-[15px] font-bold text-[#06140f] transition-colors hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    {loginForm.isLoading ? <LoaderCircle className="h-6 w-6 animate-spin" /> : <>Commencer ma tournée <ArrowRight className="h-5 w-5" /></>}
-                  </motion.button>
+                    {loginForm.isLoading ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <>Commencer ma tournée <ArrowRight className="h-4 w-4" /></>}
+                  </button>
                 </form>
-                <p className="mt-6 flex items-center justify-center gap-2 text-xs text-white/40">
-                  <ShieldCheck className="h-4 w-4" /> Vos identifiants sont fournis par le marchand.
+                <p className="mt-6 flex items-center gap-2 text-sm text-white/45">
+                  <ShieldCheck className="h-4 w-4 shrink-0" /> Vos identifiants vous sont donnés par la boutique.
                 </p>
               </motion.div>
             </div>
