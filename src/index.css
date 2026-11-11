@@ -527,27 +527,99 @@
 /* ===================== Cartes : annuaire et suivi en direct ===================== */
 .logo-pin {
   position: relative;
-  width: 46px; height: 46px;
-  border-radius: 16px;
+  width: 48px; height: 48px;
+  border-radius: 18px;
   border: 3px solid #fff;
   background: var(--pin, #059669) center / cover no-repeat;
-  box-shadow: 0 12px 24px -8px color-mix(in srgb, var(--pin, #059669) 80%, transparent);
+  box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 0, 0, 0.1);
   display: flex; align-items: center; justify-content: center;
   color: #fff; font: 800 16px 'Plus Jakarta Sans', sans-serif;
-  transition: transform 0.2s;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s;
+  cursor: pointer;
 }
 .logo-pin::after {
   content: '';
   position: absolute; left: 50%; bottom: -9px;
-  width: 12px; height: 12px;
-  background: #fff;
+  width: 14px; height: 14px;
+  background: inherit;
+  border-right: 3px solid #fff;
+  border-bottom: 3px solid #fff;
   transform: translateX(-50%) rotate(45deg);
   border-radius: 2px;
-  z-index: -1;
+  z-index: 0;
 }
-.logo-pin:hover { transform: translateY(-3px) scale(1.06); }
-.logo-pin.is-featured { box-shadow: 0 0 0 3px #f59e0b, 0 12px 24px -8px rgba(245, 158, 11, 0.8); }
-.logo-pin.is-selected { transform: translateY(-4px) scale(1.15); }
+.logo-pin:hover {
+  transform: translateY(-5px) scale(1.1);
+  box-shadow: 0 16px 30px -6px rgba(0, 0, 0, 0.5);
+  z-index: 800 !important;
+}
+.logo-pin.is-featured {
+  border-color: #fbbf24;
+  box-shadow: 0 0 0 3px #fbbf24, 0 14px 28px -6px rgba(245, 158, 11, 0.5);
+}
+.logo-pin.is-featured::after {
+  border-right-color: #fbbf24;
+  border-bottom-color: #fbbf24;
+}
+.logo-pin.is-selected {
+  transform: translateY(-8px) scale(1.22);
+  border-color: #34d399;
+  box-shadow: 0 0 0 4px #34d399, 0 20px 36px -4px rgba(52, 211, 153, 0.7);
+  z-index: 1000 !important;
+}
+.logo-pin.is-selected::after {
+  border-right-color: #34d399;
+  border-bottom-color: #34d399;
+}
+.logo-pin.is-selected::before {
+  content: '';
+  position: absolute;
+  inset: -10px;
+  border-radius: 26px;
+  border: 2px solid #34d399;
+  animation: pin-pulse 1.8s ease-out infinite;
+}
+@keyframes pin-pulse {
+  0% { transform: scale(0.9); opacity: 0.9; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+.leaflet-popup-content-wrapper {
+  background: #061912 !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6) !important;
+  backdrop-filter: blur(16px);
+  padding: 0 !important;
+  overflow: hidden;
+}
+.leaflet-popup-content {
+  margin: 0 !important;
+  line-height: 1.4;
+}
+.leaflet-popup-tip {
+  background: #061912 !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+.leaflet-container a.leaflet-popup-close-button {
+  color: #fff !important;
+  padding: 4px !important;
+  top: 8px !important;
+  right: 8px !important;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.45);
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: background 0.2s;
+}
+.leaflet-container a.leaflet-popup-close-button:hover {
+  background: rgba(0, 0, 0, 0.75);
+}
 
 .me-dot {
   position: relative; width: 18px; height: 18px; border-radius: 9999px;

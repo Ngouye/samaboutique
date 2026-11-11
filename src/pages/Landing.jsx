@@ -4,8 +4,10 @@ import { motion, AnimatePresence, MotionConfig, useInView, useReducedMotion, use
 import {
   ArrowRight, ArrowUpRight, Check, Menu, X, ShieldCheck, Bike, MapPinned, Star, BadgeCheck, QrCode, ImageDown,
   BarChart3, Users, Palette, Rocket, Zap, Gem, ChevronDown, Banknote, Bell, LayoutDashboard, Store,
-  ShoppingBag, UserRound, ChevronLeft, ChevronRight, Pause, Play,
+  ShoppingBag, UserRound, ChevronLeft, ChevronRight, Pause, Play, Sparkles, CheckCircle2, XCircle, Smartphone,
+  RotateCcw, Calculator, Clock,
 } from 'lucide-react';
+import confetti from 'canvas-confetti';
 import { QRCodeSVG } from 'qrcode.react';
 import { SHOP_THEMES, getShopTheme } from '../components/shop/themes';
 
@@ -48,15 +50,6 @@ const FAQ = [
   { q: 'À quoi sert le code de livraison ?', a: "Chaque commande reçoit un code à 4 chiffres envoyé au client. Le livreur ne peut valider la livraison qu'avec ce code : le colis est remis à la bonne personne." },
   { q: 'Puis-je travailler avec mes propres livreurs ?', a: 'Oui. Vous ajoutez vos livreurs dans votre tableau de bord ; ils se connectent avec leur téléphone, acceptent les courses et partagent leur position pour que le client les suive en direct.' },
   { q: 'Mes clients doivent-ils créer un compte ?', a: 'Non. Ils commandent avec leur nom, leur téléphone et leur adresse, puis suivent leur commande avec leur numéro et leur code de livraison.' },
-];
-
-const BUSINESSES = [
-  { title: 'Couture & sur-mesure', img: 'couturier', pos: 'object-[50%_30%]' },
-  { title: 'Mode & prêt-à-porter', img: 'boutique-vetements', pos: 'object-center' },
-  { title: 'Épicerie & alimentation', img: 'epicerie', pos: 'object-[50%_35%]' },
-  { title: 'Artisanat & déco', img: 'artisanat', pos: 'object-[50%_30%]' },
-  { title: 'Fruits & produits frais', img: 'marche-fruits', pos: 'object-[50%_35%]' },
-  { title: 'Accessoires & cadeaux', img: 'cliente-sacs', pos: 'object-[50%_25%]' },
 ];
 
 const registerHref = (themeId, plan) => {
@@ -681,21 +674,618 @@ function Included() {
 /* Commerces                                                            */
 /* ------------------------------------------------------------------ */
 
-function Businesses() {
+/* ------------------------------------------------------------------ */
+/* Expérience en Direct & Simulateur Interactif                       */
+/* ------------------------------------------------------------------ */
+
+function playChime() {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.35);
+  } catch {
+    // Audio muet si bloqué par le navigateur
+  }
+}
+
+const DEMO_PRODUCTS = [
+  {
+    id: 'wax',
+    name: 'Robe Soie & Wax Brodé',
+    category: 'Mode & Couture',
+    price: 25000,
+    img: 'boutique-vetements',
+    variants: ['Taille S', 'Taille M', 'Taille L'],
+    defaultVariant: 'Taille M',
+    themeName: 'Terracotta',
+    themeId: 'terracotta',
+  },
+  {
+    id: 'panier',
+    name: 'Panier Fraîcheur Bio Dakar',
+    category: 'Épicerie & Frais',
+    price: 12500,
+    img: 'marche-fruits',
+    variants: ['5 kg', '10 kg (Famille)'],
+    defaultVariant: '5 kg',
+    themeName: 'Émeraude',
+    themeId: 'emeraude',
+  },
+  {
+    id: 'sac',
+    name: 'Sac Cuir Artisanal Ngor',
+    category: 'Artisanat & Cadeaux',
+    price: 18000,
+    img: 'artisanat',
+    variants: ['Noir Ébène', 'Camel Terracotta'],
+    defaultVariant: 'Camel Terracotta',
+    themeName: 'Épure',
+    themeId: 'epure',
+  },
+];
+
+function LiveExperience({ themeId }) {
+  const [tab, setTab] = useState('demo'); // 'demo' | 'calculator'
+  const [selectedProd, setSelectedProd] = useState(DEMO_PRODUCTS[0]);
+  const [selectedVar, setSelectedVar] = useState(DEMO_PRODUCTS[0].defaultVariant);
+  const [payMethod, setPayMethod] = useState('wave'); // 'wave' | 'cash'
+  const [simStep, setSimStep] = useState(0); // 0 = idle, 1..4 = steps
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  // Pour le simulateur de revenus
+  const [ordersPerDay, setOrdersPerDay] = useState(15);
+  const [avgBasket, setAvgBasket] = useState(18000);
+
+  const monthlyOrders = ordersPerDay * 30;
+  const monthlyRevenue = monthlyOrders * avgBasket;
+  const commissionSaved = Math.round(monthlyRevenue * 0.1);
+  const hoursSaved = Math.round(monthlyOrders * 0.35);
+
+  const runSimulation = () => {
+    setIsSimulating(true);
+    setSimStep(1);
+    playChime();
+    try {
+      confetti({
+        particleCount: 80,
+        spread: 70,
+        origin: { y: 0.65 },
+        colors: ['#10b981', '#34d399', '#f59e0b', '#38bdf8', '#ffffff'],
+      });
+    } catch {
+      // ignore
+    }
+
+    setTimeout(() => setSimStep(2), 700);
+    setTimeout(() => setSimStep(3), 1400);
+    setTimeout(() => {
+      setSimStep(4);
+      setIsSimulating(false);
+    }, 2100);
+  };
+
+  const resetSimulation = () => {
+    setSimStep(0);
+    setIsSimulating(false);
+  };
+
   return (
-    <section className="overflow-hidden py-20 lg:py-28">
-      <div className="mx-auto max-w-7xl px-5 lg:px-8">
-        <Reveal><SectionTitle kicker="Pour tous les commerces" title={<>Du marché de Sandaga <Em>au concept store</Em>.</>} text="Couturiers, épiceries, créateurs, vendeurs de fruits ou d’accessoires : chaque commerce a sa vitrine." /></Reveal>
+    <section className="relative overflow-hidden py-24 lg:py-32 bg-[#06140e] text-white">
+      {/* Effets lumineux néon d'ambiance */}
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <div className="absolute -top-40 left-1/2 h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-emerald-500/15 blur-[140px]" />
+        <div className="absolute bottom-0 right-10 h-[450px] w-[450px] rounded-full bg-emerald-600/10 blur-[130px]" />
       </div>
-      <div className="scrollbar-hide mt-12 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-2 lg:mx-auto lg:grid lg:max-w-7xl lg:grid-cols-3 lg:overflow-visible lg:px-8">
-        {BUSINESSES.map((b, i) => (
-          <Reveal key={b.title} delay={(i % 3) * 0.06} className="w-[72vw] max-w-[320px] shrink-0 snap-start lg:w-auto lg:max-w-none">
-            <figure className="group relative aspect-[4/5] overflow-hidden rounded-[1.75rem] lg:aspect-[16/11]">
-              <img src={`/images/landing/${b.img}-1024.webp`} srcSet={photoSet(b.img)} sizes="(min-width: 1024px) 33vw, 72vw" alt={b.title} loading="lazy" decoding="async" className={`h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-105 ${b.pos}`} />
-              <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-5 pt-16 text-lg font-bold text-white">{b.title}</figcaption>
-            </figure>
+
+      <div className="mx-auto max-w-7xl px-5 lg:px-8">
+        {/* En-tête de section */}
+        <div className="text-center max-w-3xl mx-auto">
+          <Reveal>
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-4 py-1.5 text-xs font-extrabold uppercase tracking-widest text-emerald-300 backdrop-blur-md">
+              <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+              <span>Expérience Interactive en Direct</span>
+            </div>
+            <h2 className="mt-4 text-balance text-3xl font-extrabold leading-[1.1] tracking-tight text-white sm:text-5xl lg:text-[3.25rem]">
+              Voyez la magie en action. <Em light>En 10 secondes chrono</Em>.
+            </h2>
+            <p className="mt-4 text-base leading-relaxed text-emerald-100/75 sm:text-xl">
+              Ne nous croyez pas sur parole : testez vous-même une commande en direct ou calculez le chiffre d’affaires que vous rapportera votre boutique.
+            </p>
           </Reveal>
-        ))}
+
+          {/* Onglets principaux : Démo vs Calculateur */}
+          <Reveal delay={0.08}>
+            <div className="mt-9 inline-flex items-center rounded-2xl bg-white/5 p-1.5 ring-1 ring-white/10 backdrop-blur-md">
+              <button
+                type="button"
+                onClick={() => { setTab('demo'); resetSimulation(); }}
+                className={`relative rounded-xl px-5 py-2.5 text-xs font-bold transition-all sm:text-sm ${
+                  tab === 'demo' ? 'text-[#06140e]' : 'text-white/70 hover:text-white'
+                }`}
+              >
+                {tab === 'demo' && (
+                  <motion.div
+                    layoutId="mainTab"
+                    className="absolute inset-0 rounded-xl bg-emerald-400 shadow-md shadow-emerald-400/30"
+                    transition={{ type: 'spring', bounce: 0.15, duration: 0.5 }}
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-2">
+                  <Zap className="h-4 w-4" /> Tester une commande en direct
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTab('calculator')}
+                className={`relative rounded-xl px-5 py-2.5 text-xs font-bold transition-all sm:text-sm ${
+                  tab === 'calculator' ? 'text-[#06140e]' : 'text-white/70 hover:text-white'
+                }`}
+              >
+                {tab === 'calculator' && (
+                  <motion.div
+                    layoutId="mainTab"
+                    className="absolute inset-0 rounded-xl bg-emerald-400 shadow-md shadow-emerald-400/30"
+                    transition={{ type: 'spring', bounce: 0.15, duration: 0.5 }}
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-2">
+                  <Calculator className="h-4 w-4" /> Simulateur de chiffre d’affaires
+                </span>
+              </button>
+            </div>
+          </Reveal>
+        </div>
+
+        {/* CONTENU ONGLET 1 : DÉMO COMMANDE EN DIRECT */}
+        {tab === 'demo' && (
+          <div className="mt-12">
+            <Reveal delay={0.1}>
+              <div className="rounded-[2.5rem] border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.02] p-6 lg:p-10 shadow-2xl backdrop-blur-xl ring-1 ring-white/10">
+                {/* Barre de contrôle du terminal */}
+                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-6">
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-full bg-rose-500/80" />
+                    <span className="h-3 w-3 rounded-full bg-amber-500/80" />
+                    <span className="h-3 w-3 rounded-full bg-emerald-500/80" />
+                    <span className="ml-2 font-mono text-xs text-white/50">samaboutik-simulator // live-feed</span>
+                  </div>
+                  <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/30">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>SYSTÈME EN DIRECT</span>
+                  </div>
+                </div>
+
+                <div className="mt-8 grid gap-8 lg:grid-cols-12 lg:items-start">
+                  {/* Côté Gauche (5 colonnes) : Sélection & Commande client */}
+                  <div className="lg:col-span-5 flex flex-col justify-between space-y-6 rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-md">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">1. Choisissez un article</span>
+                        <span className="text-xs text-white/50">Cliquez pour tester</span>
+                      </div>
+
+                      {/* Sélecteur de produit démo */}
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        {DEMO_PRODUCTS.map((p) => {
+                          const isSel = selectedProd.id === p.id;
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedProd(p);
+                                setSelectedVar(p.defaultVariant);
+                                resetSimulation();
+                              }}
+                              className={`group relative flex flex-col items-center rounded-2xl p-2.5 text-center transition-all ${
+                                isSel
+                                  ? 'bg-emerald-500/25 ring-2 ring-emerald-400'
+                                  : 'bg-white/5 hover:bg-white/10 ring-1 ring-white/10'
+                              }`}
+                            >
+                              <img
+                                src={`/images/landing/${p.img}-640.webp`}
+                                alt={p.name}
+                                className="h-14 w-14 rounded-xl object-cover shadow-sm group-hover:scale-105 transition-transform"
+                              />
+                              <p className="mt-2 line-clamp-1 text-[11px] font-bold text-white">{p.name}</p>
+                              <p className="text-[10px] font-extrabold text-emerald-300">{p.price.toLocaleString('fr-FR')} F</p>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Détail du produit actif */}
+                      <div className="mt-5 rounded-2xl bg-black/40 p-4 border border-white/5">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-bold text-white">{selectedProd.name}</p>
+                            <p className="text-xs text-white/60">{selectedProd.category}</p>
+                          </div>
+                          <span className="text-lg font-extrabold text-emerald-300">
+                            {selectedProd.price.toLocaleString('fr-FR')} FCFA
+                          </span>
+                        </div>
+
+                        {/* Variantes */}
+                        <div className="mt-3 pt-3 border-t border-white/10">
+                          <p className="text-[11px] font-semibold text-white/60">Variante sélectionnée :</p>
+                          <div className="mt-1.5 flex flex-wrap gap-1.5">
+                            {selectedProd.variants.map((v) => (
+                              <button
+                                key={v}
+                                type="button"
+                                onClick={() => setSelectedVar(v)}
+                                className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+                                  selectedVar === v
+                                    ? 'bg-emerald-400 text-[#06140e]'
+                                    : 'bg-white/10 text-white/80 hover:bg-white/15'
+                                }`}
+                              >
+                                {v}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Mode de paiement */}
+                        <div className="mt-4 pt-3 border-t border-white/10">
+                          <p className="text-[11px] font-semibold text-white/60">Mode de paiement client :</p>
+                          <div className="mt-1.5 grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setPayMethod('wave')}
+                              className={`flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-bold transition-all ${
+                                payMethod === 'wave'
+                                  ? 'bg-[#1dc4e9]/20 text-[#1dc4e9] ring-2 ring-[#1dc4e9]'
+                                  : 'bg-white/5 text-white/70 hover:bg-white/10 ring-1 ring-white/10'
+                              }`}
+                            >
+                              <img src="/logos/wave.png" alt="Wave" className="h-4 w-4 rounded-full object-contain" />
+                              <span>Paiement Wave</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPayMethod('cash')}
+                              className={`flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-bold transition-all ${
+                                payMethod === 'cash'
+                                  ? 'bg-amber-400/20 text-amber-300 ring-2 ring-amber-400'
+                                  : 'bg-white/5 text-white/70 hover:bg-white/10 ring-1 ring-white/10'
+                              }`}
+                            >
+                              <Banknote className="h-4 w-4" />
+                              <span>À la livraison</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bouton d'action pour lancer la commande */}
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={runSimulation}
+                        disabled={isSimulating}
+                        className="group relative flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-400 py-4 text-base font-extrabold text-[#06140e] shadow-lg shadow-emerald-500/30 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60"
+                      >
+                        {isSimulating ? (
+                          <>
+                            <span className="h-5 w-5 animate-spin rounded-full border-2 border-[#06140e] border-t-transparent" />
+                            <span>Simulation du flux en cours…</span>
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="h-5 w-5 fill-[#06140e]" />
+                            <span>Tester la commande en 1 clic 🚀</span>
+                          </>
+                        )}
+                      </button>
+                      <p className="mt-2 text-center text-[11px] text-white/50">
+                        Déclenche instantanément la synchronisation en direct.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Côté Droit (7 colonnes) : Pipeline en Temps Réel */}
+                  <div className="lg:col-span-7 flex flex-col justify-between rounded-3xl border border-white/10 bg-black/40 p-6 backdrop-blur-md">
+                    <div>
+                      <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                        <div className="flex items-center gap-2.5">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-300">
+                            <Zap className="h-4 w-4" />
+                          </span>
+                          <div>
+                            <p className="text-sm font-bold text-white">Pipeline des Opérations SamaBoutik</p>
+                            <p className="text-[11px] text-white/50">Automatisation complète du panier jusqu’à la livraison</p>
+                          </div>
+                        </div>
+
+                        {simStep > 0 && (
+                          <button
+                            type="button"
+                            onClick={resetSimulation}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/80 transition-colors hover:bg-white/15"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" /> Réinitialiser
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Flux d'étapes animées */}
+                      <div className="mt-6 space-y-3.5">
+                        {/* Étape 1 : Expérience Client */}
+                        <div
+                          className={`flex items-start gap-3.5 rounded-2xl p-4 transition-all duration-500 ${
+                            simStep >= 1
+                              ? 'bg-emerald-500/15 border border-emerald-400/40 shadow-sm'
+                              : 'bg-white/[0.03] border border-white/5 opacity-50'
+                          }`}
+                        >
+                          <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl text-xs font-black ${
+                            simStep >= 1 ? 'bg-emerald-400 text-[#06140e] shadow-md shadow-emerald-400/30' : 'bg-white/10 text-white/40'
+                          }`}>
+                            {simStep >= 1 ? '✓' : '1'}
+                          </span>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-bold uppercase tracking-wider text-emerald-300">Étape 1 • Expérience Client</p>
+                              {simStep >= 1 && <span className="font-mono text-[10px] text-emerald-300 font-bold">0.8 sec</span>}
+                            </div>
+                            <p className="text-sm font-extrabold text-white mt-0.5">
+                              {simStep >= 1 ? 'Commande #SB-892 validée sans création de compte' : 'En attente du clic client sur le panier…'}
+                            </p>
+                            <p className="text-xs text-white/70 mt-1">
+                              Article : {selectedProd.name} ({selectedVar}) • Reçu de commande numérique généré instantanément.
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Étape 2 : Règlement */}
+                        <div
+                          className={`flex items-start gap-3.5 rounded-2xl p-4 transition-all duration-500 ${
+                            simStep >= 2
+                              ? 'bg-emerald-500/15 border border-emerald-400/40 shadow-sm'
+                              : 'bg-white/[0.03] border border-white/5 opacity-50'
+                          }`}
+                        >
+                          <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl text-xs font-black ${
+                            simStep >= 2 ? 'bg-emerald-400 text-[#06140e] shadow-md shadow-emerald-400/30' : 'bg-white/10 text-white/40'
+                          }`}>
+                            {simStep >= 2 ? '✓' : '2'}
+                          </span>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-bold uppercase tracking-wider text-emerald-300">Étape 2 • Flux Financier Sécurisé</p>
+                              {simStep >= 2 && <span className="font-mono text-[10px] text-emerald-300 font-bold">1.4 sec</span>}
+                            </div>
+                            <p className="text-sm font-extrabold text-white mt-0.5">
+                              {simStep >= 2
+                                ? (payMethod === 'wave' ? `Paiement Wave ${selectedProd.price.toLocaleString('fr-FR')} F certifié en direct` : `Paiement en espèces prévu à la remise (${selectedProd.price.toLocaleString('fr-FR')} F)`)
+                                : 'Validation automatique du règlement sans capture d’écran…'}
+                            </p>
+                            <p className="text-xs text-white/70 mt-1">
+                              {payMethod === 'wave' ? 'Reversement automatique vers le marchand • 0 F de commission prélevée sur vos ventes.' : 'Le livreur encaissera la somme exacte sans litige.'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Étape 3 : Marchand */}
+                        <div
+                          className={`flex items-start gap-3.5 rounded-2xl p-4 transition-all duration-500 ${
+                            simStep >= 3
+                              ? 'bg-emerald-500/15 border border-emerald-400/40 shadow-sm'
+                              : 'bg-white/[0.03] border border-white/5 opacity-50'
+                          }`}
+                        >
+                          <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl text-xs font-black ${
+                            simStep >= 3 ? 'bg-emerald-400 text-[#06140e] shadow-md shadow-emerald-400/30' : 'bg-white/10 text-white/40'
+                          }`}>
+                            {simStep >= 3 ? '✓' : '3'}
+                          </span>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-bold uppercase tracking-wider text-emerald-300">Étape 3 • Tableau de Bord Marchand</p>
+                              {simStep >= 3 && <span className="font-mono text-[10px] text-emerald-300 font-bold">Bip reçu 🔔</span>}
+                            </div>
+                            <p className="text-sm font-extrabold text-white mt-0.5">
+                              {simStep >= 3 ? 'Notification WhatsApp envoyée & stock décrémenté' : 'Alerte sonore et notification WhatsApp automatique…'}
+                            </p>
+                            <p className="text-xs text-white/70 mt-1">
+                              Le marchand prépare le colis sans avoir échangé 20 messages WhatsApp au préalable.
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Étape 4 : Livreur & PIN */}
+                        <div
+                          className={`flex items-start gap-3.5 rounded-2xl p-4 transition-all duration-500 ${
+                            simStep >= 4
+                              ? 'bg-emerald-500/25 border-2 border-emerald-400 shadow-lg shadow-emerald-500/20'
+                              : 'bg-white/[0.03] border border-white/5 opacity-50'
+                          }`}
+                        >
+                          <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl text-xs font-black ${
+                            simStep >= 4 ? 'bg-emerald-400 text-[#06140e] shadow-md shadow-emerald-400/30' : 'bg-white/10 text-white/40'
+                          }`}>
+                            {simStep >= 4 ? '✓' : '4'}
+                          </span>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-bold uppercase tracking-wider text-emerald-300">Étape 4 • Course & Livraison Sécurisée</p>
+                              {simStep >= 4 && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400 text-[#06140e] px-2 py-0.5 text-[10px] font-black">PIN ACTIF</span>}
+                            </div>
+                            <p className="text-sm font-extrabold text-white mt-0.5">
+                              {simStep >= 4 ? 'Livreur Modou en route avec itinéraire Google Maps' : 'Attribution de la course et génération du code PIN…'}
+                            </p>
+                            <p className="text-xs text-white/70 mt-1">
+                              {simStep >= 4 ? '🔒 Code PIN secret envoyé au client : 5834. Aucun colis égaré.' : 'Position GPS partagée en direct sur le téléphone du client.'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Résumé de fin de simulation */}
+                    {simStep === 4 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-6 flex flex-col items-center justify-between gap-3 rounded-2xl bg-emerald-500/20 p-4 border border-emerald-400/30 sm:flex-row"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400 text-[#06140e] font-black">
+                            ✓
+                          </span>
+                          <div>
+                            <p className="text-sm font-extrabold text-white">Cycle complet réussi en moins de 3 secondes !</p>
+                            <p className="text-xs text-emerald-200">C’est exactement ce que vivront vos clients chaque jour.</p>
+                          </div>
+                        </div>
+                        <Link
+                          to={registerHref(selectedProd.themeId || themeId)}
+                          className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-[#06140e] shadow-md hover:bg-emerald-100 transition-colors"
+                        >
+                          <span>Lancer ma boutique maintenant</span>
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                      </motion.div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+          </div>
+        )}
+
+        {/* CONTENU ONGLET 2 : SIMULATEUR DE REVENUS & GAINS */}
+        {tab === 'calculator' && (
+          <div className="mt-12">
+            <Reveal delay={0.1}>
+              <div className="rounded-[2.5rem] border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.02] p-6 lg:p-12 shadow-2xl backdrop-blur-xl ring-1 ring-white/10">
+                <div className="grid gap-10 lg:grid-cols-12 lg:items-center">
+                  {/* Curseurs interactifs (6 colonnes) */}
+                  <div className="lg:col-span-6 space-y-8 rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8 backdrop-blur-md">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <label htmlFor="orders-slider" className="text-sm font-bold text-white">Commandes par jour :</label>
+                        <span className="rounded-xl bg-emerald-400 px-3 py-1 font-mono text-sm font-extrabold text-[#06140e]">
+                          {ordersPerDay} commandes / j
+                        </span>
+                      </div>
+                      <input
+                        id="orders-slider"
+                        type="range"
+                        min="2"
+                        max="50"
+                        step="1"
+                        value={ordersPerDay}
+                        onChange={(e) => setOrdersPerDay(Number(e.target.value))}
+                        className="mt-4 h-2.5 w-full cursor-pointer appearance-none rounded-lg bg-white/20 accent-emerald-400"
+                      />
+                      <div className="mt-2 flex justify-between text-[11px] text-white/50">
+                        <span>2 / jour</span>
+                        <span>25 / jour</span>
+                        <span>50 / jour</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <label htmlFor="basket-slider" className="text-sm font-bold text-white">Panier moyen par commande :</label>
+                        <span className="rounded-xl bg-emerald-400 px-3 py-1 font-mono text-sm font-extrabold text-[#06140e]">
+                          {avgBasket.toLocaleString('fr-FR')} FCFA
+                        </span>
+                      </div>
+                      <input
+                        id="basket-slider"
+                        type="range"
+                        min="3000"
+                        max="50000"
+                        step="1000"
+                        value={avgBasket}
+                        onChange={(e) => setAvgBasket(Number(e.target.value))}
+                        className="mt-4 h-2.5 w-full cursor-pointer appearance-none rounded-lg bg-white/20 accent-emerald-400"
+                      />
+                      <div className="mt-2 flex justify-between text-[11px] text-white/50">
+                        <span>3 000 F</span>
+                        <span>25 000 F</span>
+                        <span>50 000 F</span>
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl bg-emerald-500/10 p-4 border border-emerald-400/20 text-xs text-emerald-200">
+                      💡 <strong>Le saviez-vous ?</strong> Les boutiques disposant d’un catalogue en ligne partagé sur WhatsApp augmentent leur panier moyen de <strong>+35 %</strong> grâce à la suggestion automatique de produits complémentaires.
+                    </div>
+                  </div>
+
+                  {/* Rendu des calculs en direct (6 colonnes) */}
+                  <div className="lg:col-span-6 space-y-6">
+                    <div className="rounded-3xl border border-emerald-400/30 bg-gradient-to-b from-emerald-500/20 to-emerald-950/40 p-7 lg:p-9 shadow-xl">
+                      <p className="text-xs font-extrabold uppercase tracking-widest text-emerald-300">Chiffre d’affaires mensuel estimé</p>
+                      <p className="mt-2 text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl">
+                        {monthlyRevenue.toLocaleString('fr-FR')} <span className="text-2xl font-bold text-emerald-300 sm:text-3xl">FCFA</span>
+                      </p>
+                      <p className="mt-2 text-xs text-emerald-100/70">
+                        Soit {monthlyOrders} commandes traitées automatiquement chaque mois.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-md">
+                        <div className="flex items-center gap-2 text-emerald-400">
+                          <Banknote className="h-5 w-5" />
+                          <p className="text-xs font-bold uppercase">Commissions sauvées</p>
+                        </div>
+                        <p className="mt-2 text-2xl font-black text-white">
+                          +{commissionSaved.toLocaleString('fr-FR')} F
+                        </p>
+                        <p className="mt-1 text-[11px] text-white/60">
+                          0% de commission avec SamaBoutik vs ~10% ailleurs.
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-md">
+                        <div className="flex items-center gap-2 text-emerald-400">
+                          <Clock className="h-5 w-5" />
+                          <p className="text-xs font-bold uppercase">Temps économisé</p>
+                        </div>
+                        <p className="mt-2 text-2xl font-black text-white">
+                          ~{hoursSaved} heures
+                        </p>
+                        <p className="mt-1 text-[11px] text-white/60">
+                          Fini les 25 minutes de négociation par message.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <Link
+                        to={registerHref(themeId)}
+                        className="inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-400 py-4 text-base font-extrabold text-[#06140e] shadow-lg shadow-emerald-400/25 transition-all hover:bg-emerald-300 hover:scale-[1.01]"
+                      >
+                        <span>Ouvrir ma boutique à 0 franc</span>
+                        <ArrowRight className="h-5 w-5" />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -839,7 +1429,7 @@ export default function Landing() {
           <Deferred id="parcours" minHeight={1150}><HowItWorks /></Deferred>
           <Deferred id="themes" minHeight={900}><Themes themeId={themeId} onPick={setThemeId} /></Deferred>
           <Deferred minHeight={1100}><Included /></Deferred>
-          <Deferred minHeight={800}><Businesses /></Deferred>
+          <Deferred minHeight={800}><LiveExperience themeId={themeId} /></Deferred>
           <Deferred id="tarifs" minHeight={1000}><Pricing themeId={themeId} /></Deferred>
           <Deferred id="faq" minHeight={700}><Faq /></Deferred>
           <Deferred minHeight={600}><FinalCta themeId={themeId} /></Deferred>
