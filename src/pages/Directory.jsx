@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { SHOP_CATEGORIES } from '../utils/categories';
-import { nearestCity, distanceKm, DAKAR_CENTER } from '../components/admin/geo';
+import { nearestCity, distanceKm } from '../components/admin/geo';
 import { getCurrentPosition } from '../utils/geolocation';
 import { BlurWords } from '../components/landing/Magic';
 import DirectoryMap from '../components/directory/DirectoryMap';
@@ -18,234 +18,12 @@ const fmt = (n) => Math.round(n || 0).toLocaleString('fr-FR');
 const safeColor = (c) => (/^#[0-9a-f]{3,8}$/i.test(c || '') ? c : '#059669');
 const formatDistance = (km) => (km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1).replace('.', ',')} km`);
 
-// Showcase de boutiques sénégalaises emblématiques utilisées quand la base est neuve ou en complément
-const DEMO_DIRECTORY_SHOPS = [
-  {
-    shop_name: 'Chez Awa Wax & Couture',
-    description: 'Atelier de confection et prêt-à-porter haut de gamme. Robes de soirée, boubous brodés, chemises wax et accessoires traditionnels.',
-    logo_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-    banner_url: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=1200&auto=format&fit=crop&q=80',
-    cover_images: [
-      'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=800&auto=format&fit=crop&q=80',
-    ],
-    theme_color: '#059669',
-    featured: true,
-    latitude: 14.6698,
-    longitude: -17.4332,
-    city: 'Plateau',
-    address: 'Rue Félix Faure, Plateau',
-    products_count: 28,
-    categories: ['Vêtements', 'Accessoires'],
-    min_price_fcfa: 12000,
-    rating: 4.9,
-    reviews_count: 68,
-    phone: '+221 77 123 45 67',
-    whatsapp: '221771234567',
-    badges: ['Livraison 45 min', 'Wave & OM', 'Sur-mesure'],
-    is_open: true,
-  },
-  {
-    shop_name: 'Maison Teranga - Épicerie Fine',
-    description: 'Le meilleur du terroir sénégalais : miels purs de Casamance, cafés Touba torréfiés maison, sirops de bissap et mangues séchées.',
-    logo_url: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=200&auto=format&fit=crop&q=80',
-    banner_url: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=1200&auto=format&fit=crop&q=80',
-    cover_images: [
-      'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=800&auto=format&fit=crop&q=80',
-    ],
-    theme_color: '#d97706',
-    featured: true,
-    latitude: 14.7105,
-    longitude: -17.4728,
-    city: 'Mermoz',
-    address: 'Avenue Cheikh Anta Diop, Mermoz',
-    products_count: 42,
-    categories: ['Autres', 'Beauté & Santé'],
-    min_price_fcfa: 2500,
-    rating: 5.0,
-    reviews_count: 114,
-    phone: '+221 78 234 56 78',
-    whatsapp: '221782345678',
-    badges: ['100% Teranga', 'Bio certifié', 'Livraison Dakar'],
-    is_open: true,
-  },
-  {
-    shop_name: 'Tech & Mobile Sandaga',
-    description: 'Smartphones originaux scellés et reconditionnés garantis, montres connectées, AirPods et accessoires certifiés avec facture.',
-    logo_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80',
-    banner_url: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=1200&auto=format&fit=crop&q=80',
-    cover_images: [
-      'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80',
-    ],
-    theme_color: '#2563eb',
-    featured: true,
-    latitude: 14.6750,
-    longitude: -17.4385,
-    city: 'Sandaga',
-    address: 'Avenue Lamine Guèye, Sandaga',
-    products_count: 56,
-    categories: ['Téléphones & Tablettes', 'Accessoires'],
-    min_price_fcfa: 5000,
-    rating: 4.8,
-    reviews_count: 92,
-    phone: '+221 76 345 67 89',
-    whatsapp: '221763456789',
-    badges: ['Garantie 1 an', 'Facture fournie', 'Express 30 min'],
-    is_open: true,
-  },
-  {
-    shop_name: 'Bio & Beauté Sahel',
-    description: 'Soins cosmétiques naturels formulés à Dakar : beurre de karité bio, huile de baobab pure, savons au neem et parfums d’ambiance.',
-    logo_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&auto=format&fit=crop&q=80',
-    banner_url: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=1200&auto=format&fit=crop&q=80',
-    cover_images: [
-      'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1608248597359-009d02137e38?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&auto=format&fit=crop&q=80',
-    ],
-    theme_color: '#ec4899',
-    featured: true,
-    latitude: 14.7455,
-    longitude: -17.5180,
-    city: 'Almadies',
-    address: 'Route des Almadies, Zone Résidentielle',
-    products_count: 24,
-    categories: ['Beauté & Santé'],
-    min_price_fcfa: 3500,
-    rating: 4.9,
-    reviews_count: 54,
-    phone: '+221 77 456 78 90',
-    whatsapp: '221774567890',
-    badges: ['Naturel & Éthique', 'Conseil personnalisé', 'Coffrets cadeaux'],
-    is_open: true,
-  },
-  {
-    shop_name: 'Artisanat & Cuir Ngor',
-    description: 'Créations en cuir sénégalais de haute qualité : sandales faites main, sacs de voyage, ceintures et tableaux artisanaux uniques.',
-    logo_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
-    banner_url: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=1200&auto=format&fit=crop&q=80',
-    cover_images: [
-      'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=800&auto=format&fit=crop&q=80',
-    ],
-    theme_color: '#8b5cf6',
-    featured: false,
-    latitude: 14.7540,
-    longitude: -17.5135,
-    city: 'Ngor',
-    address: 'Village d’artisanat de Ngor',
-    products_count: 31,
-    categories: ['Chaussures', 'Accessoires'],
-    min_price_fcfa: 8000,
-    rating: 4.8,
-    reviews_count: 41,
-    phone: '+221 77 567 89 01',
-    whatsapp: '221775678901',
-    badges: ['Cuir véritable', 'Fait main', 'Pièces limitées'],
-    is_open: true,
-  },
-  {
-    shop_name: 'Sneakers & Kicks 221',
-    description: 'Le temple de la sneaker à Dakar : drops exclusifs, éditions limitées, sportswear tendance et casquettes authentiques.',
-    logo_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80',
-    banner_url: 'https://images.unsplash.com/photo-1552346154-21d32810aba3?w=1200&auto=format&fit=crop&q=80',
-    cover_images: [
-      'https://images.unsplash.com/photo-1552346154-21d32810aba3?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1514989940723-e8e51635b782?w=800&auto=format&fit=crop&q=80',
-    ],
-    theme_color: '#f97316',
-    featured: false,
-    latitude: 14.7170,
-    longitude: -17.4610,
-    city: 'Sacré-Cœur',
-    address: 'Rond-point Sacré-Cœur 3',
-    products_count: 45,
-    categories: ['Chaussures', 'Vêtements'],
-    min_price_fcfa: 18000,
-    rating: 4.7,
-    reviews_count: 88,
-    phone: '+221 70 678 90 12',
-    whatsapp: '221706789012',
-    badges: ['100% Original', 'Drop chaque samedi', 'Livraison express'],
-    is_open: true,
-  },
-  {
-    shop_name: 'Bakhour & Parfums Ouakam',
-    description: 'Thiouraye traditionnel aux senteurs envoûtantes, encens faits maison selon la tradition dakaroise et huiles parfumées précieuses.',
-    logo_url: 'https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?w=200&auto=format&fit=crop&q=80',
-    banner_url: 'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=1200&auto=format&fit=crop&q=80',
-    cover_images: [
-      'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1547887537-6158d64c35b3?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1615397349754-cfa2066a298e?w=800&auto=format&fit=crop&q=80',
-    ],
-    theme_color: '#06b6d4',
-    featured: false,
-    latitude: 14.7235,
-    longitude: -17.4890,
-    city: 'Ouakam',
-    address: 'Près du Monument de la Renaissance, Ouakam',
-    products_count: 18,
-    categories: ['Beauté & Santé', 'Autres'],
-    min_price_fcfa: 4000,
-    rating: 5.0,
-    reviews_count: 79,
-    phone: '+221 77 789 01 23',
-    whatsapp: '221777890123',
-    badges: ['Recette ancestrale', 'Senteur longue durée', 'Emballage cadeau'],
-    is_open: true,
-  },
-  {
-    shop_name: 'Le Verger Frais de Thiès',
-    description: 'Fruits tropicaux fraîchement cueillis, corossols, papayes, mangues greffées et jus pressés à froid sans sucre ajouté.',
-    logo_url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200&auto=format&fit=crop&q=80',
-    banner_url: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=1200&auto=format&fit=crop&q=80',
-    cover_images: [
-      'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1550989460-0adf9ea622e2?w=800&auto=format&fit=crop&q=80',
-    ],
-    theme_color: '#10b981',
-    featured: false,
-    latitude: 14.7910,
-    longitude: -16.9359,
-    city: 'Thiès',
-    address: 'Marché Central de Thiès',
-    products_count: 35,
-    categories: ['Autres'],
-    min_price_fcfa: 1500,
-    rating: 4.9,
-    reviews_count: 57,
-    phone: '+221 76 890 12 34',
-    whatsapp: '221768901234',
-    badges: ['Direct verger', 'Récolte du jour', 'Fraîcheur garantie'],
-    is_open: true,
-  },
-];
-
-const DAKAR_NEIGHBORHOODS = [
-  'Plateau',
-  'Almadies',
-  'Mermoz',
-  'Ouakam',
-  'Ngor',
-  'Sandaga',
-  'Sacré-Cœur',
-  'Thiès',
-];
-
 const RADIUS_OPTIONS = [
   { label: 'Tous', value: null },
   { label: '< 3 km', value: 3 },
   { label: '< 7 km', value: 7 },
   { label: '< 15 km', value: 15 },
+  { label: '< 30 km', value: 30 },
 ];
 
 const SORT_OPTIONS = [
@@ -256,7 +34,7 @@ const SORT_OPTIONS = [
   { id: 'products', label: '📦 Plus de choix' },
 ];
 
-// Carte boutique hautement interactive avec carrousel d'images et actions rapides
+// Carte d'une vraie boutique avec carrousel photos, avis et liens directs
 function ShopCard({ shop, index, selected, onHover, onSelect }) {
   const color = safeColor(shop.theme_color);
   const covers = shop.cover_images?.length ? shop.cover_images : shop.banner_url ? [shop.banner_url] : [];
@@ -284,7 +62,7 @@ function ShopCard({ shop, index, selected, onHover, onSelect }) {
         await navigator.share({ title: shop.shop_name, url });
         return;
       } catch {
-        /* user cancelled */
+        /* annulé par l'utilisateur */
       }
     }
     if (navigator.clipboard) {
@@ -309,7 +87,7 @@ function ShopCard({ shop, index, selected, onHover, onSelect }) {
           : 'ring-white/10 hover:ring-white/30'
       }`}
     >
-      {/* Zone visuelle avec carrousel */}
+      {/* Zone visuelle */}
       <div className="relative h-44 w-full overflow-hidden bg-slate-900">
         {covers.length > 0 ? (
           <img
@@ -453,31 +231,19 @@ function ShopCard({ shop, index, selected, onHover, onSelect }) {
           </p>
         )}
 
-        {/* Badges de services */}
-        {shop.badges && shop.badges.length > 0 && (
-          <div className="mb-3 flex flex-wrap gap-1">
-            {shop.badges.map((b) => (
+        {/* Catégories */}
+        {shop.categories && shop.categories.length > 0 && (
+          <div className="mb-4 flex flex-wrap gap-1.5">
+            {shop.categories.slice(0, 3).map((c) => (
               <span
-                key={b}
-                className="rounded-md border border-white/5 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold text-slate-300"
+                key={c}
+                className="rounded-lg bg-emerald-950/60 border border-emerald-500/20 px-2.5 py-1 text-[11px] font-semibold text-emerald-300"
               >
-                {b}
+                {c}
               </span>
             ))}
           </div>
         )}
-
-        {/* Catégories */}
-        <div className="mb-4 flex flex-wrap gap-1.5">
-          {(shop.categories || []).slice(0, 3).map((c) => (
-            <span
-              key={c}
-              className="rounded-lg bg-emerald-950/60 border border-emerald-500/20 px-2.5 py-1 text-[11px] font-semibold text-emerald-300"
-            >
-              {c}
-            </span>
-          ))}
-        </div>
 
         {/* Pied de carte avec prix, produits & actions rapides */}
         <div className="mt-auto border-t border-white/[0.08] pt-3.5">
@@ -503,7 +269,7 @@ function ShopCard({ shop, index, selected, onHover, onSelect }) {
 
             {shop.whatsapp && (
               <a
-                href={`https://wa.me/${shop.whatsapp}?text=${encodeURIComponent(`Bonjour ${shop.shop_name}, j'ai vu votre vitrine sur SamaBoutik !`)}`}
+                href={`https://wa.me/${shop.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Bonjour ${shop.shop_name}, j'ai vu votre vitrine sur SamaBoutik !`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 title="Contacter sur WhatsApp"
@@ -552,32 +318,23 @@ export default function Directory() {
       try {
         const { data, error: rpcError } = await supabase.rpc('public_shops_directory');
         if (rpcError) {
-          console.warn('RPC public_shops_directory indisponible, utilisation du catalogue démo :', rpcError);
+          console.warn('Erreur public_shops_directory :', rpcError);
+          setError("L'annuaire n'est pas encore disponible ou est en cours de mise à jour.");
+          setShops([]);
+        } else {
+          const realShops = (data || []).map((s) => ({
+            ...s,
+            city: s.city || nearestCity(s.latitude, s.longitude) || 'Sénégal',
+            products_count: Number(s.products_count || 0),
+            reviews_count: Number(s.reviews_count || 0),
+            rating: Number(s.rating || 0),
+          }));
+          setShops(realShops);
         }
-
-        const realShops = (data || []).map((s) => ({
-          ...s,
-          city: s.city || nearestCity(s.latitude, s.longitude) || 'Dakar',
-          products_count: Number(s.products_count || 0),
-          reviews_count: Number(s.reviews_count || 0),
-          rating: Number(s.rating || 0),
-          is_real: true,
-        }));
-
-        // Fusionner les vraies boutiques avec les démonstrations pour que l'annuaire soit toujours vivant
-        const combined = realShops.length > 0
-          ? [
-              ...realShops,
-              ...DEMO_DIRECTORY_SHOPS.filter(
-                (d) => !realShops.some((r) => r.shop_name.toLowerCase() === d.shop_name.toLowerCase())
-              ),
-            ]
-          : DEMO_DIRECTORY_SHOPS;
-
-        setShops(combined);
       } catch (err) {
-        console.error('Erreur annuaire :', err);
-        setShops(DEMO_DIRECTORY_SHOPS);
+        console.error('Erreur chargement annuaire :', err);
+        setError("Impossible de charger l'annuaire pour le moment.");
+        setShops([]);
       } finally {
         setLoading(false);
       }
@@ -622,17 +379,24 @@ export default function Directory() {
     }));
   }, [shops, me]);
 
-  // Villes et quartiers disponibles
+  // Villes et quartiers réels représentés dans la base
   const cities = useMemo(() => {
     const counts = new Map();
     shops.forEach((s) => {
-      const c = s.city || 'Dakar';
+      const c = s.city || 'Sénégal';
       counts.set(c, (counts.get(c) || 0) + 1);
     });
     return [...counts.entries()].sort((a, b) => b[1] - a[1]);
   }, [shops]);
 
-  // Filtrage et tri des boutiques
+  // Catégories représentées dans la base de données
+  const availableCategories = useMemo(() => {
+    return SHOP_CATEGORIES.filter((c) =>
+      shops.some((s) => (s.categories || []).includes(c.name))
+    );
+  }, [shops]);
+
+  // Filtrage et tri des boutiques réelles
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = withDistance.filter((s) => {
@@ -724,7 +488,7 @@ export default function Directory() {
               className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-1.5 text-xs font-bold text-emerald-300 shadow-sm"
             >
               <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
-              <span>Annuaire Officiel SamaBoutik · Dakar & Sénégal</span>
+              <span>Annuaire Officiel SamaBoutik · Sénégal</span>
             </motion.div>
 
             <h1 className="mb-4 text-4xl font-extrabold leading-[1.08] tracking-tight md:text-6xl">
@@ -740,8 +504,8 @@ export default function Directory() {
               transition={{ delay: 0.35 }}
               className="mx-auto mb-8 max-w-2xl text-sm leading-relaxed text-slate-300 md:text-base"
             >
-              Mode, épicerie fine, téléphonie, cosmétiques locaux et artisanat. Commandez directement auprès des
-              commerçants de votre quartier avec livraison rapide et paiement sécurisé Wave, Orange Money ou à la livraison.
+              Découvrez les commerces réels de votre quartier, visitez leur vitrine en ligne, contactez-les sur
+              WhatsApp et faites-vous livrer en toute confiance.
             </motion.p>
 
             {/* Barre de recherche principale & Géolocalisation */}
@@ -756,7 +520,7 @@ export default function Directory() {
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Rechercher une boutique, robe wax, iPhone, miel..."
+                  placeholder="Rechercher une boutique, article, quartier..."
                   className="w-full bg-transparent py-3.5 text-sm text-white outline-none placeholder:text-slate-400"
                 />
                 {query && (
@@ -822,8 +586,8 @@ export default function Directory() {
                   <Store className="h-5 w-5" />
                 </span>
                 <div className="text-left">
-                  <p className="text-xl font-extrabold text-white">{shops.length}</p>
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Boutiques actives</p>
+                  <p className="text-xl font-extrabold text-white">{loading ? '…' : shops.length}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Boutique{shops.length > 1 ? 's' : ''} inscrite{shops.length > 1 ? 's' : ''}</p>
                 </div>
               </div>
 
@@ -832,8 +596,8 @@ export default function Directory() {
                   <MapPinned className="h-5 w-5" />
                 </span>
                 <div className="text-left">
-                  <p className="text-xl font-extrabold text-white">{cities.length}</p>
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Quartiers & Villes</p>
+                  <p className="text-xl font-extrabold text-white">{loading ? '…' : cities.length}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Zone{cities.length > 1 ? 's' : ''}</p>
                 </div>
               </div>
 
@@ -855,171 +619,175 @@ export default function Directory() {
         {/* Section Principale */}
         <main className="mx-auto max-w-7xl px-4 pb-28 sm:px-6">
           {/* Quartiers populaires & Rayon GPS */}
-          <div className="mb-6 space-y-3">
-            {/* Filtre par rayon si géolocalisé */}
-            {me && (
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                <span className="text-xs font-bold text-cyan-300 flex items-center gap-1 shrink-0">
-                  <Navigation className="h-3.5 w-3.5" /> Rayon :
-                </span>
-                {RADIUS_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.label}
-                    type="button"
-                    onClick={() => setMaxDistance(opt.value)}
-                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold transition-all ${
-                      maxDistance === opt.value
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'border border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/[0.1]'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            )}
+          {(me || cities.length > 1 || availableCategories.length > 0) && (
+            <div className="mb-6 space-y-3">
+              {/* Filtre par rayon si géolocalisé */}
+              {me && (
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                  <span className="text-xs font-bold text-cyan-300 flex items-center gap-1 shrink-0">
+                    <Navigation className="h-3.5 w-3.5" /> Rayon :
+                  </span>
+                  {RADIUS_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.label}
+                      type="button"
+                      onClick={() => setMaxDistance(opt.value)}
+                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold transition-all ${
+                        maxDistance === opt.value
+                          ? 'bg-blue-600 text-white shadow-md'
+                          : 'border border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/[0.1]'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
 
-            {/* Chips Quartiers */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              <span className="text-xs font-bold text-slate-400 flex items-center gap-1 shrink-0">
-                <Compass className="h-3.5 w-3.5 text-emerald-400" /> Quartier :
-              </span>
-              <button
-                type="button"
-                onClick={() => setCity(null)}
-                className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all ${
-                  city === null
-                    ? 'bg-white text-slate-950 shadow-md font-extrabold'
-                    : 'border border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/15'
-                }`}
-              >
-                📍 Tout Dakar & Sénégal
-              </button>
-              {DAKAR_NEIGHBORHOODS.map((name) => {
-                const count = shops.filter((s) => s.city === name).length;
-                return (
+              {/* Villes / Zones réelles */}
+              {cities.length > 1 && (
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                  <span className="text-xs font-bold text-slate-400 flex items-center gap-1 shrink-0">
+                    <Compass className="h-3.5 w-3.5 text-emerald-400" /> Ville / Quartier :
+                  </span>
                   <button
-                    key={name}
                     type="button"
-                    onClick={() => setCity(city === name ? null : name)}
+                    onClick={() => setCity(null)}
                     className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all ${
-                      city === name
-                        ? 'bg-gradient-to-r from-emerald-400 to-teal-400 text-[#02130c] shadow-md font-extrabold'
+                      city === null
+                        ? 'bg-white text-slate-950 shadow-md font-extrabold'
                         : 'border border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/15'
                     }`}
                   >
-                    {name} {count > 0 && <span className="opacity-60 text-[10px]">({count})</span>}
+                    📍 Toutes ({shops.length})
                   </button>
-                );
-              })}
-            </div>
+                  {cities.map(([name, count]) => (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => setCity(city === name ? null : name)}
+                      className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all ${
+                        city === name
+                          ? 'bg-gradient-to-r from-emerald-400 to-teal-400 text-[#02130c] shadow-md font-extrabold'
+                          : 'border border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/15'
+                      }`}
+                    >
+                      {name} <span className="opacity-60 text-[10px]">({count})</span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
-            {/* Chips Catégories de commerces */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              <button
-                type="button"
-                onClick={() => setCategory(null)}
-                className={`relative shrink-0 rounded-2xl px-4 py-2 text-xs font-extrabold transition-all ${
-                  category === null
-                    ? 'bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 text-[#02130c] shadow-lg shadow-emerald-500/20'
-                    : 'border border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10'
-                }`}
-              >
-                <span className="flex items-center gap-1.5">
-                  <Store className="h-3.5 w-3.5" /> Toutes les catégories
-                </span>
-              </button>
-
-              {SHOP_CATEGORIES.map((c) => {
-                const Icon = c.icon;
-                const isActive = category === c.name;
-                return (
+              {/* Catégories de commerces réels */}
+              {availableCategories.length > 0 && (
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
                   <button
-                    key={c.id}
                     type="button"
-                    onClick={() => setCategory(isActive ? null : c.name)}
-                    className={`shrink-0 rounded-2xl px-3.5 py-2 text-xs font-bold transition-all ${
-                      isActive
+                    onClick={() => setCategory(null)}
+                    className={`relative shrink-0 rounded-2xl px-4 py-2 text-xs font-extrabold transition-all ${
+                      category === null
                         ? 'bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 text-[#02130c] shadow-lg shadow-emerald-500/20'
                         : 'border border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10'
                     }`}
                   >
                     <span className="flex items-center gap-1.5">
-                      <Icon className="h-3.5 w-3.5" /> {c.name}
+                      <Store className="h-3.5 w-3.5" /> Toutes les catégories
                     </span>
                   </button>
-                );
-              })}
-            </div>
-          </div>
 
-          {/* En-tête de la grille : nombre de résultats, tri & switcher mobile */}
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-white/[0.08] pb-4">
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-extrabold text-white">
-                {visible.length} boutique{visible.length > 1 ? 's' : ''} disponible{visible.length > 1 ? 's' : ''}
-              </h2>
-              {city && (
-                <span className="rounded-md bg-emerald-500/20 px-2 py-0.5 text-xs font-bold text-emerald-300">
-                  à {city}
-                </span>
-              )}
-              {category && (
-                <span className="rounded-md bg-teal-500/20 px-2 py-0.5 text-xs font-bold text-teal-300">
-                  dans {category}
-                </span>
+                  {availableCategories.map((c) => {
+                    const Icon = c.icon;
+                    const isActive = category === c.name;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setCategory(isActive ? null : c.name)}
+                        className={`shrink-0 rounded-2xl px-3.5 py-2 text-xs font-bold transition-all ${
+                          isActive
+                            ? 'bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 text-[#02130c] shadow-lg shadow-emerald-500/20'
+                            : 'border border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10'
+                        }`}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <Icon className="h-3.5 w-3.5" /> {c.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </div>
+          )}
 
-            <div className="flex items-center gap-3">
-              {/* Sélecteur de tri */}
-              <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] p-1 text-xs">
-                <SlidersHorizontal className="ml-2 h-3.5 w-3.5 text-slate-400" />
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="bg-transparent py-1 pr-3 font-semibold text-white outline-none cursor-pointer"
-                >
-                  {SORT_OPTIONS.map((opt) => (
-                    <option key={opt.id} value={opt.id} className="bg-[#071e16] text-white">
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+          {/* En-tête de la grille si des boutiques existent */}
+          {shops.length > 0 && (
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-white/[0.08] pb-4">
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-extrabold text-white">
+                  {visible.length} boutique{visible.length > 1 ? 's' : ''} disponible{visible.length > 1 ? 's' : ''}
+                </h2>
+                {city && (
+                  <span className="rounded-md bg-emerald-500/20 px-2 py-0.5 text-xs font-bold text-emerald-300">
+                    à {city}
+                  </span>
+                )}
+                {category && (
+                  <span className="rounded-md bg-teal-500/20 px-2 py-0.5 text-xs font-bold text-teal-300">
+                    dans {category}
+                  </span>
+                )}
               </div>
 
-              {/* Sélecteur Liste / Carte (visible sur mobile & tablette) */}
-              <div className="flex rounded-xl border border-white/10 bg-white/[0.06] p-1 lg:hidden">
-                <button
-                  type="button"
-                  onClick={() => setMobileView('list')}
-                  className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                    mobileView === 'list' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <List className="h-3.5 w-3.5" /> Liste
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMobileView('map')}
-                  className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                    mobileView === 'map' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <MapIcon className="h-3.5 w-3.5" /> Carte
-                </button>
+              <div className="flex items-center gap-3">
+                {/* Sélecteur de tri */}
+                <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] p-1 text-xs">
+                  <SlidersHorizontal className="ml-2 h-3.5 w-3.5 text-slate-400" />
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="bg-transparent py-1 pr-3 font-semibold text-white outline-none cursor-pointer"
+                  >
+                    {SORT_OPTIONS.map((opt) => (
+                      <option key={opt.id} value={opt.id} className="bg-[#071e16] text-white">
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Sélecteur Liste / Carte (visible sur mobile & tablette) */}
+                <div className="flex rounded-xl border border-white/10 bg-white/[0.06] p-1 lg:hidden">
+                  <button
+                    type="button"
+                    onClick={() => setMobileView('list')}
+                    className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                      mobileView === 'list' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <List className="h-3.5 w-3.5" /> Liste
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMobileView('map')}
+                    className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                      mobileView === 'map' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <MapIcon className="h-3.5 w-3.5" /> Carte
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Section À la une si pas de filtre de recherche actif */}
+          {/* Section À la une */}
           {featured.length > 0 && !query && !category && !city && (
             <section className="mb-10">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-amber-300">
-                  <Crown className="h-4 w-4 text-amber-400" /> Boutiques recommandées à Dakar
+                  <Crown className="h-4 w-4 text-amber-400" /> Boutiques à la une
                 </h3>
-                <span className="text-xs text-slate-400">Vendeurs vérifiés et plébiscités</span>
               </div>
 
               <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide snap-x">
@@ -1043,25 +811,58 @@ export default function Directory() {
             <EmptyBlock icon={CircleAlert} title="Annuaire indisponible" text={error} />
           ) : loading ? (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {[0, 1, 2, 3, 4, 5].map((i) => (
+              {[0, 1, 2].map((i) => (
                 <div
                   key={i}
                   className="h-96 animate-pulse rounded-[2rem] border border-white/5 bg-white/[0.03]"
                 />
               ))}
             </div>
+          ) : shops.length === 0 ? (
+            /* État vide quand aucune boutique réelle n'a encore publié sa localisation */
+            <div className="mx-auto max-w-2xl rounded-[2.5rem] border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-8 text-center backdrop-blur-xl sm:p-12 shadow-2xl">
+              <span className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 shadow-xl shadow-emerald-500/10">
+                <Store className="h-10 w-10" />
+              </span>
+              <h3 className="mb-3 text-2xl font-extrabold text-white sm:text-3xl">
+                Soyez le premier commerce de votre quartier sur SamaBoutik !
+              </h3>
+              <p className="mx-auto mb-8 max-w-lg text-sm leading-relaxed text-slate-300 sm:text-base">
+                Les commerçants de Dakar et du Sénégal ajoutent progressivement leur vitrine à l'annuaire. Créez votre boutique en 2 minutes ou activez votre localisation publique depuis vos paramètres marchands.
+              </p>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+                <Link
+                  to="/register"
+                  className="shine-btn inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 px-6 py-3.5 text-sm font-extrabold text-[#02130c] shadow-lg shadow-emerald-500/30 transition hover:shadow-emerald-500/50"
+                >
+                  Créer ma boutique gratuitement <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  to="/login"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-6 py-3.5 text-sm font-bold text-white transition hover:bg-white/20"
+                >
+                  Espace Marchand
+                </Link>
+              </div>
+
+              <div className="mt-8 rounded-2xl border border-emerald-500/20 bg-emerald-950/40 p-4 text-xs text-emerald-300/90 text-left">
+                <p className="font-bold mb-1">💡 Vous avez déjà un compte commerçant SamaBoutik ?</p>
+                <p className="text-slate-300">Rendez-vous dans vos <strong>Paramètres</strong> pour renseigner vos coordonnées GPS et cocher <em>« Afficher ma boutique dans l'annuaire »</em>.</p>
+              </div>
+            </div>
           ) : visible.length === 0 ? (
+            /* Filtre de recherche sans résultat */
             <EmptyBlock
               icon={MapPinned}
               title="Aucune boutique ne correspond à vos critères"
-              text="Essayez d'élargir votre recherche, changez de quartier ou supprimez les filtres."
+              text="Essayez d'élargir votre recherche, de changer de zone ou de réinitialiser vos filtres."
               onReset={() => {
                 setQuery('');
                 setCategory(null);
                 setCity(null);
                 setMaxDistance(null);
               }}
-              cta
             />
           ) : (
             <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
@@ -1100,26 +901,28 @@ export default function Directory() {
           )}
 
           {/* Bouton Flottant Mobile pour alterner Liste / Carte (style Airbnb) */}
-          <div className="fixed bottom-6 left-1/2 z-[500] -translate-x-1/2 lg:hidden">
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              type="button"
-              onClick={() => setMobileView(mobileView === 'list' ? 'map' : 'list')}
-              className="flex items-center gap-2 rounded-full border border-white/20 bg-[#061912]/95 px-6 py-3.5 text-sm font-extrabold text-white shadow-2xl backdrop-blur-xl transition hover:border-emerald-400"
-            >
-              {mobileView === 'list' ? (
-                <>
-                  <MapIcon className="h-4 w-4 text-emerald-400" />
-                  <span>Afficher la carte ({visible.length})</span>
-                </>
-              ) : (
-                <>
-                  <List className="h-4 w-4 text-emerald-400" />
-                  <span>Afficher la liste ({visible.length})</span>
-                </>
-              )}
-            </motion.button>
-          </div>
+          {visible.length > 0 && (
+            <div className="fixed bottom-6 left-1/2 z-[500] -translate-x-1/2 lg:hidden">
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                type="button"
+                onClick={() => setMobileView(mobileView === 'list' ? 'map' : 'list')}
+                className="flex items-center gap-2 rounded-full border border-white/20 bg-[#061912]/95 px-6 py-3.5 text-sm font-extrabold text-white shadow-2xl backdrop-blur-xl transition hover:border-emerald-400"
+              >
+                {mobileView === 'list' ? (
+                  <>
+                    <MapIcon className="h-4 w-4 text-emerald-400" />
+                    <span>Afficher la carte ({visible.length})</span>
+                  </>
+                ) : (
+                  <>
+                    <List className="h-4 w-4 text-emerald-400" />
+                    <span>Afficher la liste ({visible.length})</span>
+                  </>
+                )}
+              </motion.button>
+            </div>
+          )}
 
           {/* Bannière d'appel à l'action pour les commerçants */}
           <section className="mt-20 overflow-hidden rounded-[2.5rem] border border-emerald-500/30 bg-gradient-to-br from-emerald-950/60 via-[#071e16] to-[#04120d] p-8 text-center sm:p-12 shadow-2xl">
@@ -1127,7 +930,7 @@ export default function Directory() {
               <Store className="h-7 w-7" />
             </span>
             <h3 className="mb-3 text-2xl font-extrabold text-white sm:text-3xl">
-              Vous tenez un commerce à Dakar ou au Sénégal ?
+              Vous tenez un commerce au Sénégal ?
             </h3>
             <p className="mx-auto mb-6 max-w-xl text-sm leading-relaxed text-slate-300 sm:text-base">
               Créez votre vitrine en 2 minutes, acceptez les paiements Wave & Orange Money et faites apparaître
