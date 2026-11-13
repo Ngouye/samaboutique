@@ -121,9 +121,13 @@ export function AuthProvider({ children }) {
     return data;
   };
 
-  const logout = async () => {
+  // Déconnexion de cet appareil, ou de tous les appareils du compte ({ everywhere: true }).
+  // Même sans réseau, la session est retirée de cet appareil ; seule la fermeture des autres peut échouer.
+  const logout = async (options) => {
     const supabase = await getSupabase();
-    return supabase.auth.signOut();
+    const everywhere = options?.everywhere === true;
+    const { error } = await supabase.auth.signOut({ scope: everywhere ? 'global' : 'local' });
+    return { error };
   };
 
   return (

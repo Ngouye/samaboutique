@@ -62,7 +62,7 @@ export default function ResetPassword() {
     <AuthShell
       title={status === 'invalid' ? 'Lien expiré' : 'Nouveau mot de passe'}
       subtitle={status === 'invalid' ? null : 'Choisissez un mot de passe que vous n\'utilisez pas ailleurs.'}
-      headerAction={<Link to="/login" className="font-bold text-emerald-700 hover:underline">Se connecter</Link>}
+      headerAction={<Link to="/login" className="font-bold text-brand-700 hover:underline">Se connecter</Link>}
       photo="/images/landing/boutique-mode.webp"
       photoAlt="Commerçante dans sa boutique"
       side={
@@ -81,7 +81,7 @@ export default function ResetPassword() {
             <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" />
             <p>Ce lien n'est plus valable : il a déjà servi ou il a expiré. Demandez-en un nouveau depuis la page de connexion.</p>
           </div>
-          <Link to="/login" className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0b1f17] text-[15px] font-bold text-white hover:bg-emerald-800">
+          <Link to="/login" className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-ink text-[15px] font-bold text-white hover:bg-brand-800">
             <ArrowLeft className="h-4 w-4" /> Retour à la connexion
           </Link>
         </div>

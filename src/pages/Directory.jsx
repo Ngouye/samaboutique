@@ -3,19 +3,23 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 import {
   Search, LocateFixed, LoaderCircle, MapPinned, Crown, Star, ArrowRight, Store, Package, List, Map as MapIcon,
-  Sparkles, X, CircleAlert, Navigation, ChevronLeft, ChevronRight, ShieldCheck, Share2, Compass, SlidersHorizontal,
+  Sparkles, X, CircleAlert, Navigation, ChevronLeft, ChevronRight, Share2, Compass, SlidersHorizontal,
   Phone, Check
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { SHOP_CATEGORIES } from '../utils/categories';
 import { nearestCity, distanceKm } from '../components/admin/geo';
 import { getCurrentPosition } from '../utils/geolocation';
+import { whatsappNumber } from '../utils/phone';
 import { BlurWords } from '../components/landing/Magic';
 import DirectoryMap from '../components/directory/DirectoryMap';
+import { BRAND } from '../utils/brand';
+import { useTilt } from '../utils/motion';
+import Logo from '../components/brand/Logo';
 
 const EASE = [0.16, 1, 0.3, 1];
 const fmt = (n) => Math.round(n || 0).toLocaleString('fr-FR');
-const safeColor = (c) => (/^#[0-9a-f]{3,8}$/i.test(c || '') ? c : '#059669');
+const safeColor = (c) => (/^#[0-9a-f]{3,8}$/i.test(c || '') ? c : BRAND.signature);
 const formatDistance = (km) => (km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1).replace('.', ',')} km`);
 
 const RADIUS_OPTIONS = [
@@ -40,6 +44,7 @@ function ShopCard({ shop, index, selected, onHover, onSelect }) {
   const covers = shop.cover_images?.length ? shop.cover_images : shop.banner_url ? [shop.banner_url] : [];
   const [activeImgIndex, setActiveImgIndex] = useState(0);
   const [copied, setCopied] = useState(false);
+  const tilt = useTilt({ max: 5 });
 
   const nextImg = (e) => {
     e.preventDefault();
@@ -81,9 +86,12 @@ function ShopCard({ shop, index, selected, onHover, onSelect }) {
       transition={{ duration: 0.45, ease: EASE, delay: Math.min(index, 8) * 0.04 }}
       onMouseEnter={() => onHover && onHover(shop)}
       onClick={() => onSelect && onSelect(shop)}
-      className={`group relative flex flex-col overflow-hidden rounded-[2rem] bg-gradient-to-b from-white/[0.07] to-white/[0.02] ring-1 backdrop-blur-xl transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-950/40 ${
+      style={tilt.style}
+      onMouseMove={tilt.handlers.onMouseMove}
+      onMouseLeave={tilt.handlers.onMouseLeave}
+      className={`group relative flex flex-col overflow-hidden rounded-[2rem] bg-gradient-to-b from-white/[0.07] to-white/[0.02] ring-1 backdrop-blur-xl transition-shadow duration-300 hover:shadow-2xl hover:shadow-brand-950/40 ${
         selected
-          ? 'ring-2 ring-emerald-400 shadow-2xl shadow-emerald-500/20'
+          ? 'ring-2 ring-brand-400 shadow-2xl shadow-brand-500/20'
           : 'ring-white/10 hover:ring-white/30'
       }`}
     >
@@ -100,12 +108,12 @@ function ShopCard({ shop, index, selected, onHover, onSelect }) {
         ) : (
           <div
             className="h-full w-full"
-            style={{ background: `linear-gradient(135deg, ${color}, #04120d)` }}
+            style={{ background: `linear-gradient(135deg, ${color}, ${BRAND.night})` }}
           />
         )}
 
         {/* Dégradé doux */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#04120d] via-[#04120d]/30 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-night via-night/30 to-transparent" />
 
         {/* Badges superposés */}
         <div className="absolute left-3 top-3 flex flex-wrap items-center gap-1.5 z-10">
@@ -114,15 +122,12 @@ function ShopCard({ shop, index, selected, onHover, onSelect }) {
               <Crown className="h-3 w-3" /> À la une
             </span>
           )}
-          <span className="inline-flex items-center gap-1 rounded-full bg-[#04120d]/80 border border-emerald-400/40 px-2.5 py-1 text-[10px] font-bold text-emerald-300 backdrop-blur">
-            <ShieldCheck className="h-3 w-3 text-emerald-400" /> Vérifié
-          </span>
         </div>
 
         <div className="absolute right-3 top-3 flex items-center gap-1.5 z-10">
           {shop.distanceKm != null && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#04120d]/80 border border-white/20 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur shadow-sm">
-              <Navigation className="h-3 w-3 text-cyan-400" /> {formatDistance(shop.distanceKm)}
+            <span className="inline-flex items-center gap-1 rounded-full bg-night/80 border border-white/20 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur shadow-sm">
+              <Navigation className="h-3 w-3 text-amber-300" /> {formatDistance(shop.distanceKm)}
             </span>
           )}
 
@@ -130,9 +135,10 @@ function ShopCard({ shop, index, selected, onHover, onSelect }) {
             type="button"
             onClick={handleShare}
             title="Partager cette boutique"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur transition hover:bg-black/90"
+            aria-label={copied ? 'Lien copié' : `Partager la boutique ${shop.shop_name}`}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur transition hover:bg-black/90"
           >
-            {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Share2 className="h-3.5 w-3.5" />}
+            {copied ? <Check className="h-3.5 w-3.5 text-brand-400" /> : <Share2 className="h-3.5 w-3.5" />}
           </button>
         </div>
 
@@ -167,11 +173,13 @@ function ShopCard({ shop, index, selected, onHover, onSelect }) {
                     e.stopPropagation();
                     setActiveImgIndex(i);
                   }}
-                  className={`h-1.5 rounded-full transition-all ${
-                    activeImgIndex === i ? 'w-5 bg-emerald-400' : 'w-1.5 bg-white/50 hover:bg-white'
-                  }`}
+                  className="group/dot flex h-8 items-center justify-center px-1"
                   aria-label={`Photo ${i + 1}`}
-                />
+                >
+                  <span className={`block h-1.5 rounded-full transition-all ${
+                    activeImgIndex === i ? 'w-5 bg-brand-400' : 'w-1.5 bg-white/50 group-hover/dot:bg-white'
+                  }`} />
+                </button>
               ))}
             </div>
           </>
@@ -183,7 +191,7 @@ function ShopCard({ shop, index, selected, onHover, onSelect }) {
         {/* Logo / Avatar flottant + Note */}
         <div className="-mt-7 mb-3 flex items-end justify-between">
           <div
-            className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl text-xl font-extrabold text-white shadow-xl ring-4 ring-[#071e16]"
+            className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl text-xl font-extrabold text-white shadow-xl ring-4 ring-night"
             style={{ background: color }}
           >
             {shop.logo_url ? (
@@ -207,18 +215,15 @@ function ShopCard({ shop, index, selected, onHover, onSelect }) {
                 <span className="text-white/40 font-normal">({shop.reviews_count || 0})</span>
               </span>
             )}
-            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-bold text-emerald-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" /> Ouvert
-            </span>
           </div>
         </div>
 
         {/* Titre & Localisation */}
         <Link to={`/boutique/${encodeURIComponent(shop.shop_name)}`} className="group/title block">
-          <h3 className="truncate text-lg font-extrabold text-white transition-colors group-hover/title:text-emerald-300">
+          <h3 className="truncate text-lg font-extrabold text-white transition-colors group-hover/title:text-brand-300">
             {shop.shop_name}
           </h3>
-          <p className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
+          <p className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold text-brand-400">
             <MapPinned className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{shop.city}{shop.address ? ` · ${shop.address}` : ''}</span>
           </p>
@@ -237,7 +242,7 @@ function ShopCard({ shop, index, selected, onHover, onSelect }) {
             {shop.categories.slice(0, 3).map((c) => (
               <span
                 key={c}
-                className="rounded-lg bg-emerald-950/60 border border-emerald-500/20 px-2.5 py-1 text-[11px] font-semibold text-emerald-300"
+                className="rounded-lg bg-brand-950/60 border border-brand-500/20 px-2.5 py-1 text-[11px] font-semibold text-brand-300"
               >
                 {c}
               </span>
@@ -253,7 +258,7 @@ function ShopCard({ shop, index, selected, onHover, onSelect }) {
               <strong className="text-white">{shop.products_count}</strong> produit{shop.products_count > 1 ? 's' : ''}
             </span>
             {shop.min_price_fcfa != null && shop.min_price_fcfa > 0 && (
-              <span className="font-semibold text-emerald-300">
+              <span className="font-semibold text-brand-300">
                 dès {fmt(shop.min_price_fcfa)} FCFA
               </span>
             )}
@@ -262,18 +267,18 @@ function ShopCard({ shop, index, selected, onHover, onSelect }) {
           <div className="flex items-center gap-2">
             <Link
               to={`/boutique/${encodeURIComponent(shop.shop_name)}`}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 py-2.5 text-xs font-extrabold text-[#02130c] shadow-lg shadow-emerald-500/20 transition-all hover:brightness-110 active:scale-95"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-brand-400 to-amber-300 py-2.5 text-xs font-extrabold text-night shadow-lg shadow-brand-500/20 transition-all hover:brightness-110 active:scale-95"
             >
               Visiter <ArrowRight className="h-3.5 w-3.5" />
             </Link>
 
             {shop.whatsapp && (
               <a
-                href={`https://wa.me/${shop.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Bonjour ${shop.shop_name}, j'ai vu votre vitrine sur SamaBoutik !`)}`}
+                href={`https://wa.me/${shop.whatsapp}?text=${encodeURIComponent(`Bonjour ${shop.shop_name}, j'ai vu votre vitrine sur SamaBoutik !`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 title="Contacter sur WhatsApp"
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 transition hover:bg-emerald-500/20 active:scale-95"
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-brand-500/30 bg-brand-500/10 text-brand-400 transition hover:bg-brand-500/20 active:scale-95"
               >
                 <Phone className="h-4 w-4" />
               </a>
@@ -293,6 +298,7 @@ function ShopCard({ shop, index, selected, onHover, onSelect }) {
           </div>
         </div>
       </div>
+      {tilt.enabled && <span className="tilt-glare z-20" aria-hidden="true" />}
     </motion.article>
   );
 }
@@ -325,6 +331,9 @@ export default function Directory() {
           const realShops = (data || []).map((s) => ({
             ...s,
             city: s.city || nearestCity(s.latitude, s.longitude) || 'Sénégal',
+            // Colonnes ajoutées par stock_et_annuaire.sql (absentes tant que le script n'est pas exécuté)
+            whatsapp: whatsappNumber(s.phone_number) || null,
+            address: s.address || null,
             products_count: Number(s.products_count || 0),
             reviews_count: Number(s.reviews_count || 0),
             rating: Number(s.rating || 0),
@@ -443,28 +452,18 @@ export default function Directory() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="min-h-screen bg-[#04120d] font-sans text-white antialiased selection:bg-emerald-500 selection:text-black">
+      <div className="min-h-screen bg-night font-sans text-white antialiased selection:bg-brand-500 selection:text-black">
         {/* Barre de navigation supérieure */}
-        <nav className="sticky top-0 z-[600] border-b border-white/[0.08] bg-[#04120d]/85 backdrop-blur-xl">
+        <nav className="sticky top-0 z-[600] border-b border-white/[0.08] bg-night/85 backdrop-blur-xl">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-            <Link
-              to="/"
-              className="flex h-10 w-auto items-center justify-center overflow-hidden rounded-xl bg-white px-2 py-1 shadow-[0_0_25px_rgba(52,211,153,0.25)] transition hover:scale-105"
-            >
-              <img
-                src="/logo.webp"
-                alt="SamaBoutik"
-                width="252"
-                height="186"
-                decoding="async"
-                className="h-full w-auto object-contain"
-              />
+            <Link to="/" aria-label="SamaBoutik, accueil" className="flex items-center transition hover:scale-[1.03]">
+              <Logo variant="dark" markClassName="h-9 w-9" textClassName="text-lg hidden sm:inline" />
             </Link>
 
             <div className="flex items-center gap-3">
               <Link
                 to="/register"
-                className="shine-btn rounded-full bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 px-4 py-2 text-xs font-extrabold text-[#02130c] shadow-[0_0_25px_rgba(52,211,153,0.35)] transition hover:shadow-emerald-500/50 sm:text-sm"
+                className="shine-btn inline-flex min-h-10 items-center rounded-full bg-gradient-to-r from-brand-400 via-amber-200 to-brand-400 px-4 py-2 text-xs font-extrabold text-night shadow-[0_0_25px_color-mix(in_srgb,_var(--color-brand-400)_35%,_transparent)] transition hover:shadow-brand-500/50 sm:text-sm"
               >
                 <span className="hidden sm:inline">Vous êtes commerçant ? </span>Créer ma boutique
               </Link>
@@ -475,25 +474,25 @@ export default function Directory() {
         {/* Hero Banner / En-tête immersif */}
         <header className="relative overflow-hidden px-4 pb-12 pt-12 md:pb-16 md:pt-20">
           <div
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgba(52,211,153,0.15)_1px,transparent_1px)] [background-size:24px_24px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(color-mix(in_srgb,_var(--color-brand-400)_15%,_transparent)_1px,transparent_1px)] [background-size:24px_24px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]"
             aria-hidden="true"
           />
-          <div className="pointer-events-none absolute -left-40 top-0 h-96 w-96 rounded-full bg-emerald-500/20 blur-[130px]" />
-          <div className="pointer-events-none absolute -right-40 top-20 h-96 w-96 rounded-full bg-cyan-500/15 blur-[140px]" />
+          <div className="pointer-events-none absolute -left-40 top-0 h-96 w-96 rounded-full bg-brand-500/20 blur-[130px]" />
+          <div className="pointer-events-none absolute -right-40 top-20 h-96 w-96 rounded-full bg-amber-500/10 blur-[140px]" />
 
           <div className="relative mx-auto max-w-4xl text-center">
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-1.5 text-xs font-bold text-emerald-300 shadow-sm"
+              className="mb-4 inline-flex items-center gap-2 rounded-full border border-brand-400/30 bg-brand-400/10 px-4 py-1.5 text-xs font-bold text-brand-300 shadow-sm"
             >
-              <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
+              <Sparkles className="h-3.5 w-3.5 text-brand-400" />
               <span>Annuaire Officiel SamaBoutik · Sénégal</span>
             </motion.div>
 
             <h1 className="mb-4 text-4xl font-extrabold leading-[1.08] tracking-tight md:text-6xl">
               <BlurWords text="Explorez les boutiques" />{' '}
-              <span className="bg-gradient-to-r from-emerald-300 via-teal-200 to-cyan-300 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-brand-300 via-brand-200 to-amber-200 bg-clip-text text-transparent">
                 près de chez vous
               </span>
             </h1>
@@ -515,13 +514,13 @@ export default function Directory() {
               transition={{ delay: 0.45, ease: EASE, duration: 0.6 }}
               className="mx-auto flex max-w-2xl flex-col gap-2 rounded-3xl border border-white/15 bg-white/[0.06] p-2.5 shadow-2xl backdrop-blur-xl sm:flex-row"
             >
-              <label className="flex flex-1 items-center gap-3 rounded-2xl bg-white/[0.05] px-4 ring-1 ring-white/10 transition focus-within:ring-emerald-400">
-                <Search className="h-5 w-5 shrink-0 text-emerald-400" />
+              <label className="flex flex-1 items-center gap-3 rounded-2xl bg-white/[0.05] px-4 ring-1 ring-white/10 transition focus-within:ring-brand-400">
+                <Search className="h-5 w-5 shrink-0 text-brand-400" />
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Rechercher une boutique, article, quartier..."
-                  className="w-full bg-transparent py-3.5 text-sm text-white outline-none placeholder:text-slate-400"
+                  className="w-full bg-transparent py-3.5 text-base text-white outline-none placeholder:text-slate-400 sm:text-sm"
                 />
                 {query && (
                   <button
@@ -544,7 +543,7 @@ export default function Directory() {
                   className={`flex flex-1 sm:flex-initial items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-extrabold shadow-md transition-all ${
                     me
                       ? 'bg-blue-600 text-white shadow-blue-500/30 hover:bg-blue-500'
-                      : 'bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 text-[#02130c] shadow-emerald-500/30 hover:brightness-110'
+                      : 'bg-gradient-to-r from-brand-400 via-amber-200 to-brand-400 text-night shadow-brand-500/30 hover:brightness-110'
                   }`}
                 >
                   {locating ? (
@@ -582,7 +581,7 @@ export default function Directory() {
               className="mt-8 flex flex-wrap items-center justify-center gap-6 text-center sm:gap-12"
             >
               <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500/10 border border-brand-500/20 text-brand-400">
                   <Store className="h-5 w-5" />
                 </span>
                 <div className="text-left">
@@ -592,7 +591,7 @@ export default function Directory() {
               </div>
 
               <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300">
                   <MapPinned className="h-5 w-5" />
                 </span>
                 <div className="text-left">
@@ -607,7 +606,7 @@ export default function Directory() {
                     <Navigation className="h-5 w-5" />
                   </span>
                   <div className="text-left">
-                    <p className="text-xl font-extrabold text-emerald-300">{nearbyCount}</p>
+                    <p className="text-xl font-extrabold text-brand-300">{nearbyCount}</p>
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">À moins de 5 km</p>
                   </div>
                 </div>
@@ -624,7 +623,7 @@ export default function Directory() {
               {/* Filtre par rayon si géolocalisé */}
               {me && (
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                  <span className="text-xs font-bold text-cyan-300 flex items-center gap-1 shrink-0">
+                  <span className="text-xs font-bold text-amber-300 flex items-center gap-1 shrink-0">
                     <Navigation className="h-3.5 w-3.5" /> Rayon :
                   </span>
                   {RADIUS_OPTIONS.map((opt) => (
@@ -648,12 +647,12 @@ export default function Directory() {
               {cities.length > 1 && (
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
                   <span className="text-xs font-bold text-slate-400 flex items-center gap-1 shrink-0">
-                    <Compass className="h-3.5 w-3.5 text-emerald-400" /> Ville / Quartier :
+                    <Compass className="h-3.5 w-3.5 text-brand-400" /> Ville / Quartier :
                   </span>
                   <button
                     type="button"
                     onClick={() => setCity(null)}
-                    className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all ${
+                    className={`min-h-9 shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all ${
                       city === null
                         ? 'bg-white text-slate-950 shadow-md font-extrabold'
                         : 'border border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/15'
@@ -666,9 +665,9 @@ export default function Directory() {
                       key={name}
                       type="button"
                       onClick={() => setCity(city === name ? null : name)}
-                      className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all ${
+                      className={`min-h-9 shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all ${
                         city === name
-                          ? 'bg-gradient-to-r from-emerald-400 to-teal-400 text-[#02130c] shadow-md font-extrabold'
+                          ? 'bg-gradient-to-r from-brand-400 to-amber-300 text-night shadow-md font-extrabold'
                           : 'border border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/15'
                       }`}
                     >
@@ -684,9 +683,9 @@ export default function Directory() {
                   <button
                     type="button"
                     onClick={() => setCategory(null)}
-                    className={`relative shrink-0 rounded-2xl px-4 py-2 text-xs font-extrabold transition-all ${
+                    className={`relative min-h-10 shrink-0 rounded-2xl px-4 py-2 text-xs font-extrabold transition-all ${
                       category === null
-                        ? 'bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 text-[#02130c] shadow-lg shadow-emerald-500/20'
+                        ? 'bg-gradient-to-r from-brand-400 via-amber-200 to-brand-400 text-night shadow-lg shadow-brand-500/20'
                         : 'border border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10'
                     }`}
                   >
@@ -703,9 +702,9 @@ export default function Directory() {
                         key={c.id}
                         type="button"
                         onClick={() => setCategory(isActive ? null : c.name)}
-                        className={`shrink-0 rounded-2xl px-3.5 py-2 text-xs font-bold transition-all ${
+                        className={`min-h-10 shrink-0 rounded-2xl px-3.5 py-2 text-xs font-bold transition-all ${
                           isActive
-                            ? 'bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 text-[#02130c] shadow-lg shadow-emerald-500/20'
+                            ? 'bg-gradient-to-r from-brand-400 via-amber-200 to-brand-400 text-night shadow-lg shadow-brand-500/20'
                             : 'border border-white/10 bg-white/[0.05] text-slate-300 hover:bg-white/10'
                         }`}
                       >
@@ -728,12 +727,12 @@ export default function Directory() {
                   {visible.length} boutique{visible.length > 1 ? 's' : ''} disponible{visible.length > 1 ? 's' : ''}
                 </h2>
                 {city && (
-                  <span className="rounded-md bg-emerald-500/20 px-2 py-0.5 text-xs font-bold text-emerald-300">
+                  <span className="rounded-md bg-brand-500/20 px-2 py-0.5 text-xs font-bold text-brand-300">
                     à {city}
                   </span>
                 )}
                 {category && (
-                  <span className="rounded-md bg-teal-500/20 px-2 py-0.5 text-xs font-bold text-teal-300">
+                  <span className="rounded-md bg-amber-400/15 px-2 py-0.5 text-xs font-bold text-amber-200">
                     dans {category}
                   </span>
                 )}
@@ -746,10 +745,10 @@ export default function Directory() {
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
-                    className="bg-transparent py-1 pr-3 font-semibold text-white outline-none cursor-pointer"
+                    className="min-h-9 bg-transparent py-1 pr-3 text-base font-semibold text-white outline-none cursor-pointer sm:text-[inherit]"
                   >
                     {SORT_OPTIONS.map((opt) => (
-                      <option key={opt.id} value={opt.id} className="bg-[#071e16] text-white">
+                      <option key={opt.id} value={opt.id} className="bg-night text-white">
                         {opt.label}
                       </option>
                     ))}
@@ -761,7 +760,7 @@ export default function Directory() {
                   <button
                     type="button"
                     onClick={() => setMobileView('list')}
-                    className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                    className={`flex min-h-9 items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
                       mobileView === 'list' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
                     }`}
                   >
@@ -770,7 +769,7 @@ export default function Directory() {
                   <button
                     type="button"
                     onClick={() => setMobileView('map')}
-                    className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                    className={`flex min-h-9 items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
                       mobileView === 'map' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
                     }`}
                   >
@@ -821,7 +820,7 @@ export default function Directory() {
           ) : shops.length === 0 ? (
             /* État vide quand aucune boutique réelle n'a encore publié sa localisation */
             <div className="mx-auto max-w-2xl rounded-[2.5rem] border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-8 text-center backdrop-blur-xl sm:p-12 shadow-2xl">
-              <span className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 shadow-xl shadow-emerald-500/10">
+              <span className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-brand-500/10 border border-brand-500/30 text-brand-400 shadow-xl shadow-brand-500/10">
                 <Store className="h-10 w-10" />
               </span>
               <h3 className="mb-3 text-2xl font-extrabold text-white sm:text-3xl">
@@ -834,7 +833,7 @@ export default function Directory() {
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
                 <Link
                   to="/register"
-                  className="shine-btn inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 px-6 py-3.5 text-sm font-extrabold text-[#02130c] shadow-lg shadow-emerald-500/30 transition hover:shadow-emerald-500/50"
+                  className="shine-btn inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-brand-400 via-amber-200 to-brand-400 px-6 py-3.5 text-sm font-extrabold text-night shadow-lg shadow-brand-500/30 transition hover:shadow-brand-500/50"
                 >
                   Créer ma boutique gratuitement <ArrowRight className="h-4 w-4" />
                 </Link>
@@ -846,7 +845,7 @@ export default function Directory() {
                 </Link>
               </div>
 
-              <div className="mt-8 rounded-2xl border border-emerald-500/20 bg-emerald-950/40 p-4 text-xs text-emerald-300/90 text-left">
+              <div className="mt-8 rounded-2xl border border-brand-500/20 bg-brand-950/40 p-4 text-xs text-brand-300/90 text-left">
                 <p className="font-bold mb-1">💡 Vous avez déjà un compte commerçant SamaBoutik ?</p>
                 <p className="text-slate-300">Rendez-vous dans vos <strong>Paramètres</strong> pour renseigner vos coordonnées GPS et cocher <em>« Afficher ma boutique dans l'annuaire »</em>.</p>
               </div>
@@ -893,7 +892,7 @@ export default function Directory() {
                     me={me}
                     selected={selected}
                     onSelect={setSelected}
-                    className="h-[75vh] lg:h-[calc(100vh-8rem)]"
+                    className="h-[75vh] supports-[height:100dvh]:h-[75dvh] lg:h-[calc(100vh-8rem)]"
                   />
                 </div>
               </div>
@@ -907,16 +906,16 @@ export default function Directory() {
                 whileTap={{ scale: 0.95 }}
                 type="button"
                 onClick={() => setMobileView(mobileView === 'list' ? 'map' : 'list')}
-                className="flex items-center gap-2 rounded-full border border-white/20 bg-[#061912]/95 px-6 py-3.5 text-sm font-extrabold text-white shadow-2xl backdrop-blur-xl transition hover:border-emerald-400"
+                className="flex items-center gap-2 rounded-full border border-white/20 bg-night/95 px-6 py-3.5 text-sm font-extrabold text-white shadow-2xl backdrop-blur-xl transition hover:border-brand-400"
               >
                 {mobileView === 'list' ? (
                   <>
-                    <MapIcon className="h-4 w-4 text-emerald-400" />
+                    <MapIcon className="h-4 w-4 text-brand-400" />
                     <span>Afficher la carte ({visible.length})</span>
                   </>
                 ) : (
                   <>
-                    <List className="h-4 w-4 text-emerald-400" />
+                    <List className="h-4 w-4 text-brand-400" />
                     <span>Afficher la liste ({visible.length})</span>
                   </>
                 )}
@@ -925,8 +924,8 @@ export default function Directory() {
           )}
 
           {/* Bannière d'appel à l'action pour les commerçants */}
-          <section className="mt-20 overflow-hidden rounded-[2.5rem] border border-emerald-500/30 bg-gradient-to-br from-emerald-950/60 via-[#071e16] to-[#04120d] p-8 text-center sm:p-12 shadow-2xl">
-            <span className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+          <section className="mt-20 overflow-hidden rounded-[2.5rem] border border-brand-500/30 bg-gradient-to-br from-brand-950/60 via-night to-night p-8 text-center sm:p-12 shadow-2xl">
+            <span className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-500/20 text-brand-300 border border-brand-400/30">
               <Store className="h-7 w-7" />
             </span>
             <h3 className="mb-3 text-2xl font-extrabold text-white sm:text-3xl">
@@ -938,7 +937,7 @@ export default function Directory() {
             </p>
             <Link
               to="/register"
-              className="shine-btn inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 px-6 py-3.5 text-sm font-extrabold text-[#02130c] shadow-lg shadow-emerald-500/30 transition hover:shadow-emerald-500/50"
+              className="shine-btn inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-brand-400 via-amber-200 to-brand-400 px-6 py-3.5 text-sm font-extrabold text-night shadow-lg shadow-brand-500/30 transition hover:shadow-brand-500/50"
             >
               Lancer ma boutique gratuitement <ArrowRight className="h-4 w-4" />
             </Link>
@@ -959,7 +958,7 @@ function EmptyBlock({ icon: Icon, title, text, cta = false, onReset }) {
       <motion.span
         animate={{ y: [0, -6, 0] }}
         transition={{ duration: 2.5, repeat: Infinity }}
-        className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 text-[#02130c] shadow-lg shadow-emerald-500/30"
+        className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-400 to-amber-400 text-night shadow-lg shadow-brand-500/30"
       >
         <Icon className="h-8 w-8" />
       </motion.span>
@@ -978,7 +977,7 @@ function EmptyBlock({ icon: Icon, title, text, cta = false, onReset }) {
         {cta && (
           <Link
             to="/register"
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 px-5 py-2.5 text-xs font-extrabold text-[#02130c] shadow-md hover:brightness-110"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-400 to-amber-300 px-5 py-2.5 text-xs font-extrabold text-night shadow-md hover:brightness-110"
           >
             Créer ma boutique <ArrowRight className="h-3.5 w-3.5" />
           </Link>

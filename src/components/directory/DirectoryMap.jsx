@@ -3,11 +3,12 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Crown, Star, Navigation, Compass, Store, ExternalLink } from 'lucide-react';
+import { Crown, Star, Navigation, Compass, Store } from 'lucide-react';
 import { DAKAR_CENTER } from '../admin/geo';
+import { BRAND } from '../../utils/brand';
 
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const safeColor = (c) => (/^#[0-9a-f]{3,8}$/i.test(c || '') ? c : '#059669');
+const safeColor = (c) => (/^#[0-9a-f]{3,8}$/i.test(c || '') ? c : BRAND.signature);
 const safeUrl = (u) => (/^https:\/\/[^\s"'()<>]+$/i.test(u || '') ? u : null);
 const formatDistance = (km) => (km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1).replace('.', ',')} km`);
 
@@ -77,9 +78,9 @@ function MapControls({ me, onResetDakar }) {
           if (onResetDakar) onResetDakar();
         }}
         title="Centrer sur Dakar"
-        className="flex items-center gap-1.5 rounded-xl border border-white/20 bg-[#061912]/90 px-3 py-2 text-xs font-bold text-white shadow-lg backdrop-blur transition-all hover:bg-[#09251b] hover:border-emerald-400/50"
+        className="flex items-center gap-1.5 rounded-xl border border-white/20 bg-night/90 px-3 py-2 text-xs font-bold text-white shadow-lg backdrop-blur transition-all hover:bg-[#09251b] hover:border-brand-400/50"
       >
-        <Compass className="h-3.5 w-3.5 text-emerald-400" />
+        <Compass className="h-3.5 w-3.5 text-brand-400" />
         <span className="hidden sm:inline">Dakar</span>
       </button>
 
@@ -105,13 +106,13 @@ export default function DirectoryMap({ shops, me, selected, onSelect, className 
   );
 
   return (
-    <div className={`relative isolate overflow-hidden rounded-[2rem] border border-white/10 bg-[#04120d] shadow-2xl ${className}`}>
+    <div className={`relative isolate overflow-hidden rounded-[2rem] border border-white/10 bg-night shadow-2xl ${className}`}>
       <MapContainer
         center={DAKAR_CENTER}
         zoom={12}
         scrollWheelZoom
         className="h-full w-full"
-        style={{ background: '#071e16' }}
+        style={{ background: BRAND.night }}
       >
         {/* CartoDB Voyager : rendu cartographique ultra moderne et soigné */}
         <TileLayer
@@ -151,7 +152,7 @@ export default function DirectoryMap({ shops, me, selected, onSelect, className 
                         className="h-full w-full object-cover"
                         loading="lazy"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#061912] via-transparent to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-night via-transparent to-transparent" />
                       {shop.featured && (
                         <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-extrabold text-amber-950 shadow">
                           <Crown className="h-2.5 w-2.5" /> À la une
@@ -159,14 +160,14 @@ export default function DirectoryMap({ shops, me, selected, onSelect, className 
                       )}
                       {shop.distanceKm != null && (
                         <span className="absolute right-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur">
-                          <Navigation className="h-2.5 w-2.5 text-emerald-400" /> {formatDistance(shop.distanceKm)}
+                          <Navigation className="h-2.5 w-2.5 text-brand-400" /> {formatDistance(shop.distanceKm)}
                         </span>
                       )}
                     </div>
                   ) : (
                     <div
                       className="h-16 w-full"
-                      style={{ background: `linear-gradient(135deg, ${color}, #061912)` }}
+                      style={{ background: `linear-gradient(135deg, ${color}, ${BRAND.night})` }}
                     />
                   )}
 
@@ -183,7 +184,7 @@ export default function DirectoryMap({ shops, me, selected, onSelect, className 
                       )}
                     </div>
 
-                    <p className="mb-2 text-[11px] text-emerald-300/90 font-medium">
+                    <p className="mb-2 text-[11px] text-brand-300/90 font-medium">
                       📍 {shop.city || 'Dakar'}{shop.address ? ` · ${shop.address}` : ''}
                     </p>
 
@@ -197,7 +198,7 @@ export default function DirectoryMap({ shops, me, selected, onSelect, className 
                     <div className="grid grid-cols-2 gap-2">
                       <Link
                         to={`/boutique/${encodeURIComponent(shop.shop_name)}`}
-                        className="flex items-center justify-center gap-1 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 py-2 text-center text-xs font-extrabold text-[#02130c] shadow-sm transition hover:brightness-110"
+                        className="flex items-center justify-center gap-1 rounded-xl bg-gradient-to-r from-brand-400 to-amber-300 py-2 text-center text-xs font-extrabold text-night shadow-sm transition hover:brightness-110"
                       >
                         <Store className="h-3 w-3" /> Vitrine
                       </Link>
@@ -207,7 +208,7 @@ export default function DirectoryMap({ shops, me, selected, onSelect, className 
                         rel="noopener noreferrer"
                         className="flex items-center justify-center gap-1 rounded-xl border border-white/15 bg-white/10 py-2 text-center text-xs font-bold text-white transition hover:bg-white/20"
                       >
-                        <Navigation className="h-3 w-3 text-cyan-400" /> Y aller
+                        <Navigation className="h-3 w-3 text-amber-300" /> Y aller
                       </a>
                     </div>
                   </div>
@@ -219,8 +220,8 @@ export default function DirectoryMap({ shops, me, selected, onSelect, className 
       </MapContainer>
 
       {/* Badge indicateur en bas de la carte */}
-      <div className="pointer-events-none absolute bottom-3 left-3 z-[400] flex items-center gap-2 rounded-xl border border-white/15 bg-[#061912]/90 px-3 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur">
-        <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+      <div className="pointer-events-none absolute bottom-3 left-3 z-[400] flex items-center gap-2 rounded-xl border border-white/15 bg-night/90 px-3 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur">
+        <span className="h-2 w-2 rounded-full bg-brand-400 animate-pulse" />
         <span>{shops.length} boutique{shops.length > 1 ? 's' : ''} sur la carte</span>
       </div>
     </div>

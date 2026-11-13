@@ -225,3 +225,150 @@ describe('Parcours 5 : avis clients', () => {
     expect((await t.value(`SELECT public.submit_review($1, 5, 'Encore un avis', 'Spam') AS v`, [IDS.BOUBOU])).error).toMatch(/plusieurs avis/);
   });
 });
+
+describe('Parcours 6 : le stock suit les commandes', () => {
+  const PAGNE = 'aaaaaaaa-0000-0000-0000-000000000003';
+  const stock = async () => { await t.as('service_role'); return (await t.query(`SELECT stock FROM public.products WHERE id = $1`, [PAGNE]))[0].stock; };
+  const order = async (ip, items) => {
+    await t.as('anon', null, { ip });
+    return t.attempt(`SELECT public.place_order($1, 'Fatou Diop', '781112233', 'Médina, rue 11', $2, $3::jsonb, '4827') AS v`, [IDS.MERCHANT, ZONE, JSON.stringify(items)]);
+  };
+  const line = (quantity, name = 'Pagne') => ({ product_id: PAGNE, name, price: 1, quantity });
+  const setStatus = async (id, status) => { await t.as('authenticated', IDS.MERCHANT); await t.query(`UPDATE public.orders SET status = $2 WHERE id = $1`, [id, status]); };
+  let codId;
+
+  beforeAll(async () => {
+    await t.asAuthService();
+    await t.query(`INSERT INTO public.products (id, merchant_id, name, price_fcfa, stock, category) VALUES ($1, $2, 'Pagne', 8000, 3, 'Vêtements')`, [PAGNE, IDS.MERCHANT]);
+  });
+
+  it('paiement à la livraison : le stock baisse dès la commande', async () => {
+    const { rows } = await order('10.0.6.1', [line(2)]);
+    codId = rows[0].v.id;
+    expect(await stock()).toBe(1);
+  });
+
+  it('refuse une commande qui dépasse le stock, variantes comprises, sans rien modifier', async () => {
+    expect((await order('10.0.6.2', [line(2)])).error).toBe('Il ne reste que 1 exemplaire de « Pagne ». Réduisez la quantité dans le panier.');
+    expect((await order('10.0.6.2', [line(1, 'Pagne (Rouge)'), line(1, 'Pagne (Bleu)')])).error).toMatch(/Il ne reste que 1 exemplaire/);
+    expect(await stock()).toBe(1);
+    await t.as('service_role');
+    expect(await t.query(`SELECT id FROM public.orders WHERE cart_items @> $1::jsonb`, [JSON.stringify([{ product_id: PAGNE }])])).toHaveLength(1);
+  });
+
+  it('la dernière pièce part une seule fois, ensuite le produit est épuisé', async () => {
+    expect((await order('10.0.6.3', [line(1)])).error).toBeUndefined();
+    expect(await stock()).toBe(0);
+    expect((await order('10.0.6.3', [line(1)])).error).toBe('Désolé, « Pagne » est épuisé. Retirez-le du panier pour continuer.');
+  });
+
+  it('une commande annulée rend son stock, une seule fois ; réactivée, elle le reprend', async () => {
+    await setStatus(codId, 'CANCELLED');
+    expect(await stock()).toBe(2);
+    await t.as('authenticated', IDS.MERCHANT);
+    await t.query(`UPDATE public.orders SET customer_address = 'Médina, rue 12' WHERE id = $1`, [codId]); // reste annulée
+    expect(await stock()).toBe(2);
+    await setStatus(codId, 'PREPARING');
+    expect(await stock()).toBe(0);
+    await setStatus(codId, 'DELIVERED');
+    expect(await stock()).toBe(0);
+  });
+
+  it('Wave / Orange Money : stock vérifié à la commande, déduit seulement une fois payé', async () => {
+    await t.asAuthService();
+    await t.query(`UPDATE public.products SET stock = 3 WHERE id = $1`, [PAGNE]);
+    const insert = async (quantity) => {
+      await t.as('service_role');
+      return t.attempt(`INSERT INTO public.orders (merchant_id, customer_name, customer_phone, customer_address, delivery_zone, total_amount_fcfa, cart_items, payment_method) VALUES ($1, 'Awa', '760000001', 'Ouakam', $2, 0, $3::jsonb, 'MOBILE_MONEY') RETURNING id`, [IDS.MERCHANT, ZONE, JSON.stringify([line(quantity)])]);
+    };
+    expect((await insert(4)).error).toMatch(/Il ne reste que 3 exemplaires de « Pagne »/);
+    const paid = (await insert(2)).rows[0].id;
+    await insert(1); // paiement abandonné : ne bloque rien
+    expect(await stock()).toBe(3);
+    await t.as('service_role');
+    await t.query(`UPDATE public.orders SET status = 'PREPARING', payment_status = 'PAID' WHERE id = $1 AND status = 'PENDING'`, [paid]);
+    expect(await stock()).toBe(1);
+  });
+
+  it('la colonne « stock déduit » ne se modifie pas à la main, et les anciennes commandes ne touchent pas au stock', async () => {
+    await t.as('authenticated', IDS.MERCHANT);
+    await t.query(`UPDATE public.orders SET stock_reserved = false WHERE id = $1`, [codId]);
+    await t.as('service_role');
+    expect((await t.query(`SELECT stock_reserved FROM public.orders WHERE id = $1`, [codId]))[0].stock_reserved).toBe(true);
+
+    // Commande passée avant l'installation du script : stock_reserved vide
+    await t.asAuthService();
+    await t.db.exec(`ALTER TABLE public.orders DISABLE TRIGGER orders_sync_stock; UPDATE public.orders SET stock_reserved = NULL WHERE id = '${codId}'; ALTER TABLE public.orders ENABLE TRIGGER orders_sync_stock;`);
+    const before = await stock();
+    await setStatus(codId, 'CANCELLED');
+    expect(await stock()).toBe(before);
+  });
+
+  it('les fonctions de stock ne sont pas appelables par les visiteurs', async () => {
+    await t.as('anon');
+    expect(isDenied(await t.attempt(`SELECT public.apply_order_stock($1, $2::jsonb, 'give_back')`, [IDS.MERCHANT, JSON.stringify([line(50)])]))).toBe(true);
+    await t.as('anon');
+    expect(isDenied(await t.attempt(`SELECT public.adjust_product_stock($1, 5)`, [PAGNE]))).toBe(true);
+  });
+
+  it('réassort rapide +1 / −1 : relatif, jamais sous zéro, seulement sur ses propres produits', async () => {
+    const adjust = async (delta, merchant = IDS.MERCHANT) => {
+      await t.as('authenticated', merchant);
+      return t.attempt(`SELECT public.adjust_product_stock($1, $2) AS v`, [PAGNE, delta]);
+    };
+    await t.asAuthService();
+    await t.query(`UPDATE public.products SET stock = 1 WHERE id = $1`, [PAGNE]);
+    expect((await adjust(3)).rows[0].v).toBe(4);
+    expect((await adjust(-10)).rows[0].v).toBe(0);
+    // Stock négatif (vente en trop) : un retrait ne l'aggrave pas, un ajout le corrige.
+    await t.asAuthService();
+    await t.query(`UPDATE public.products SET stock = -1 WHERE id = $1`, [PAGNE]);
+    expect((await adjust(-1)).rows[0].v).toBe(-1);
+    expect((await adjust(2)).rows[0].v).toBe(1);
+    expect((await adjust(5, IDS.OTHER)).error).toMatch(/Produit introuvable/);
+    expect((await adjust(0)).error).toMatch(/Quantité invalide/);
+    expect(await stock()).toBe(1);
+  });
+});
+
+describe('Parcours 7 : annuaire des boutiques', () => {
+  it('chaque fiche donne le numéro WhatsApp et l’adresse de la boutique', async () => {
+    await t.asAuthService();
+    await t.query(`UPDATE public.merchants SET address = 'Sicap Liberté 6' WHERE id = '44444444-4444-4444-4444-444444444444'`);
+    await t.query(`INSERT INTO public.products (merchant_id, name, price_fcfa, stock, category) VALUES ('44444444-4444-4444-4444-444444444444', 'Thiouraye', 3000, 5, 'Beauté & Santé')`);
+    await t.as('anon');
+    const shops = await t.query(`SELECT shop_name, phone_number, address, featured FROM public.public_shops_directory()`);
+    expect(shops).toEqual([{ shop_name: 'Chez Khady', phone_number: '+221781234567', address: 'Sicap Liberté 6', featured: false }]);
+  });
+});
+
+describe('Parcours 8 : opérateur de paiement mobile et assistant IA', () => {
+  const insertMobileOrder = async (channel) => {
+    await t.as('service_role');
+    return t.attempt(
+      `INSERT INTO public.orders (merchant_id, customer_name, customer_phone, customer_address, delivery_zone, total_amount_fcfa, cart_items, payment_method, payment_channel)
+       VALUES ($1, 'Awa', '760000001', 'Ouakam', $2, 0, $3::jsonb, 'MOBILE_MONEY', $4) RETURNING payment_channel`,
+      [IDS.MERCHANT, ZONE, cart(IDS.BOUBOU, { quantity: 1 }), channel],
+    );
+  };
+
+  it('la commande garde l’opérateur choisi (Wave, Orange Money, Free Money, Wizall)', async () => {
+    for (const channel of ['wave', 'orange_money', 'free_money', 'wizall']) {
+      expect((await insertMobileOrder(channel)).rows[0].payment_channel).toBe(channel);
+    }
+    expect((await insertMobileOrder('bitcoin')).error).toMatch(/orders_payment_channel_check/);
+  });
+
+  it('le compteur d’utilisation de l’IA n’est accessible qu’au serveur', async () => {
+    await t.as('service_role');
+    await t.query(`INSERT INTO public.ai_usage (merchant_id, kind) VALUES ($1, 'product_sheet'), ($1, 'studio_photo')`, [IDS.MERCHANT]);
+    await t.as('service_role');
+    expect(await t.query(`SELECT kind FROM public.ai_usage WHERE merchant_id = $1 ORDER BY kind`, [IDS.MERCHANT])).toEqual([{ kind: 'product_sheet' }, { kind: 'studio_photo' }]);
+    await t.as('authenticated', IDS.MERCHANT);
+    expect(isDenied(await t.attempt(`SELECT * FROM public.ai_usage`))).toBe(true);
+    await t.as('authenticated', IDS.MERCHANT);
+    expect(isDenied(await t.attempt(`INSERT INTO public.ai_usage (merchant_id, kind) VALUES ($1, 'studio_photo')`, [IDS.MERCHANT]))).toBe(true);
+    await t.as('anon');
+    expect(isDenied(await t.attempt(`SELECT * FROM public.ai_usage`))).toBe(true);
+  });
+});

@@ -39,6 +39,15 @@ const safeEqual = (a, b) => {
 
 const MAX_QUANTITY = 100;
 
+// Opérateurs proposés au client -> identifiants des canaux PayDunya (documentation PayDunya,
+// « Opérateurs Mobile Money disponibles »). Même liste côté site : src/utils/payments.js.
+export const MOBILE_CHANNELS = {
+  wave: 'wave-senegal',
+  orange_money: 'orange-money-senegal',
+  free_money: 'free-money-senegal',
+  wizall: 'wizall-senegal',
+};
+
 // Route 1: Créer une demande de paiement (Checkout)
 // Le montant n'est JAMAIS pris chez le client : il est recalculé à partir des prix en base.
 router.post('/create', async (req, res) => {
@@ -56,6 +65,11 @@ router.post('/create', async (req, res) => {
       if (!item?.product_id || !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > MAX_QUANTITY) {
         return res.status(400).json({ success: false, error: 'Article invalide dans le panier' });
       }
+    }
+    // Opérateur choisi par le client (facultatif : sans choix, PayDunya les propose tous)
+    const channel = orderDetails.channel ?? null;
+    if (channel !== null && !Object.hasOwn(MOBILE_CHANNELS, channel)) {
+      return res.status(400).json({ success: false, error: 'Moyen de paiement invalide' });
     }
 
     const { data: merchant, error: merchantError } = await supabase
@@ -94,7 +108,7 @@ router.post('/create', async (req, res) => {
     const totalAmount = cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0) + Number(zone.price);
 
     // 1. Sauvegarder la commande en statut 'PENDING' (le code PIN est tiré avec un générateur sûr)
-    const { data: order, error: orderError } = await supabase.from('orders').insert([{
+    const orderRow = {
       merchant_id: merchant.id,
       customer_name: String(orderDetails.name).slice(0, 120),
       customer_phone: String(orderDetails.phone).slice(0, 40),
@@ -104,9 +118,20 @@ router.post('/create', async (req, res) => {
       cart_items: cartItems,
       delivery_pin: crypto.randomInt(1000, 10000).toString(),
       payment_method: 'MOBILE_MONEY',
-      status: 'PENDING'
-    }]).select().single();
+      status: 'PENDING',
+      ...(channel ? { payment_channel: channel } : {}),
+    };
+    let { data: order, error: orderError } = await supabase.from('orders').insert([orderRow]).select().single();
+    if (orderError?.code === 'PGRST204' && channel) {
+      // Colonne payment_channel absente tant que paiements_et_ia.sql n'est pas exécuté : on enregistre sans.
+      const { payment_channel: _ignored, ...withoutChannel } = orderRow;
+      ({ data: order, error: orderError } = await supabase.from('orders').insert([withoutChannel]).select().single());
+    }
 
+    // Refus expliqué par la base (produit épuisé, quantité au-delà du stock…) : message montré au client.
+    if (orderError?.code === 'P0001' && orderError.message) {
+      return res.status(409).json({ success: false, error: orderError.message });
+    }
     if (orderError) throw orderError;
 
     const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',')[0].trim();
@@ -117,7 +142,9 @@ router.post('/create', async (req, res) => {
     const paydunyaPayload = {
       invoice: {
         total_amount: order.total_amount_fcfa,
-        description: `Commande sur ${merchant.shop_name}`
+        description: `Commande sur ${merchant.shop_name}`,
+        // La page PayDunya s'ouvre directement sur l'opérateur choisi par le client
+        ...(channel ? { channels: [MOBILE_CHANNELS[channel]] } : {}),
       },
       store: {
         name: 'Samaboutik',

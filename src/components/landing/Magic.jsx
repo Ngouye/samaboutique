@@ -195,8 +195,8 @@ export function CountUp({ to, decimals = 0, prefix = '', suffix = '', duration =
 
 export function SectionLabel({ children }) {
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-300">
-      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.9)]" />
+    <div className="inline-flex items-center gap-2 rounded-full border border-brand-400/20 bg-brand-400/[0.06] px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-brand-300">
+      <span className="h-1.5 w-1.5 rounded-full bg-brand-400 shadow-[0_0_10px_color-mix(in_srgb,_var(--color-brand-400)_90%,_transparent)]" />
       {children}
     </div>
   );

@@ -8,7 +8,8 @@ import { getCurrentPosition } from '../utils/geolocation';
 import { authErrorMessage } from '../utils/authErrors';
 import Turnstile, { captchaRequired } from '../components/auth/Turnstile';
 import { AuthShell, Field, PasswordField, StrengthMeter, SubmitButton, ErrorBanner, EASE } from '../components/auth/AuthUI';
-import { isThemeId, PENDING_THEME_KEY } from '../components/shop/themes';
+import { isThemeId, PENDING_THEME_KEY } from '../components/shop/themes';
+import { BRAND } from '../utils/brand';
 
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
 
@@ -28,17 +29,17 @@ function RegisterSide({ shopName, phoneDigits }) {
     <>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.8, ease: EASE }} className="mb-auto ml-auto mt-2 w-80 overflow-hidden rounded-2xl bg-white text-slate-900 shadow-2xl">
         <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5 text-xs text-slate-500">
-          <Globe className="h-3.5 w-3.5 text-emerald-600" />
+          <Globe className="h-3.5 w-3.5 text-brand-600" />
           <span className="truncate">{window.location.host}/boutique/<span className="font-semibold text-slate-800">{name}</span></span>
         </div>
         <div className="flex items-center gap-3 p-4">
-          <motion.span key={name.charAt(0)} initial={{ scale: 0.6 }} animate={{ scale: 1 }} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-800 text-xl font-extrabold text-white">
+          <motion.span key={name.charAt(0)} initial={{ scale: 0.6 }} animate={{ scale: 1 }} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 text-xl font-extrabold text-white">
             {name.charAt(0).toUpperCase()}
           </motion.span>
           <div className="min-w-0">
             <p className="truncate text-lg font-extrabold">{name}</p>
-            <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> {phoneDigits ? `+221 ${formatPhone(phoneDigits)}` : 'Boutique en ligne'}
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-brand-600">
+              <span className="h-1.5 w-1.5 rounded-full bg-brand-500" /> {phoneDigits ? `+221 ${formatPhone(phoneDigits)}` : 'Boutique en ligne'}
             </p>
           </div>
         </div>
@@ -49,7 +50,7 @@ function RegisterSide({ shopName, phoneDigits }) {
       <ul className="mt-8 grid max-w-md grid-cols-2 gap-x-6 gap-y-3 text-[15px] text-white/85">
         {["Jusqu'à 10 produits gratuits", 'Wave, Orange Money, livraison', 'Alertes WhatsApp', 'Suivi des livraisons'].map((t, i) => (
           <motion.li key={t} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 + i * 0.08 }} className="flex items-center gap-2">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-400 text-[#06140f]"><Check className="h-3 w-3" strokeWidth={3.5} /></span>
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-400 text-night"><Check className="h-3 w-3" strokeWidth={3.5} /></span>
             {t}
           </motion.li>
         ))}
@@ -126,7 +127,7 @@ export default function Register() {
         return;
       }
       setSuccess(true);
-      confetti({ particleCount: 120, spread: 70, origin: { y: 0.7 }, colors: ['#059669', '#0b1f17', '#f5b82e', '#ffffff'] });
+      confetti({ particleCount: 120, spread: 70, origin: { y: 0.7 }, colors: [BRAND.signature, BRAND.ink, BRAND.gold, '#ffffff'] });
       const plan = new URLSearchParams(window.location.search).get('plan');
       setTimeout(() => navigate(plan === 'pro' || plan === 'premium' ? `/dashboard?checkout=${plan}` : '/dashboard'), 1400);
     } catch (err) {
@@ -141,20 +142,20 @@ export default function Register() {
     <AuthShell
       title="Créez votre boutique"
       subtitle="Gratuit pour démarrer, sans carte bancaire. Vous pourrez tout modifier plus tard."
-      headerAction={<>Déjà inscrit ? <Link to="/login" className="font-bold text-emerald-700 hover:underline">Se connecter</Link></>}
+      headerAction={<>Déjà inscrit ? <Link to="/login" className="font-bold text-brand-700 hover:underline">Se connecter</Link></>}
       photo="/images/landing/colis-commande.webp"
       photoAlt="Commerçante qui prépare ses colis"
       side={<RegisterSide shopName={shopName} phoneDigits={phoneDigits} />}
     >
       {needsConfirmation ? (
         <div className="space-y-6">
-          <div className="flex items-start gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white"><MailCheck className="h-5 w-5" /></span>
-            <p className="text-[15px] leading-relaxed text-emerald-900">
+          <div className="flex items-start gap-4 rounded-2xl border border-brand-200 bg-brand-50 p-5">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white"><MailCheck className="h-5 w-5" /></span>
+            <p className="text-[15px] leading-relaxed text-brand-900">
               Votre boutique <span className="font-bold">{shopName.trim()}</span> est créée. Cliquez sur le lien envoyé à <span className="font-bold">{email.trim()}</span> pour activer votre compte, puis connectez-vous.
             </p>
           </div>
-          <Link to="/login" className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0b1f17] text-[15px] font-bold text-white hover:bg-emerald-800">
+          <Link to="/login" className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-ink text-[15px] font-bold text-white hover:bg-brand-800">
             Aller à la connexion <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
@@ -175,9 +176,9 @@ export default function Register() {
             hint="Vous y recevrez vos commandes ; vos clients pourront vous écrire."
           />
 
-          <div className={`rounded-xl border p-4 transition-colors ${location ? 'border-emerald-300 bg-emerald-50/60' : 'border-slate-200 bg-slate-50/60'}`}>
+          <div className={`rounded-xl border p-4 transition-colors ${location ? 'border-brand-300 bg-brand-50/60' : 'border-slate-200 bg-slate-50/60'}`}>
             <div className="flex items-start gap-3">
-              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${location ? 'bg-emerald-600 text-white' : 'bg-white text-slate-500 ring-1 ring-slate-200'}`}>
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${location ? 'bg-brand-600 text-white' : 'bg-white text-slate-500 ring-1 ring-slate-200'}`}>
                 <MapPin className="h-5 w-5" />
               </span>
               <div className="min-w-0 flex-1">
@@ -196,8 +197,8 @@ export default function Register() {
             </div>
             <AnimatePresence>
               {location && (
-                <motion.label initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mt-3 flex cursor-pointer items-start gap-3 overflow-hidden border-t border-emerald-200/70 pt-3 text-sm text-slate-600">
-                  <input type="checkbox" checked={listInDirectory} onChange={(e) => setListInDirectory(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 rounded accent-emerald-700" />
+                <motion.label initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mt-3 flex cursor-pointer items-start gap-3 overflow-hidden border-t border-brand-200/70 pt-3 text-sm text-slate-600">
+                  <input type="checkbox" checked={listInDirectory} onChange={(e) => setListInDirectory(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 rounded accent-brand-700" />
                   <span><span className="font-semibold text-slate-900">Afficher ma boutique dans l'annuaire public.</span> Votre numéro n'y apparaît pas.</span>
                 </motion.label>
               )}

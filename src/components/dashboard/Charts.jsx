@@ -38,23 +38,23 @@ function useIndexNav(count) {
 export function ChartCard({ title, subtitle, table, children, className = '', right }) {
   const [view, setView] = useState('chart');
   return (
-    <section className={`rounded-3xl border border-slate-200/70 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-16px_rgba(15,23,42,0.12)] md:p-6 ${className}`}>
+    <section className={`rounded-2xl border border-[#e8e5dc] bg-white p-5 shadow-[0_1px_2px_color-mix(in_srgb,_var(--color-ink)_4%,_transparent)] md:p-6 ${className}`}>
       <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-base font-bold text-slate-900">{title}</h3>
-          {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}
+          <h3 className="text-base font-bold text-ink">{title}</h3>
+          {subtitle && <p className="mt-0.5 text-sm text-stone-500">{subtitle}</p>}
         </div>
         <div className="flex items-center gap-2">
           {right}
           {table && (
-            <div className="flex rounded-xl bg-slate-100 p-0.5 text-xs font-semibold" role="group" aria-label="Affichage">
+            <div className="flex rounded-xl bg-[#f1efe8] p-0.5 text-xs font-semibold" role="group" aria-label="Affichage">
               {[['chart', 'Graphique'], ['table', 'Tableau']].map(([id, label]) => (
                 <button
                   key={id}
                   type="button"
                   aria-pressed={view === id}
                   onClick={() => setView(id)}
-                  className={`rounded-[10px] px-2.5 py-1 transition-colors ${view === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  className={`min-h-8 rounded-[10px] px-3 py-1.5 transition-colors ${view === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                   {label}
                 </button>
@@ -181,7 +181,7 @@ export function AreaChart({ data, valueKey, color, formatValue, seriesLabel, ext
         <svg
           width={width}
           height={height}
-          className="overflow-visible outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 rounded-lg"
+          className="overflow-visible outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 rounded-lg"
           role="img"
           aria-label={`${seriesLabel} — utilisez les flèches pour parcourir les valeurs`}
           {...nav.focusProps}
@@ -439,7 +439,7 @@ export function BarList({ items, color, formatValue, detail, emptyText, animatio
           onPointerLeave={() => setHover(null)}
           onFocus={() => setHover(i)}
           onBlur={() => setHover(null)}
-          className="group rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
+          className="group rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
         >
           <div className="mb-1.5 flex items-baseline justify-between gap-3 text-sm">
             <span className="flex min-w-0 items-center gap-2">

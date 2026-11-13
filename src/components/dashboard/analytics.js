@@ -1,3 +1,5 @@
+import { BRAND } from '../../utils/brand';
+
 // Calculs du tableau de bord marchand : tout est dérivé des commandes et produits réels.
 
 // Couleurs validées (scripts dataviz, toutes paires, surface blanche) :
@@ -11,9 +13,9 @@ export const STATUS_GROUPS = [
 ];
 
 export const CHART_COLORS = {
-  revenue: '#059669',
+  revenue: BRAND.signature,
   orders: '#2a78d6',
-  products: '#059669',
+  products: BRAND.signature,
 };
 
 export const PERIODS = [

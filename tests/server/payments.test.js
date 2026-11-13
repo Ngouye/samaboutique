@@ -83,6 +83,30 @@ describe('Création du paiement', () => {
     expect((await post('/api/payments/create', order({ zone: 'Zone inventée' }))).status).toBe(400);
   });
 
+  it('produit épuisé : transmet le message de la base au client, sans créer de facture', async () => {
+    const message = 'Désolé, « Boubou » est épuisé. Retirez-le du panier pour continuer.';
+    const invoices = paydunya.state.invoices.length;
+    supabase.state.failNextInsert = { code: 'P0001', message };
+    // Autre client (autre adresse IP) : n'entame pas la limite de 10 demandes testée plus bas.
+    const res = await post('/api/payments/create', order(), { 'x-forwarded-for': '10.9.9.9' });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ success: false, error: message });
+    expect(paydunya.state.invoices).toHaveLength(invoices);
+  });
+
+  it('ouvre la page PayDunya directement sur l’opérateur choisi (Wave, Orange Money, Free Money, Wizall)', async () => {
+    const expected = { wave: 'wave-senegal', orange_money: 'orange-money-senegal', free_money: 'free-money-senegal', wizall: 'wizall-senegal' };
+    for (const [channel, paydunyaChannel] of Object.entries(expected)) {
+      const res = await post('/api/payments/create', order({ channel }), { 'x-forwarded-for': '10.9.9.10' });
+      expect(res.status).toBe(200);
+      expect(paydunya.state.invoices.at(-1).body.invoice.channels).toEqual([paydunyaChannel]);
+      expect(supabase.db.orders.at(-1).payment_channel).toBe(channel);
+    }
+    const bad = await post('/api/payments/create', order({ channel: 'bitcoin' }), { 'x-forwarded-for': '10.9.9.11' });
+    expect(bad.status).toBe(400);
+    expect((await bad.json()).error).toBe('Moyen de paiement invalide');
+  });
+
   it('refuse une boutique inexistante', async () => {
     expect((await post('/api/payments/create', order({ merchant_id: '99999999-9999-9999-9999-999999999999' }))).status).toBe(404);
   });

@@ -1,4 +1,4 @@
-import { Clock, PackageOpen, Truck, CircleCheck, CircleX, TriangleAlert } from 'lucide-react';
+import { Clock, PackageOpen, Truck, CircleCheck, CircleX, TriangleAlert } from './icons';
 
 // Statuts de commande : chaque couleur est toujours accompagnée d'une icône et d'un libellé.
 export const ORDER_STATUSES = [
@@ -11,6 +11,18 @@ export const ORDER_STATUSES = [
 ];
 
 export const statusMeta = (id) => ORDER_STATUSES.find((s) => s.id === id) || ORDER_STATUSES[0];
+
+// Titre du jour pour regrouper les commandes : « Aujourd'hui », « Hier », puis la date.
+export const dayLabel = (date) => {
+  const d = new Date(date);
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const days = Math.round((startOfToday - startOfDay) / 864e5);
+  if (days === 0) return "Aujourd'hui";
+  if (days === 1) return 'Hier';
+  return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+};
 
 export const timeAgo = (date) => {
   const diff = (Date.now() - new Date(date).getTime()) / 1000;

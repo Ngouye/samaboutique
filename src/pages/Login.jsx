@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../supabaseClient';
 import { AuthShell, Field, PasswordField, SubmitButton, ErrorBanner, Divider, EASE } from '../components/auth/AuthUI';
 import { authErrorMessage } from '../utils/authErrors';
+import { peekLoggedOut, clearLoggedOut } from '../utils/farewell';
 import Turnstile, { captchaRequired } from '../components/auth/Turnstile';
 
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
@@ -19,7 +20,7 @@ function LoginSide() {
           <span className="text-xs font-bold">Nouvelle commande</span>
           <span className="ml-auto text-[11px] text-slate-400">à l'instant</span>
         </div>
-        <p className="text-sm text-slate-600">Fatou D. · 2 articles · <span className="font-bold text-emerald-700">25 000 F</span></p>
+        <p className="text-sm text-slate-600">Fatou D. · 2 articles · <span className="font-bold text-brand-700">25 000 F</span></p>
       </motion.div>
       <motion.h2 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.8, ease: EASE }} className="max-w-md text-4xl font-extrabold leading-[1.1] tracking-tight xl:text-5xl">
         Tout votre commerce, au même endroit.
@@ -27,7 +28,7 @@ function LoginSide() {
       <motion.ul initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="mt-8 flex flex-wrap gap-2.5 text-sm font-semibold">
         {[[Wallet, 'Wave & Orange Money'], [Truck, 'Livraison suivie en direct'], [ShieldCheck, 'Code de livraison sécurisé']].map(([Icon, label]) => (
           <li key={label} className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-2 backdrop-blur">
-            <Icon className="h-4 w-4 text-emerald-300" /> {label}
+            <Icon className="h-4 w-4 text-brand-300" /> {label}
           </li>
         ))}
       </motion.ul>
@@ -48,6 +49,19 @@ export default function Login() {
   const [captchaToken, setCaptchaToken] = useState('');
   const [captchaKey, setCaptchaKey] = useState(0);
   const captchaMissing = captchaRequired && !captchaToken;
+  const [bye, setBye] = useState(null); // message après une déconnexion
+
+  // Lu juste après l'arrivée sur la page (la déconnexion l'enregistre au même moment).
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const info = peekLoggedOut();
+      if (info) { setBye(info); clearLoggedOut(); }
+    }, 60);
+    return () => clearTimeout(t);
+  }, []);
+  const byeMessage = !bye ? '' : bye.partial
+    ? 'Vous êtes déconnecté de cet appareil. Les autres appareils n’ont pas pu être déconnectés (pas de connexion) : reconnectez-vous puis réessayez.'
+    : `Vous êtes bien déconnecté${bye.everywhere ? ' de tous vos appareils' : ''}. À bientôt${bye.name ? `, ${bye.name}` : ''} !`;
 
   useEffect(() => {
     if (user) navigate('/dashboard');
@@ -113,7 +127,7 @@ export default function Login() {
     <AuthShell
       title={titles[mode][0]}
       subtitle={titles[mode][1]}
-      headerAction={<>Pas encore de boutique ? <Link to="/register" className="font-bold text-emerald-700 hover:underline">S'inscrire</Link></>}
+      headerAction={<>Pas encore de boutique ? <Link to="/register" className="font-bold text-brand-700 hover:underline">S'inscrire</Link></>}
       photo="/images/landing/hero-commercante.webp"
       photoAlt="Commerçante qui consulte ses commandes sur son téléphone"
       side={<LoginSide />}
@@ -121,6 +135,7 @@ export default function Login() {
       <AnimatePresence mode="wait">
         {mode === 'login' && (
           <motion.form key="login" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }} transition={{ duration: 0.3 }} className="space-y-5" onSubmit={handleLogin} noValidate>
+            {!error && <ErrorBanner message={byeMessage} tone="success" />}
             <ErrorBanner message={error} />
             <Field
               id="email" type="email" label="Adresse email" icon={Mail} autoComplete="email" inputMode="email" placeholder="vous@exemple.com" required
@@ -129,7 +144,7 @@ export default function Login() {
             <PasswordField
               id="password" label="Mot de passe" icon={Lock} autoComplete="current-password" placeholder="Votre mot de passe" required
               value={password} onChange={(e) => setPassword(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, password: true }))} error={passwordError}
-              labelAside={<button type="button" onClick={() => switchMode('forgot')} className="text-sm font-semibold text-emerald-700 hover:underline">Mot de passe oublié ?</button>}
+              labelAside={<button type="button" onClick={() => switchMode('forgot')} className="-my-2 inline-flex min-h-9 items-center text-sm font-semibold text-brand-700 hover:underline">Mot de passe oublié ?</button>}
             />
             <Turnstile onToken={setCaptchaToken} resetKey={captchaKey} />
             <SubmitButton disabled={captchaMissing} loading={loading} loadingText="Connexion…" success={success && <><Check className="h-5 w-5" strokeWidth={3} /> Connecté</>}>
@@ -159,9 +174,9 @@ export default function Login() {
 
         {mode === 'sent' && (
           <motion.div key="sent" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-            <div className="flex items-start gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white"><MailCheck className="h-5 w-5" /></span>
-              <p className="text-[15px] leading-relaxed text-emerald-900">
+            <div className="flex items-start gap-4 rounded-2xl border border-brand-200 bg-brand-50 p-5">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white"><MailCheck className="h-5 w-5" /></span>
+              <p className="text-[15px] leading-relaxed text-brand-900">
                 Si un compte existe pour <span className="font-bold">{email.trim()}</span>, vous allez recevoir un lien pour choisir un nouveau mot de passe. Pensez à regarder dans les spams.
               </p>
             </div>

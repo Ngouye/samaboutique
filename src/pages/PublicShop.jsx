@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
@@ -6,13 +6,28 @@ import StoreStories from '../components/StoreStories';
 import { getShopTheme, themeStyle } from '../components/shop/themes';
 import { thumbUrl, fallbackToFull } from '../utils/imageUpload';
 import { friendlyError, isOffline, NETWORK_MESSAGE } from '../utils/networkErrors';
+import { whatsappNumber } from '../utils/phone';
+import StatusScreen from '../components/StatusScreen';
+import { PAYMENT_CHOICES, isMobileChannel } from '../utils/payments';
+import { productOptions, needsChoice } from '../utils/productOptions';
+import { searchScore, matchesFilters, activeFilterCount, NO_FILTERS } from '../utils/searchText';
+import SearchOverlay from '../components/shop/SearchOverlay';
+import FilterSheet from '../components/shop/FilterSheet';
+import ProductGallery from '../components/shop/ProductGallery';
+import DeliverySheet from '../components/shop/DeliverySheet';
+import MyOrders from '../components/shop/MyOrders';
+// Icônes Phosphor duotone, communes à toute la plateforme (générées par scripts/dashboard-icons.mjs).
 import {
-  Package, MapPin, Search, Store, Heart, Star, Plus, Minus, X, ArrowRight, ChevronRight,
-  Phone, Mail, ShoppingBag, Truck, Eye, MessageCircle, Smartphone, Gamepad2, Laptop, Camera, Headphones, Shirt,
-  Utensils, Tag, Watch, Footprints, Gem, Sparkles, Baby, Sofa, Dumbbell, BookOpen, Car, LayoutGrid, ClipboardCheck,
-  PackageOpen, Bike, PartyPopper, Info, Lock, ShieldCheck, LocateFixed, House, Flame, Check, CircleCheck, CircleX,
-  TriangleAlert, Music2, LoaderCircle, User, Send, ChevronDown, Palette,
-} from 'lucide-react';
+  Package, MapPin, Search, Store, Heart, Star, Plus, Minus, X, ArrowRight, ChevronRight, Phone, Mail, ShoppingBag,
+  Truck, Eye, MessageCircle, Smartphone, Gamepad2, Laptop, Camera, Headphones, Shirt, Utensils, Tag, Watch,
+  Footprints, Gem, Sparkles, Baby, Sofa, Dumbbell, BookOpen, Car, LayoutGrid, ClipboardCheck, PackageOpen, Bike,
+  PartyPopper, Info, Lock, ShieldCheck, LocateFixed, House, Flame, Check, CircleCheck, CircleX, TriangleAlert,
+  LoaderCircle, User, Send, ChevronDown, Palette, WifiOff, RotateCw, HeartFill, Share2, History,
+  WhatsApp, Facebook, Instagram, TikTok, SlidersHorizontal,
+} from '../components/dashboard/icons';
+
+// Nom de boutique de l'adresse, lisible même si l'adresse contient un « % » isolé.
+const safeDecode = (s) => { try { return decodeURIComponent(s || ''); } catch { return s || ''; } };
 
 const DEFAULT_DELIVERY_ZONES = [
   { id: 'dk-plateau', name: 'Dakar Plateau / Médina', price: 1000, active: true },
@@ -42,9 +57,15 @@ const fmt = (n) => Math.round(n || 0).toLocaleString('fr-FR');
 
 const SORTS = [
   { id: 'newest', label: 'Nouveautés' },
-  { id: 'price_asc', label: 'Prix ↑' },
-  { id: 'price_desc', label: 'Prix ↓' },
+  { id: 'price_asc', label: 'Prix ↑', full: 'Prix croissant' },
+  { id: 'price_desc', label: 'Prix ↓', full: 'Prix décroissant' },
 ];
+const RATING_SORT = { id: 'rating', label: 'Mieux notés' };
+const ratingText = (avg) => avg.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+const priceRangeLabel = ({ minPrice, maxPrice }) => (
+  minPrice != null && maxPrice != null ? `${fmt(minPrice)} – ${fmt(maxPrice)} F`
+    : minPrice != null ? `Dès ${fmt(minPrice)} F` : `Jusqu’à ${fmt(maxPrice)} F`
+);
 
 const TRACK_STEPS = [
   { id: 'PENDING', label: 'Reçue', sub: 'Confirmation', icon: ClipboardCheck },
@@ -78,7 +99,35 @@ function categoryIcon(cat) {
   return Tag;
 }
 
-const whatsappNumber = (phone) => (phone || '').replace(/\s+/g, '').replace(/\+/g, '');
+// Quantité d'un produit déjà dans le panier, toutes tailles et couleurs confondues.
+const quantityInCart = (cart, productId) => Object.values(cart).reduce((n, item) => n + (item.product.id === productId ? item.quantity : 0), 0);
+const stockLeft = (product) => (typeof product.stock === 'number' ? product.stock : Infinity);
+const stockMessage = (product) => (product.stock <= 0 ? `${product.name} est épuisé` : `Plus que ${product.stock} en stock pour ${product.name}`);
+
+
+// Mémoire de ce navigateur seulement (panier, favoris, produits vus, coordonnées si le client le demande).
+const store = {
+  get(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
+  set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* stockage bloqué (navigation privée) */ } },
+  remove(key) { try { localStorage.removeItem(key); } catch { /* stockage bloqué */ } },
+};
+const CLIENT_KEY = 'samaboutik_client';
+
+// Lien direct vers un produit (?produit=…), en gardant les autres paramètres de l'adresse.
+function setProductParam(id) {
+  const url = new URL(window.location.href);
+  if ((url.searchParams.get('produit') || null) === (id || null)) return;
+  if (id) url.searchParams.set('produit', id); else url.searchParams.delete('produit');
+  window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+}
+
+// Partage : menu natif du téléphone (WhatsApp, Facebook…), sinon copie du lien.
+async function shareLink({ title, text, url }, onCopied) {
+  if (navigator.share) {
+    try { await navigator.share({ title, text, url }); return; } catch (e) { if (e?.name === 'AbortError') return; }
+  }
+  try { await navigator.clipboard.writeText(url); onCopied?.(); } catch { window.prompt('Copiez ce lien :', url); }
+}
 
 /* ------------------------------------------------------------------ */
 /* Petits composants                                                   */
@@ -94,13 +143,13 @@ function FavoriteButton({ active, onToggle, className = '' }) {
       aria-pressed={active}
     >
       <motion.span key={active ? 'on' : 'off'} initial={{ scale: 0.5 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 14 }}>
-        <Heart className={`h-4 w-4 ${active ? 'fill-rose-500 text-rose-500' : 'text-slate-500'}`} />
+        {active ? <HeartFill className="h-4 w-4 text-rose-500" /> : <Heart className="h-4 w-4 text-slate-500" />}
       </motion.span>
     </motion.button>
   );
 }
 
-function ShopProductCard({ product, index, isNew, isFavorite, justAdded, onOpen, onAdd, onToggleFavorite }) {
+function ShopProductCard({ product, index, isNew, isFavorite, justAdded, onOpen, onAdd, onToggleFavorite, choose = false, rating = null }) {
   const out = typeof product.stock === 'number' && product.stock <= 0;
   const low = !out && typeof product.stock === 'number' && product.stock <= 5;
   const CatIcon = categoryIcon(product.category || 'Autres');
@@ -152,6 +201,11 @@ function ShopProductCard({ product, index, isNew, isFavorite, justAdded, onOpen,
         <div className="p-3.5 md:p-4">
           <p className="sh-faint truncate text-[11px] font-semibold uppercase tracking-wider">{product.category || 'Standard'}</p>
           <h4 className="sh-ink mt-0.5 line-clamp-2 min-h-[2.5rem] text-sm font-bold leading-tight md:text-base">{product.name}</h4>
+          {rating?.count > 0 && (
+            <p className="sh-muted mt-1 flex items-center gap-1 text-[11px] font-bold" aria-label={`Noté ${ratingText(rating.avg)} sur 5 (${rating.count} avis)`}>
+              <Star className="h-3.5 w-3.5 text-amber-400" /> {ratingText(rating.avg)} <span className="sh-faint font-semibold">({rating.count})</span>
+            </p>
+          )}
           <div className="mt-3 flex items-center justify-between gap-2">
             <p className="sh-ink text-base font-extrabold tracking-tight md:text-lg">
               {fmt(product.price_fcfa)} <span className="sh-faint text-[11px] font-semibold">FCFA</span>
@@ -159,9 +213,9 @@ function ShopProductCard({ product, index, isNew, isFavorite, justAdded, onOpen,
             <motion.button
               whileTap={{ scale: 0.85 }}
               disabled={out}
-              onClick={(e) => { e.stopPropagation(); onAdd(); }}
+              onClick={(e) => { e.stopPropagation(); onAdd(e); }}
               className={`sh-r-sm relative flex h-10 w-10 shrink-0 items-center justify-center transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${justAdded ? 'bg-emerald-500 text-white' : 'theme-gradient'}`}
-              aria-label={`Ajouter ${product.name} au panier`}
+              aria-label={choose ? `Choisir la taille ou la couleur de ${product.name}` : `Ajouter ${product.name} au panier`}
             >
               <AnimatePresence mode="wait" initial={false}>
                 {justAdded ? (
@@ -184,9 +238,9 @@ function ShopProductCard({ product, index, isNew, isFavorite, justAdded, onOpen,
 
 function SocialLinks({ links, dark = false }) {
   const items = [
-    { key: 'facebook', label: 'Facebook', cls: 'bg-[#1877F2]', icon: <span className="text-base font-black">f</span> },
-    { key: 'instagram', label: 'Instagram', cls: 'bg-gradient-to-br from-amber-400 via-pink-500 to-purple-600', icon: <Camera className="h-4 w-4" /> },
-    { key: 'tiktok', label: 'TikTok', cls: dark ? 'bg-white/10' : 'bg-slate-900', icon: <Music2 className="h-4 w-4" /> },
+    { key: 'facebook', label: 'Facebook', cls: 'bg-[#1877F2]', icon: <Facebook className="h-5 w-5" /> },
+    { key: 'instagram', label: 'Instagram', cls: 'bg-gradient-to-br from-amber-400 via-pink-500 to-purple-600', icon: <Instagram className="h-5 w-5" /> },
+    { key: 'tiktok', label: 'TikTok', cls: dark ? 'bg-white/10' : 'bg-slate-900', icon: <TikTok className="h-5 w-5" /> },
   ].filter((s) => links?.[s.key]);
   if (!items.length) return null;
   return (
@@ -205,6 +259,24 @@ function SocialLinks({ links, dark = false }) {
         </motion.a>
       ))}
     </div>
+  );
+}
+
+function MiniProduct({ product, onOpen, small = false }) {
+  return (
+    <button type="button" onClick={onOpen} className={`sh-card sh-card-hover group shrink-0 overflow-hidden text-left ${small ? 'w-32' : 'w-36 md:w-44'}`}>
+      <span className="sh-fill block aspect-square overflow-hidden">
+        {product.image_url ? (
+          <img src={thumbUrl(product.image_url)} onError={fallbackToFull(product.image_url)} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+        ) : (
+          <span className="theme-text flex h-full items-center justify-center">{React.createElement(categoryIcon(product.category || 'Autres'), { className: 'h-8 w-8' })}</span>
+        )}
+      </span>
+      <span className="block p-2.5">
+        <span className="sh-ink block truncate text-xs font-bold">{product.name}</span>
+        <span className="theme-text block text-sm font-extrabold">{fmt(product.price_fcfa)} F</span>
+      </span>
+    </button>
   );
 }
 
@@ -246,7 +318,6 @@ export default function PublicShop() {
   const [selectedProduct, setSelectedProduct] = useState(null); // Quick View Modal
   const [quickViewSize, setQuickViewSize] = useState(null);
   const [quickViewColor, setQuickViewColor] = useState(null);
-  const [quickViewImage, setQuickViewImage] = useState(null);
 
   const [productReviews, setProductReviews] = useState([]);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
@@ -254,8 +325,27 @@ export default function PublicShop() {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
   const [toastMessage, setToastMessage] = useState(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [loadError, setLoadError] = useState(false); // boutique non chargée à cause du réseau (≠ introuvable)
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [deliveryOpen, setDeliveryOpen] = useState(false);
+  const [filters, setFilters] = useState(NO_FILTERS);
+  const [ratings, setRatings] = useState({ byId: {}, shop: null }); // notes des clients, par produit et pour la boutique
+  const [flyer, setFlyer] = useState(null); // photo qui « vole » vers le panier
+  const flyerCount = useRef(0);
+  const [myOrders, setMyOrders] = useState(() => store.get(`orders_${shopName}`, []));
+  const [orderStatuses, setOrderStatuses] = useState({});
+  const closeSearch = useCallback(() => setSearchOpen(false), []);
+  const closeFilters = useCallback(() => setFilterOpen(false), []);
+  const closeDelivery = useCallback(() => setDeliveryOpen(false), []);
   const [activeTab, setActiveTab] = useState('home'); // home, profile, order-tracking
+  const [recentIds, setRecentIds] = useState(() => store.get(`recent_${shopName}`, []));
+  const [rememberClient, setRememberClient] = useState(() => Boolean(store.get(CLIENT_KEY, null)));
+  const cartRestored = useRef(false);
+  const clientPrefilled = useRef(false);
+  const linkedProductId = useRef(new URLSearchParams(window.location.search).get('produit')); // lien direct ?produit=…
+  const sheetRef = useRef(null); // fiche produit : défile en entier sur téléphone
+  const detailRef = useRef(null); // colonne de détails de la fiche (ordinateur)
 
   // Order & Checkout States
   const [checkoutData, setCheckoutData] = useState({ name: '', phone: '', address: '', zone: '', paymentMethod: 'ON_DELIVERY', gpsLocation: null });
@@ -290,13 +380,13 @@ export default function PublicShop() {
 
   useEffect(() => {
     fetchShopData();
-    const savedFavs = localStorage.getItem(`favs_${shopName}`);
-    if (savedFavs) setFavorites(JSON.parse(savedFavs));
+    setFavorites(store.get(`favs_${shopName}`, []));
 
     // PayDunya Return
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment') === 'success') {
       const orderId = params.get('orderId');
+      store.remove(`cart_${shopName}`); // commande payée : on ne rouvre pas l'ancien panier
       if (orderId) {
         setPaymentStatusMessage("Paiement réussi ! Votre commande est validée.");
         fetchOrderData(orderId);
@@ -315,19 +405,29 @@ export default function PublicShop() {
 
   useEffect(() => {
     if (selectedProduct) {
-      const v = selectedProduct.variants;
-      const isObj = v && typeof v === 'object' && !Array.isArray(v);
-      setQuickViewSize(isObj ? (v.sizes?.[0] || null) : (Array.isArray(v) ? v[0] : null));
-      setQuickViewColor(isObj ? (v.colors?.[0] || null) : null);
-      setQuickViewImage(selectedProduct.image_url);
+      const options = productOptions(selectedProduct);
+      setQuickViewSize(options.sizes[0] || null);
+      setQuickViewColor(options.colors[0] || null);
 
       const fetchReviews = async () => {
          const { data } = await supabase.from('reviews').select('id, product_id, rating, comment, customer_name, verified, created_at').eq('product_id', selectedProduct.id).order('created_at', { ascending: false });
          if (data) setProductReviews(data);
       };
       fetchReviews();
+
+      // Lien direct partageable, produits vus récemment, retour en haut de la fiche
+      setProductParam(selectedProduct.id);
+      setRecentIds((prev) => {
+        const next = [selectedProduct.id, ...prev.filter((id) => id !== selectedProduct.id)].slice(0, 12);
+        store.set(`recent_${shopName}`, next);
+        return next;
+      });
+      sheetRef.current?.scrollTo({ top: 0 });
+      detailRef.current?.scrollTo({ top: 0 });
+    } else {
+      setProductParam(null);
     }
-  }, [selectedProduct]);
+  }, [selectedProduct, shopName]);
 
   // Thème de la vitrine : choisi par le marchand (colonne layout_style), ou aperçu demandé dans l'adresse.
   const theme = getShopTheme(previewThemeId || merchant?.layout_style);
@@ -341,6 +441,132 @@ export default function PublicShop() {
     });
   }, [orderFinalized?.id, accent]);
 
+  // Notes des clients (avis publiés) : moyenne par produit et pour toute la boutique.
+  useEffect(() => {
+    if (!products.length) return undefined;
+    let alive = true;
+    supabase.from('reviews').select('product_id, rating').in('product_id', products.slice(0, 200).map((p) => p.id)).then(({ data }) => {
+      if (!alive || !Array.isArray(data)) return;
+      const byId = {};
+      let sum = 0;
+      for (const r of data) {
+        const entry = byId[r.product_id] || (byId[r.product_id] = { sum: 0, count: 0 });
+        entry.sum += Number(r.rating) || 0;
+        entry.count += 1;
+        sum += Number(r.rating) || 0;
+      }
+      for (const entry of Object.values(byId)) entry.avg = entry.sum / entry.count;
+      setRatings({ byId, shop: data.length ? { avg: sum / data.length, count: data.length } : null });
+    });
+    return () => { alive = false; };
+  }, [products]);
+
+  // Touche « / » : ouvre la recherche (ordinateur).
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      e.preventDefault();
+      setSearchOpen(true);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Commande validée : rangée dans « Mes commandes » si le client a demandé à être reconnu sur ce téléphone.
+  useEffect(() => {
+    const o = orderFinalized;
+    if (!o?.id || !o.delivery_pin || !o.customer_phone || !store.get(CLIENT_KEY, null)) return;
+    setMyOrders((prev) => {
+      if (prev.some((x) => x.id === o.id)) return prev;
+      const items = (o.cart_items || []).reduce((n, it) => n + (Number(it.quantity) || 0), 0);
+      const next = [{ id: o.id, pin: o.delivery_pin, phone: o.customer_phone, total: o.total_amount_fcfa, at: o.created_at || new Date().toISOString(), items }, ...prev].slice(0, 10);
+      store.set(`orders_${shopName}`, next);
+      return next;
+    });
+  }, [orderFinalized, shopName]);
+
+  // Mes commandes : état du moment, demandé avec le téléphone et le code de chaque commande.
+  useEffect(() => {
+    if (activeTab !== 'order-tracking' || !myOrders.length) return undefined;
+    let alive = true;
+    Promise.all(myOrders.slice(0, 5).map((o) => supabase.rpc('track_order', { p_phone: o.phone, p_pin: o.pin })
+      .then(({ data }) => [o.id, data?.ok ? data.order?.status : null], () => [o.id, null])))
+      .then((pairs) => { if (alive) setOrderStatuses(Object.fromEntries(pairs.filter(([, st]) => st))); });
+    return () => { alive = false; };
+  }, [activeTab, myOrders]);
+
+  // Titre de l'onglet : le produit ouvert, sinon la boutique.
+  useEffect(() => {
+    if (!merchant) return;
+    document.title = selectedProduct ? `${selectedProduct.name} · ${merchant.shop_name}` : `${merchant.shop_name} - Boutique en ligne`;
+  }, [selectedProduct, merchant]);
+
+  // Lien direct ?produit=… (produit partagé) : sa fiche s'ouvre une fois le catalogue chargé.
+  useEffect(() => {
+    if (loading || !linkedProductId.current) return;
+    const linked = products.find((p) => p.id === linkedProductId.current);
+    linkedProductId.current = null;
+    if (linked) setSelectedProduct(linked);
+  }, [loading, products]);
+
+  // Panier gardé dans ce navigateur : on le retrouve en revenant (prix et stock du jour).
+  useEffect(() => {
+    if (cartRestored.current || loading || !products.length) return;
+    cartRestored.current = true;
+    const saved = store.get(`cart_${shopName}`, []);
+    const byId = new Map(products.map((p) => [p.id, p]));
+    const next = {};
+    for (const line of Array.isArray(saved) ? saved : []) {
+      const product = byId.get(line?.id);
+      if (!product || !(line.quantity > 0)) continue;
+      const room = stockLeft(product) - quantityInCart(next, product.id);
+      if (room <= 0) continue;
+      next[line.key] = { product, variant: line.variant || '', quantity: Math.min(line.quantity, room) };
+    }
+    if (Object.keys(next).length) setCart((prev) => (Object.keys(prev).length ? prev : next));
+  }, [loading, products, shopName]);
+  useEffect(() => {
+    if (!cartRestored.current) return;
+    store.set(`cart_${shopName}`, Object.entries(cart).map(([key, item]) => ({ key, id: item.product.id, variant: item.variant, quantity: item.quantity })));
+  }, [cart, shopName]);
+
+  // Données lisibles par Google (boutique et produits) et description de la page.
+  useEffect(() => {
+    if (!merchant) return undefined;
+    const url = `${window.location.origin}/boutique/${encodeURIComponent(merchant.shop_name)}`;
+    const data = {
+      '@context': 'https://schema.org',
+      '@type': 'Store',
+      name: merchant.shop_name,
+      description: merchant.description || undefined,
+      url,
+      telephone: merchant.phone_number || undefined,
+      image: merchant.logo_url || merchant.banner_url || undefined,
+      address: merchant.address ? { '@type': 'PostalAddress', streetAddress: merchant.address, addressCountry: 'SN' } : undefined,
+      makesOffer: products.slice(0, 30).map((p) => ({
+        '@type': 'Offer',
+        price: p.price_fcfa,
+        priceCurrency: 'XOF',
+        availability: `https://schema.org/${typeof p.stock === 'number' && p.stock <= 0 ? 'OutOfStock' : 'InStock'}`,
+        url: `${url}?produit=${p.id}`,
+        itemOffered: { '@type': 'Product', name: p.name, description: p.description || undefined, image: p.image_url || undefined, category: p.category || undefined },
+      })),
+    };
+    const script = document.createElement('script');
+    script.type = 'application/ld+json';
+    script.textContent = JSON.stringify(data).replace(/</g, '\\u003c');
+    document.head.appendChild(script);
+    const meta = document.querySelector('meta[name="description"]');
+    const previous = meta?.getAttribute('content');
+    meta?.setAttribute('content', (merchant.description || `${merchant.shop_name} : boutique en ligne, livraison et paiement mobile au Sénégal.`).slice(0, 160));
+    return () => {
+      script.remove();
+      if (meta && previous != null) meta.setAttribute('content', previous);
+    };
+  }, [merchant, products]);
+
   const fetchOrderData = async (orderId) => {
     const { data } = await supabase.rpc('get_order_receipt', { p_order_id: orderId });
     if (data) {
@@ -352,25 +578,35 @@ export default function PublicShop() {
 
   const fetchShopData = async () => {
     setLoading(true);
-    const decodedName = decodeURIComponent(shopName);
+    setLoadError(false);
+    try {
+      const { data: mData, error: mError } = await supabase
+        .from('merchants')
+        .select('id, shop_name, phone_number, email, address, logo_url, banner_url, description, theme_color, layout_style, social_links, delivery_zones')
+        .ilike('shop_name', safeDecode(shopName))
+        .single();
 
-    const { data: mData } = await supabase
-      .from('merchants')
-      .select('id, shop_name, phone_number, email, address, logo_url, banner_url, description, theme_color, layout_style, social_links, delivery_zones')
-      .ilike('shop_name', decodedName)
-      .single();
+      // PGRST116 : aucune boutique de ce nom. Toute autre erreur : réseau ou service indisponible.
+      const failed = Boolean(mError && mError.code !== 'PGRST116');
+      if (failed) setLoadError(true);
 
-    if (mData) {
-      setMerchant(mData);
-      document.title = `${mData.shop_name} - Boutique en ligne`;
+      if (mData) {
+        setMerchant(mData);
+        document.title = `${mData.shop_name} - Boutique en ligne`;
 
-      const { data: pData } = await supabase
-        .from('products')
-        .select('*')
-        .eq('merchant_id', mData.id)
-        .order('created_at', { ascending: false });
+        const { data: pData } = await supabase
+          .from('products')
+          .select('*')
+          .eq('merchant_id', mData.id)
+          .order('created_at', { ascending: false });
 
-      if (pData) setProducts(pData);
+        if (pData) setProducts(pData);
+      } else {
+        document.title = failed ? 'Boutique indisponible · SamaBoutik' : 'Boutique introuvable · SamaBoutik';
+      }
+    } catch {
+      setLoadError(true);
+      document.title = 'Boutique indisponible · SamaBoutik';
     }
     setLoading(false);
   };
@@ -380,23 +616,30 @@ export default function PublicShop() {
       const newFavs = prev.includes(productId)
         ? prev.filter(id => id !== productId)
         : [...prev, productId];
-      localStorage.setItem(`favs_${shopName}`, JSON.stringify(newFavs));
+      store.set(`favs_${shopName}`, newFavs);
       return newFavs;
     });
   };
 
-  const showToast = (message) => {
-    setToastMessage(message);
+  // warn : avertissement (ex. stock atteint) plutôt que confirmation.
+  const showToast = (message, { warn = false, cart: toCart = false } = {}) => {
+    setToastMessage({ text: message, warn, cart: toCart });
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const addToCart = (product, size = null, color = null) => {
+  const addToCart = (product, size = null, color = null, { openCart = true } = {}) => {
     let variantDesc = '';
     if (size) variantDesc += size;
     if (size && color) variantDesc += ' - ';
     if (color) variantDesc += color;
 
     const cartKey = variantDesc ? `${product.id}-${variantDesc}` : product.id;
+
+    // Le panier ne dépasse pas le stock (la base refuse de toute façon une commande au-delà).
+    if (quantityInCart(cart, product.id) >= stockLeft(product)) {
+      showToast(stockMessage(product), { warn: true });
+      return false;
+    }
 
     setCart(prev => ({
       ...prev,
@@ -407,18 +650,45 @@ export default function PublicShop() {
       }
     }));
 
-    showToast(`${product.name} ajouté au panier`);
-    setIsCartOpen(true);
-    if(selectedProduct) setSelectedProduct(null);
+    showToast(`${product.name} ajouté au panier`, { cart: true });
+    if (openCart) setIsCartOpen(true);
+    if (selectedProduct) setSelectedProduct(null);
+    return true;
   };
 
-  const quickAdd = (product) => {
-    addToCart(product);
+  // Ajout depuis la grille : le visiteur continue ses achats (le panier ne s'ouvre pas).
+  // Produit à tailles ou couleurs : on ouvre sa fiche pour choisir.
+  // Le produit « vole » jusqu'au panier (sauf si le visiteur préfère moins d'animations).
+  const flyToCart = (product, button) => {
+    if (!product.image_url || !button || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const target = [...document.querySelectorAll('[data-cart-target]')].find((el) => el.offsetParent !== null);
+    const source = button.closest('.group')?.querySelector('img') || button;
+    if (!target) return;
+    const from = source.getBoundingClientRect();
+    const to = target.getBoundingClientRect();
+    setFlyer({
+      key: (flyerCount.current += 1),
+      src: thumbUrl(product.image_url),
+      from: { x: from.left + from.width / 2 - 28, y: from.top + from.height / 2 - 28 },
+      to: { x: to.left + to.width / 2 - 28, y: to.top + to.height / 2 - 28 },
+    });
+  };
+
+  const quickAdd = (product, event) => {
+    if (needsChoice(product)) { setSelectedProduct(product); return; }
+    if (!addToCart(product, null, null, { openCart: false })) return;
+    flyToCart(product, event?.currentTarget);
+    navigator.vibrate?.(12);
     setJustAdded(product.id);
     setTimeout(() => setJustAdded((id) => (id === product.id ? null : id)), 1400);
   };
 
   const updateQuantity = (cartKey, delta) => {
+    const item = cart[cartKey];
+    if (item && delta > 0 && quantityInCart(cart, item.product.id) + delta > stockLeft(item.product)) {
+      showToast(stockMessage(item.product), { warn: true });
+      return;
+    }
     setCart(prev => {
       const newCart = { ...prev };
       if (!newCart[cartKey]) return prev;
@@ -444,12 +714,34 @@ export default function PublicShop() {
 
   const getDeliveryPrice = () => activeZones.find(z => z.name === checkoutData.zone)?.price || 0;
   const cartItemsCount = Object.values(cart).reduce((acc, item) => acc + item.quantity, 0);
+  const contactDone = Boolean(checkoutData.name.trim() && checkoutData.phone.replace(/\D/g, '').length >= 7 && checkoutData.address.trim() && checkoutData.zone);
+  const checkoutSteps = [
+    { label: 'Articles', done: cartItemsCount > 0 },
+    { label: 'Coordonnées', done: contactDone },
+    { label: 'Paiement', done: contactDone && Boolean(checkoutData.paymentMethod) },
+  ];
+
+  // Coordonnées mémorisées (si le client l'a demandé) : remplies à la première ouverture du panier.
+  useEffect(() => {
+    if (!isCartOpen || clientPrefilled.current || !activeZones.length) return;
+    clientPrefilled.current = true;
+    const saved = store.get(CLIENT_KEY, null);
+    if (!saved) return;
+    setCheckoutData((prev) => (prev.name || prev.phone || prev.address ? prev : {
+      ...prev,
+      name: saved.name || '',
+      phone: saved.phone || '',
+      address: saved.address || '',
+      zone: activeZones.some((z) => z.name === saved.zone) ? saved.zone : prev.zone,
+    }));
+  }, [isCartOpen, activeZones]);
 
   const submitOrder = async (e) => {
     e.preventDefault();
     if (Object.keys(cart).length === 0) return;
 
     setIsSubmitting(true);
+    if (rememberClient) store.set(CLIENT_KEY, { name: checkoutData.name, phone: checkoutData.phone, address: checkoutData.address, zone: checkoutData.zone });
     try {
       const cartItemsArray = Object.values(cart).map(item => ({
         product_id: item.product.id,
@@ -458,7 +750,7 @@ export default function PublicShop() {
         quantity: item.quantity
       }));
 
-      if (checkoutData.paymentMethod === 'MOBILE_MONEY') {
+      if (isMobileChannel(checkoutData.paymentMethod)) {
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
         // Serveur de paiement injoignable alors qu'internet fonctionne : on propose le paiement à la livraison.
         const paymentDown = "Le paiement en ligne est momentanément indisponible. Réessayez dans un instant ou choisissez le paiement à la livraison.";
@@ -472,7 +764,8 @@ export default function PublicShop() {
               phone: checkoutData.phone,
               address: checkoutData.address,
               zone: checkoutData.zone,
-              cartItems: cartItemsArray
+              cartItems: cartItemsArray,
+              channel: checkoutData.paymentMethod, // wave, orange_money, free_money ou wizall
             }
           })
         }).catch(() => { throw new Error(isOffline() ? NETWORK_MESSAGE : paymentDown); });
@@ -520,7 +813,7 @@ export default function PublicShop() {
     text += `💰 *Total à payer :* *${orderFinalized.total_amount_fcfa} FCFA*\n\n`;
     text += `📍 *Mes coordonnées :*\n👤 Nom: ${orderFinalized.customer_name}\n📞 Tél: ${orderFinalized.customer_phone}\n🏠 Adresse: ${orderFinalized.customer_address}\n\n`;
     text += `🔐 *Code Secret de Livraison :* ${orderFinalized.delivery_pin}`;
-    return `https://wa.me/${merchant.phone_number.replace(/\+/g, '')}?text=${encodeURIComponent(text)}`;
+    return `https://wa.me/${whatsappNumber(merchant.phone_number)}?text=${encodeURIComponent(text)}`;
   };
 
   const submitReview = async (e) => {
@@ -551,17 +844,16 @@ export default function PublicShop() {
     }
   };
 
-  const handleTrackOrder = async (e) => {
-    e.preventDefault();
+  const runTrack = async (phoneValue, pinValue) => {
     setTrackError('');
     setTrackResult(null);
-    if (!trackPhone || !trackPin) {
+    if (!phoneValue || !pinValue) {
       setTrackError('Veuillez remplir tous les champs');
       return;
     }
     setTrackLoading(true);
     try {
-      const query = { phone: trackPhone.trim(), pin: trackPin.trim().toUpperCase() };
+      const query = { phone: String(phoneValue).trim(), pin: String(pinValue).trim().toUpperCase() };
       const { data, error } = await supabase.rpc('track_order', { p_phone: query.phone, p_pin: query.pin });
 
       if (error) setTrackError(friendlyError(error, 'Erreur de connexion'));
@@ -575,6 +867,9 @@ export default function PublicShop() {
     }
     setTrackLoading(false);
   };
+  const handleTrackOrder = (e) => { e.preventDefault(); runTrack(trackPhone, trackPin); };
+  const trackSavedOrder = (o) => { setTrackPhone(o.phone); setTrackPin(o.pin); runTrack(o.phone, o.pin); };
+  const removeSavedOrder = (id) => setMyOrders((prev) => { const next = prev.filter((o) => o.id !== id); store.set(`orders_${shopName}`, next); return next; });
 
   // Navigation
   const goHome = () => { setActiveTab('home'); setShowFavoritesOnly(false); window.scrollTo({ top: 0, behavior: 'smooth' }); };
@@ -582,7 +877,7 @@ export default function PublicShop() {
     setActiveTab('home');
     setTimeout(() => document.getElementById('shop-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
   };
-  const openTab = (tab) => { setActiveTab(tab); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const openTab = (tab) => { setActiveTab(tab); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const toggleFavoritesView = () => { setShowFavoritesOnly((v) => !v); goToCatalog(); };
   const trackFinalizedOrder = () => {
     setTrackPhone(orderFinalized.customer_phone);
@@ -594,16 +889,25 @@ export default function PublicShop() {
 
   // Filtrage
   const categories = ['Tous', ...new Set(products.map(p => p.category || 'Autres'))];
-  let processedProducts = products.filter(p => {
-    const q = searchQuery.trim().toLowerCase();
-    const matchesSearch = !q || p.name.toLowerCase().includes(q) || (Array.isArray(p.tags) && p.tags.some((t) => t.includes(q)));
-    const matchesCat = selectedCategory === 'Tous' || (p.category || 'Autres') === selectedCategory;
-    const matchesFav = !showFavoritesOnly || favorites.includes(p.id);
-    return matchesSearch && matchesCat && matchesFav;
-  });
+  const categoryCounts = categories.filter((c) => c !== 'Tous').map((name) => ({ name, count: products.filter((p) => (p.category || 'Autres') === name).length }));
+  const matchesView = (p, f) => searchScore(p, searchQuery) > 0
+    && (selectedCategory === 'Tous' || (p.category || 'Autres') === selectedCategory)
+    && (!showFavoritesOnly || favorites.includes(p.id))
+    && matchesFilters(p, f);
+  let processedProducts = products.filter((p) => matchesView(p, filters));
+  const filterCount = activeFilterCount(filters);
+  const sorts = ratings.shop ? [...SORTS, RATING_SORT] : SORTS;
+  const ratingOf = (p) => ratings.byId[p.id] || { avg: 0, count: 0 };
 
   if (sortBy === 'price_asc') processedProducts.sort((a,b) => a.price_fcfa - b.price_fcfa);
   if (sortBy === 'price_desc') processedProducts.sort((a,b) => b.price_fcfa - a.price_fcfa);
+  if (sortBy === 'rating') processedProducts.sort((a, b) => ratingOf(b).avg - ratingOf(a).avg || ratingOf(b).count - ratingOf(a).count);
+
+  // Recherche plein écran
+  const showSearchResults = (q) => { setSearchQuery(q); setSelectedCategory('Tous'); setShowFavoritesOnly(false); setSearchOpen(false); goToCatalog(); };
+  const pickCategory = (cat) => { setSearchQuery(''); setSelectedCategory(cat); setShowFavoritesOnly(false); setSearchOpen(false); goToCatalog(); };
+  const openFromSearch = (p) => { setSearchOpen(false); setSelectedProduct(p); };
+  const resetCatalog = () => { setSearchQuery(''); setSelectedCategory('Tous'); setShowFavoritesOnly(false); setFilters(NO_FILTERS); };
 
   const newestIds = products.slice(0, 3).map((p) => p.id);
   const featured = products.filter((p) => p.image_url).slice(0, 3);
@@ -617,23 +921,63 @@ export default function PublicShop() {
     : [];
   const selectedOut = selectedProduct && typeof selectedProduct.stock === 'number' && selectedProduct.stock <= 0;
 
-  if (!merchant && !loading) return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0b1f17] px-4">
-      <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE, duration: 0.6 }} className="w-full max-w-sm rounded-[2rem] border border-white/10 bg-white/5 p-10 text-center text-white">
-        <span className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-300">
-          <Store className="h-8 w-8" />
-        </span>
-        <h2 className="mb-3 text-3xl font-extrabold tracking-tight">Boutique introuvable</h2>
-        <p className="mb-8 text-white/60">Ce lien est expiré ou n'existe pas.</p>
-        <Link to="/" className="block rounded-full bg-white px-8 py-4 font-bold text-[#0b1f17] transition-transform hover:-translate-y-0.5">Retour à l'accueil</Link>
-      </motion.div>
-    </div>
-  );
+  if (!merchant && !loading) {
+    if (loadError) return (
+      <StatusScreen
+        icon={WifiOff}
+        kicker="Connexion"
+        title="Boutique momentanément indisponible"
+        actions={[
+          { label: 'Réessayer', icon: RotateCw, onClick: fetchShopData, primary: true },
+          { to: '/', label: 'Retour à l’accueil', icon: House },
+        ]}
+      >
+        {isOffline()
+          ? 'Vous semblez hors ligne. Vérifiez votre connexion internet, puis réessayez.'
+          : 'La boutique n’a pas pu se charger. Réessayez dans un instant.'}
+      </StatusScreen>
+    );
+    const askedName = safeDecode(shopName);
+    return (
+      <StatusScreen
+        icon={Store}
+        kicker="Boutique introuvable"
+        title={<>Aucune boutique « {askedName.length > 40 ? `${askedName.slice(0, 39)}…` : askedName} »</>}
+        actions={[
+          { to: '/boutiques', label: 'Chercher dans l’annuaire', icon: Search, primary: true },
+          { to: '/', label: 'Retour à l’accueil', icon: House },
+        ]}
+        footer={<>Vous êtes commerçant ? <Link to="/register">Créez votre boutique gratuitement</Link></>}
+      >
+        Le lien est peut-être mal écrit, ou la boutique a changé de nom. Vérifiez le lien reçu, ou cherchez-la dans l’annuaire.
+      </StatusScreen>
+    );
+  }
 
   const socialLinks = merchant?.social_links || {};
   const paymentOk = paymentStatusMessage?.includes('réussi');
   // Bannière du marchand, sinon la photo d'ambiance du thème.
   const heroImage = merchant?.banner_url ? { src: merchant.banner_url } : theme.banner;
+
+  // Partage de la boutique ou d'un produit (le lien ouvre directement sa fiche).
+  const shopUrl = `${window.location.origin}/boutique/${encodeURIComponent(merchant?.shop_name || safeDecode(shopName))}`;
+  const productUrl = (p) => `${shopUrl}?produit=${p.id}`;
+  const shareShop = () => shareLink(
+    { title: merchant.shop_name, text: `Découvrez ${merchant.shop_name} : commandez en ligne, livraison et paiement mobile.`, url: shopUrl },
+    () => showToast('Lien de la boutique copié'),
+  );
+  const shareProduct = (p) => shareLink(
+    { title: p.name, text: `${p.name} · ${fmt(p.price_fcfa)} FCFA chez ${merchant.shop_name}`, url: productUrl(p) },
+    () => showToast('Lien du produit copié'),
+  );
+  const askOnWhatsApp = (p) => `https://wa.me/${whatsappNumber(merchant.phone_number)}?text=${encodeURIComponent(`Bonjour ${merchant.shop_name}, j'ai une question sur « ${p.name} » (${fmt(p.price_fcfa)} FCFA) : ${productUrl(p)}`)}`;
+  const recentProducts = recentIds.map((id) => products.find((p) => p.id === id)).filter(Boolean);
+  const clearRecent = () => { setRecentIds([]); store.remove(`recent_${shopName}`); };
+  const sameCategory = (p) => (p.category || 'Autres') === (selectedProduct?.category || 'Autres');
+  const similarProducts = selectedProduct
+    ? products.filter((p) => p.id !== selectedProduct.id).sort((a, b) => Number(sameCategory(b)) - Number(sameCategory(a))).slice(0, 8)
+    : [];
+  const selectedOptions = productOptions(selectedProduct);
 
   return (
     <MotionConfig reducedMotion="user">
@@ -651,13 +995,69 @@ export default function PublicShop() {
             initial={{ y: 100, opacity: 0, scale: 0.9 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 100, opacity: 0 }}
-            onClick={() => setIsCartOpen(true)}
-            className="fixed bottom-28 left-1/2 z-[100] flex -translate-x-1/2 items-center gap-3 rounded-full border border-white/15 bg-slate-900/95 px-5 py-3.5 text-white shadow-2xl backdrop-blur-2xl md:bottom-8"
+            onClick={() => toastMessage.cart && setIsCartOpen(true)}
+            className="fixed bottom-28 left-1/2 z-[100] flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-full border border-white/15 bg-slate-900/95 px-5 py-3.5 text-white shadow-2xl backdrop-blur-2xl md:bottom-8"
           >
-            <span className="theme-gradient flex h-7 w-7 items-center justify-center rounded-full"><Check className="h-4 w-4" strokeWidth={3} /></span>
-            <span className="text-sm font-bold">{toastMessage}</span>
+            {toastMessage.warn
+              ? <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-400 text-slate-900"><TriangleAlert className="h-4 w-4" strokeWidth={2.5} /></span>
+              : <span className="theme-gradient flex h-7 w-7 items-center justify-center rounded-full"><Check className="h-4 w-4" strokeWidth={3} /></span>}
+            <span className="text-sm font-bold">{toastMessage.text}</span>
+            {toastMessage.cart && !isCartOpen && <span className="flex shrink-0 items-center gap-0.5 text-xs font-bold text-white/60">Voir <ChevronRight className="h-3.5 w-3.5" /></span>}
           </motion.button>
         )}
+      </AnimatePresence>
+
+      {/* PRODUIT QUI VOLE VERS LE PANIER */}
+      <AnimatePresence>
+        {flyer && (
+          <motion.img
+            key={flyer.key}
+            src={flyer.src}
+            alt=""
+            aria-hidden="true"
+            className="pointer-events-none fixed left-0 top-0 z-[110] h-14 w-14 rounded-full object-cover shadow-2xl ring-4 ring-white"
+            initial={{ x: flyer.from.x, y: flyer.from.y, scale: 1.4, opacity: 0 }}
+            animate={{ x: [flyer.from.x, (flyer.from.x + flyer.to.x) / 2, flyer.to.x], y: [flyer.from.y, Math.min(flyer.from.y, flyer.to.y) - 140, flyer.to.y], scale: [1.4, 1, 0.35], opacity: [1, 1, 0.5] }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.75, ease: [0.45, 0, 0.2, 1] }}
+            onAnimationComplete={() => setFlyer(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* RECHERCHE, FILTRES, LIVRAISON */}
+      <AnimatePresence>
+        {searchOpen && (
+          <SearchOverlay
+            key="search"
+            initialQuery={searchQuery}
+            products={products}
+            categories={categoryCounts}
+            recentKey={`searches_${shopName}`}
+            categoryIcon={categoryIcon}
+            onClose={closeSearch}
+            onOpenProduct={openFromSearch}
+            onShowResults={showSearchResults}
+            onPickCategory={pickCategory}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {filterOpen && (
+          <FilterSheet
+            key="filters"
+            filters={filters}
+            sortBy={sortBy}
+            sorts={sorts}
+            prices={products.map((p) => p.price_fcfa)}
+            countFor={(f) => products.filter((p) => matchesView(p, f)).length}
+            onApply={(f, sort) => { setFilters(f); setSortBy(sort); setFilterOpen(false); }}
+            onClose={closeFilters}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {deliveryOpen && <DeliverySheet key="delivery" zones={activeZones} onClose={closeDelivery} />}
       </AnimatePresence>
 
       {/* APERÇU D'UN THÈME (lien envoyé depuis le tableau de bord) */}
@@ -676,7 +1076,7 @@ export default function PublicShop() {
                 <div key={i} className="flex shrink-0 items-center gap-8 px-4">
                   <span className="flex items-center gap-2"><Truck className="theme-text h-3.5 w-3.5" /> Livraison rapide</span>
                   <span className="text-white/30">✦</span>
-                  <span className="flex items-center gap-2"><Smartphone className="theme-text h-3.5 w-3.5" /> Wave & Orange Money</span>
+                  <span className="flex items-center gap-2"><Smartphone className="theme-text h-3.5 w-3.5" /> Wave, Orange Money, Free Money, Wizall</span>
                   <span className="text-white/30">✦</span>
                   <span className="flex items-center gap-2"><Lock className="theme-text h-3.5 w-3.5" /> Paiement à la livraison</span>
                   <span className="text-white/30">✦</span>
@@ -711,17 +1111,11 @@ export default function PublicShop() {
             </span>
           </button>
 
-          <div className="relative mx-auto hidden max-w-xl flex-1 md:block">
+          <button type="button" onClick={() => setSearchOpen(true)} className="sh-search relative mx-auto hidden max-w-xl flex-1 items-center py-3 pl-12 pr-3 text-left text-sm font-medium md:flex" aria-label="Rechercher un produit">
             <Search className="sh-faint pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder={searchPlaceholder}
-              value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); if (activeTab !== 'home') setActiveTab('home'); }}
-              className="sh-search w-full py-3 pl-12 pr-4 text-sm font-medium"
-              aria-label="Rechercher un produit"
-            />
-          </div>
+            <span className={`truncate ${searchQuery ? 'sh-ink' : 'sh-faint'}`}>{searchQuery || searchPlaceholder}</span>
+            <kbd className="sh-fill sh-muted ml-auto hidden shrink-0 rounded-md px-2 py-0.5 font-sans text-[11px] font-bold lg:block" aria-hidden="true">/</kbd>
+          </button>
 
           <div className="ml-auto hidden items-center gap-1 md:flex">
             <button onClick={() => openTab('order-tracking')} className={`sh-r-sm flex items-center gap-2 px-3 py-2 text-sm font-semibold transition-colors ${activeTab === 'order-tracking' ? 'theme-soft theme-text' : 'sh-muted sh-hover'}`}>
@@ -731,13 +1125,13 @@ export default function PublicShop() {
               <Info className="h-4 w-4" /> À propos
             </button>
             <button onClick={toggleFavoritesView} className="sh-muted sh-hover sh-r-sm relative p-2.5" aria-label="Mes favoris">
-              <Heart className={`h-5 w-5 ${showFavoritesOnly ? 'fill-rose-500 text-rose-500' : ''}`} />
+              {showFavoritesOnly ? <HeartFill className="h-5 w-5 text-rose-500" /> : <Heart className="h-5 w-5" />}
               {favorites.length > 0 && <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">{favorites.length}</span>}
             </button>
             <Link to={`/livreur/${encodeURIComponent(shopName)}`} className="sh-muted sh-hover sh-r-sm p-2.5" title="Accès livreur" aria-label="Accès livreur">
               <Bike className="h-5 w-5" />
             </Link>
-            <motion.button whileTap={{ scale: 0.95 }} onClick={() => setIsCartOpen(true)} className="theme-gradient theme-glow sh-r-md ml-2 flex items-center gap-2 px-4 py-2.5 text-sm font-bold">
+            <motion.button data-cart-target whileTap={{ scale: 0.95 }} onClick={() => setIsCartOpen(true)} className="theme-gradient theme-glow sh-r-md ml-2 flex items-center gap-2 px-4 py-2.5 text-sm font-bold">
               <ShoppingBag className="h-5 w-5" /> Panier
               <motion.span key={cartItemsCount} initial={{ scale: 1.6 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 15 }} className="flex h-6 min-w-6 items-center justify-center rounded-full bg-white/25 px-1.5 text-xs">
                 {cartItemsCount}
@@ -746,46 +1140,22 @@ export default function PublicShop() {
           </div>
 
           <div className="ml-auto flex items-center gap-2 md:hidden">
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="sh-fill sh-ink-2 sh-r-sm p-2.5" aria-label="Rechercher et menu">
-              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+            <button onClick={() => setSearchOpen(true)} className="sh-fill sh-ink-2 sh-r-sm p-2.5" aria-label="Rechercher un produit">
+              <Search className="h-5 w-5" />
             </button>
-            <Link to={`/livreur/${encodeURIComponent(shopName)}`} className="sh-fill sh-ink-2 sh-r-sm p-2.5" aria-label="Accès livreur">
-              <Bike className="h-5 w-5" />
-            </Link>
+            {merchant && (
+              <button onClick={shareShop} className="sh-fill sh-ink-2 sh-r-sm p-2.5" aria-label="Partager la boutique">
+                <Share2 className="h-5 w-5" />
+              </button>
+            )}
+            {merchant?.phone_number && (
+              <a href={`https://wa.me/${whatsappNumber(merchant.phone_number)}`} target="_blank" rel="noreferrer" className="sh-r-sm flex items-center justify-center bg-[#25D366] p-2.5 text-white shadow-md shadow-green-600/25" aria-label="Contacter le vendeur sur WhatsApp">
+                <WhatsApp className="h-5 w-5" />
+              </a>
+            )}
           </div>
         </div>
 
-        <AnimatePresence>
-          {mobileMenuOpen && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="sh-line overflow-hidden border-t md:hidden">
-              <div className="space-y-3 p-4">
-                <div className="relative">
-                  <Search className="sh-faint absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    autoFocus
-                    placeholder={searchPlaceholder}
-                    value={searchQuery}
-                    onChange={(e) => { setSearchQuery(e.target.value); if (activeTab !== 'home') setActiveTab('home'); }}
-                    className="sh-search w-full py-3 pl-12 pr-4 text-sm"
-                    aria-label="Rechercher un produit"
-                  />
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: 'Catalogue', icon: LayoutGrid, onClick: () => { setMobileMenuOpen(false); goToCatalog(); } },
-                    { label: 'Suivi', icon: Package, onClick: () => openTab('order-tracking') },
-                    { label: 'À propos', icon: Info, onClick: () => openTab('profile') },
-                  ].map((l) => (
-                    <button key={l.label} onClick={l.onClick} className="sh-fill sh-ink-2 sh-r-md flex flex-col items-center gap-1.5 py-3 text-xs font-bold">
-                      <l.icon className="theme-text h-5 w-5" /> {l.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </header>
 
       <main className="mx-auto max-w-7xl px-4 pb-16 pt-6 sm:px-6 md:pt-10 lg:px-8">
@@ -846,17 +1216,25 @@ export default function PublicShop() {
                       <button onClick={() => openTab('order-tracking')} className="sh-hero-chip sh-r-md inline-flex items-center gap-2 px-6 py-4 font-semibold backdrop-blur transition-opacity hover:opacity-90">
                         <Package className="h-5 w-5" /> Suivre ma commande
                       </button>
+                      {/* Sur téléphone, le partage est dans l'en-tête */}
+                      <button onClick={shareShop} className="sh-hero-chip sh-r-md hidden items-center justify-center px-4 py-4 backdrop-blur transition-opacity hover:opacity-90 sm:inline-flex" aria-label="Partager la boutique" title="Partager la boutique">
+                        <Share2 className="h-5 w-5" />
+                      </button>
                     </motion.div>
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.45 }} className="mt-8 flex flex-wrap gap-2">
                       {[
-                        { icon: Truck, text: `Livraison dans ${activeZones.length} zone${activeZones.length > 1 ? 's' : ''}` },
-                        { icon: Smartphone, text: 'Wave & Orange Money' },
+                        ratings.shop && { icon: Star, star: true, text: `${ratingText(ratings.shop.avg)}/5 · ${ratings.shop.count} avis` },
+                        { icon: Truck, text: `Livraison dans ${activeZones.length} zone${activeZones.length > 1 ? 's' : ''}`, onClick: activeZones.length ? () => setDeliveryOpen(true) : null },
+                        { icon: Smartphone, text: 'Paiement mobile ou à la livraison' },
                         { icon: ShieldCheck, text: 'Code PIN à la livraison' },
-                      ].map((c) => (
-                        <span key={c.text} className="sh-hero-chip inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold backdrop-blur">
-                          <c.icon className="theme-text h-4 w-4" /> {c.text}
-                        </span>
-                      ))}
+                      ].filter(Boolean).map((c) => {
+                        const content = <><c.icon className={`h-4 w-4 ${c.star ? 'text-amber-400' : 'theme-text'}`} /> {c.text}{c.onClick && <ChevronRight className="h-3.5 w-3.5 opacity-60" />}</>;
+                        return c.onClick ? (
+                          <button key={c.text} type="button" onClick={c.onClick} className="sh-hero-chip inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold backdrop-blur transition-opacity hover:opacity-90">{content}</button>
+                        ) : (
+                          <span key={c.text} className="sh-hero-chip inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold backdrop-blur">{content}</span>
+                        );
+                      })}
                     </motion.div>
                   </div>
 
@@ -899,6 +1277,20 @@ export default function PublicShop() {
                   <h2 className="sh-display sh-ink text-lg">En ce moment</h2>
                 </div>
                 <StoreStories products={products} onProductClick={(p) => setSelectedProduct(p)} />
+              </section>
+            )}
+
+            {/* VUS RÉCEMMENT */}
+            {!loading && recentProducts.length >= 2 && (
+              <section className="mb-10" aria-label="Vus récemment">
+                <div className="mb-3 flex items-center gap-2">
+                  <History className="theme-text h-5 w-5" />
+                  <h2 className="sh-display sh-ink text-lg">Vus récemment</h2>
+                  <button type="button" onClick={clearRecent} className="sh-muted ml-auto min-h-9 px-2 text-xs font-semibold hover:underline">Effacer</button>
+                </div>
+                <div className="scrollbar-hide -mx-4 flex gap-3 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
+                  {recentProducts.map((p) => <MiniProduct key={p.id} product={p} onOpen={() => setSelectedProduct(p)} />)}
+                </div>
               </section>
             )}
 
@@ -953,12 +1345,20 @@ export default function PublicShop() {
                     aria-pressed={showFavoritesOnly}
                     className={`sh-r-md flex shrink-0 items-center gap-2 whitespace-nowrap px-4 py-2.5 text-sm font-bold transition-colors ${showFavoritesOnly ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30' : 'sh-surface sh-border sh-muted'}`}
                   >
-                    <Heart className={`h-4 w-4 ${showFavoritesOnly ? 'fill-white' : ''}`} /> Favoris
+                    {showFavoritesOnly ? <HeartFill className="h-4 w-4" /> : <Heart className="h-4 w-4" />} Favoris
                     {favorites.length > 0 && <span className={`rounded-full px-1.5 text-xs ${showFavoritesOnly ? 'bg-white/25' : 'bg-rose-50 text-rose-600'}`}>{favorites.length}</span>}
                   </motion.button>
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setFilterOpen(true)}
+                    className={`sh-r-md flex shrink-0 items-center gap-2 whitespace-nowrap px-4 py-2.5 text-sm font-bold transition-colors ${filterCount ? 'theme-gradient' : 'sh-surface sh-border sh-muted'}`}
+                  >
+                    <SlidersHorizontal className="h-4 w-4" /> Filtres
+                    {filterCount > 0 && <span className="rounded-full bg-white/25 px-1.5 text-xs">{filterCount}</span>}
+                  </motion.button>
                   <div className="sh-surface sh-border sh-r-md flex shrink-0 p-1" role="group" aria-label="Trier">
-                    {SORTS.map((s) => (
-                      <button key={s.id} onClick={() => setSortBy(s.id)} aria-pressed={sortBy === s.id} className={`sh-r-sm relative whitespace-nowrap px-3 py-1.5 text-sm font-semibold transition-colors ${sortBy === s.id ? 'text-[color:var(--shop-bg)]' : 'sh-muted hover:text-[color:var(--shop-ink)]'}`}>
+                    {sorts.map((s) => (
+                      <button key={s.id} onClick={() => setSortBy(s.id)} aria-pressed={sortBy === s.id} className={`sh-r-sm relative min-h-9 whitespace-nowrap px-3 py-1.5 text-sm font-semibold transition-colors ${sortBy === s.id ? 'text-[color:var(--shop-bg)]' : 'sh-muted hover:text-[color:var(--shop-ink)]'}`}>
                         {sortBy === s.id && <motion.span layoutId="sort-pill" className="sh-invert sh-r-sm absolute inset-0" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
                         <span className="relative">{s.label}</span>
                       </button>
@@ -966,6 +1366,26 @@ export default function PublicShop() {
                   </div>
                 </div>
               </div>
+
+              {(searchQuery || filterCount > 0) && (
+                <div className="-mt-2 mb-6 flex flex-wrap gap-2">
+                  {searchQuery && (
+                    <button type="button" onClick={() => setSearchQuery('')} className="theme-soft theme-text sh-r-sm inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold" aria-label={`Effacer la recherche « ${searchQuery} »`}>
+                      <Search className="h-3.5 w-3.5" /> « {searchQuery} » <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {(filters.minPrice != null || filters.maxPrice != null) && (
+                    <button type="button" onClick={() => setFilters((f) => ({ ...f, minPrice: null, maxPrice: null }))} className="theme-soft theme-text sh-r-sm inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold" aria-label="Retirer le filtre de prix">
+                      {priceRangeLabel(filters)} <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {filters.inStock && (
+                    <button type="button" onClick={() => setFilters((f) => ({ ...f, inStock: false }))} className="theme-soft theme-text sh-r-sm inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold" aria-label="Retirer le filtre « en stock »">
+                      En stock <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
 
               {loading ? (
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-6 xl:grid-cols-4">
@@ -990,7 +1410,9 @@ export default function PublicShop() {
                       isFavorite={favorites.includes(p.id)}
                       justAdded={justAdded === p.id}
                       onOpen={() => setSelectedProduct(p)}
-                      onAdd={() => quickAdd(p)}
+                      onAdd={(e) => quickAdd(p, e)}
+                      rating={ratings.byId[p.id]}
+                      choose={needsChoice(p)}
                       onToggleFavorite={() => toggleFavorite(p.id)}
                     />
                   ))}
@@ -1002,7 +1424,7 @@ export default function PublicShop() {
                   </span>
                   <h3 className="sh-display sh-ink mb-2 text-xl">{showFavoritesOnly ? 'Aucun favori pour le moment' : 'Aucun produit trouvé'}</h3>
                   <p className="sh-muted mb-6">{showFavoritesOnly ? 'Touchez le cœur d\'un produit pour le retrouver ici.' : 'Essayez de modifier vos filtres ou votre recherche.'}</p>
-                  <button onClick={() => { setSearchQuery(''); setSelectedCategory('Tous'); setShowFavoritesOnly(false); }} className="sh-invert sh-r-md px-6 py-3 text-sm font-bold">
+                  <button onClick={resetCatalog} className="sh-invert sh-r-md px-6 py-3 text-sm font-bold">
                     Voir tous les produits
                   </button>
                 </div>
@@ -1014,7 +1436,7 @@ export default function PublicShop() {
               <section className="mt-16 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
                 {[
                   { icon: Truck, title: 'Livraison rapide', text: `${activeZones.length} zone${activeZones.length > 1 ? 's' : ''} desservie${activeZones.length > 1 ? 's' : ''}` },
-                  { icon: Smartphone, title: 'Paiement mobile', text: 'Wave, Orange Money ou à la livraison' },
+                  { icon: Smartphone, title: 'Paiement mobile', text: 'Wave, Orange Money, Free Money, Wizall ou à la livraison' },
                   { icon: ShieldCheck, title: 'Code PIN', text: 'Votre colis n\'est remis qu\'à vous' },
                   { icon: MessageCircle, title: 'Contact direct', text: 'Une question ? Écrivez-nous sur WhatsApp' },
                 ].map((f, i) => (
@@ -1071,6 +1493,8 @@ export default function PublicShop() {
                 </AnimatePresence>
               </div>
             </motion.div>
+
+            <MyOrders orders={myOrders} statuses={orderStatuses} onTrack={trackSavedOrder} onRemove={removeSavedOrder} />
 
             {trackResult && (() => {
               const stepIndex = TRACK_STEPS.findIndex((s) => s.id === trackResult.status);
@@ -1267,10 +1691,12 @@ export default function PublicShop() {
           <div>
             <h4 className="mb-4 text-sm font-bold uppercase tracking-widest text-white">Boutique</h4>
             <ul className="space-y-3">
-              <li><button onClick={goToCatalog} className="transition-colors hover:text-white">Nos produits</button></li>
-              <li><button onClick={() => openTab('order-tracking')} className="transition-colors hover:text-white">Suivre ma commande</button></li>
-              <li><button onClick={() => openTab('profile')} className="transition-colors hover:text-white">À propos</button></li>
-              <li><button onClick={() => setIsCartOpen(true)} className="transition-colors hover:text-white">Panier</button></li>
+              <li><button onClick={goToCatalog} className="inline-flex min-h-9 items-center transition-colors hover:text-white">Nos produits</button></li>
+              <li><button onClick={() => openTab('order-tracking')} className="inline-flex min-h-9 items-center transition-colors hover:text-white">Suivre ma commande</button></li>
+              <li><button onClick={() => openTab('profile')} className="inline-flex min-h-9 items-center transition-colors hover:text-white">À propos</button></li>
+              <li><button onClick={() => setIsCartOpen(true)} className="inline-flex min-h-9 items-center transition-colors hover:text-white">Panier</button></li>
+              {activeZones.length > 0 && <li><button onClick={() => setDeliveryOpen(true)} className="inline-flex min-h-9 items-center transition-colors hover:text-white">Zones de livraison</button></li>}
+              <li><Link to={`/livreur/${encodeURIComponent(shopName)}`} className="inline-flex min-h-9 items-center transition-colors hover:text-white">Espace livreur</Link></li>
             </ul>
           </div>
           <div>
@@ -1363,6 +1789,19 @@ export default function PublicShop() {
               ) : (
                 <form onSubmit={submitOrder} className="flex min-h-0 flex-1 flex-col">
                   <div className="flex-1 space-y-6 overflow-y-auto p-5 scrollbar-hide">
+                    {/* Progression : articles, coordonnées, paiement */}
+                    <ol className="grid grid-cols-3 gap-2" aria-label="Étapes de la commande">
+                      {checkoutSteps.map((step, i) => (
+                        <li key={step.label} className="flex flex-col gap-1.5" aria-current={!step.done && (i === 0 || checkoutSteps[i - 1].done) ? 'step' : undefined}>
+                          <span className={`h-1.5 rounded-full transition-colors duration-500 ${step.done ? 'theme-gradient' : 'sh-fill'}`} />
+                          <span className={`flex items-center gap-1 text-[11px] font-bold ${step.done ? 'theme-text' : 'sh-muted'}`}>
+                            {step.done ? <CircleCheck className="h-3.5 w-3.5" /> : <span className="sh-line flex h-3.5 w-3.5 items-center justify-center rounded-full border text-[9px]">{i + 1}</span>}
+                            {step.label}
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+
                     <div className="space-y-3">
                       <AnimatePresence initial={false}>
                         {Object.entries(cart).map(([key, item]) => (
@@ -1389,9 +1828,9 @@ export default function PublicShop() {
                               <div className="flex items-center justify-between">
                                 <span className="text-sm font-extrabold">{fmt(item.product.price_fcfa * item.quantity)} F</span>
                                 <div className="sh-fill flex items-center gap-1 rounded-full p-1">
-                                  <motion.button type="button" whileTap={{ scale: 0.8 }} onClick={() => updateQuantity(key, -1)} className="sh-surface flex h-7 w-7 items-center justify-center rounded-full shadow-sm" aria-label="Retirer un"><Minus className="h-3.5 w-3.5" /></motion.button>
+                                  <motion.button type="button" whileTap={{ scale: 0.8 }} onClick={() => updateQuantity(key, -1)} className="sh-surface flex h-9 w-9 items-center justify-center rounded-full shadow-sm" aria-label="Retirer un"><Minus className="h-3.5 w-3.5" /></motion.button>
                                   <motion.span key={item.quantity} initial={{ scale: 1.5 }} animate={{ scale: 1 }} className="w-6 text-center text-sm font-bold">{item.quantity}</motion.span>
-                                  <motion.button type="button" whileTap={{ scale: 0.8 }} onClick={() => updateQuantity(key, 1)} className="theme-gradient flex h-7 w-7 items-center justify-center rounded-full" aria-label="Ajouter un"><Plus className="h-3.5 w-3.5" /></motion.button>
+                                  <motion.button type="button" whileTap={{ scale: 0.8 }} onClick={() => updateQuantity(key, 1)} className="theme-gradient flex h-9 w-9 items-center justify-center rounded-full" aria-label="Ajouter un"><Plus className="h-3.5 w-3.5" /></motion.button>
                                 </div>
                               </div>
                             </div>
@@ -1453,27 +1892,50 @@ export default function PublicShop() {
                           <ChevronDown className="sh-faint pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2" />
                         </div>
                       </div>
+                      <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-relaxed">
+                        <input
+                          type="checkbox"
+                          checked={rememberClient}
+                          onChange={(e) => {
+                            setRememberClient(e.target.checked);
+                            if (!e.target.checked) { store.remove(CLIENT_KEY); store.remove(`orders_${shopName}`); setMyOrders([]); }
+                          }}
+                          className="mt-0.5 h-4 w-4 shrink-0 accent-[color:var(--shop)]"
+                        />
+                        <span className="sh-muted"><span className="sh-ink font-bold">Se souvenir de moi sur ce téléphone</span> : vos coordonnées seront déjà remplies et vos commandes retrouvées dans « Suivi ». Tout reste sur cet appareil.</span>
+                      </label>
                     </div>
 
                     <fieldset className="space-y-2">
                       <legend className="mb-2 text-sm font-bold">Mode de paiement</legend>
                       <div className="grid grid-cols-2 gap-2">
-                        {[
-                          { id: 'ON_DELIVERY', label: 'À la livraison', sub: 'Espèces au livreur', icon: Truck },
-                          { id: 'MOBILE_MONEY', label: 'Wave / OM', sub: 'Paiement sécurisé', icon: Smartphone },
-                        ].map((m) => {
+                        {PAYMENT_CHOICES.map((m) => {
                           const active = checkoutData.paymentMethod === m.id;
                           return (
-                            <label key={m.id} className={`relative cursor-pointer rounded-2xl p-3.5 ring-2 transition-all ${active ? 'theme-soft ring-[color:var(--shop)]' : 'sh-surface ring-[color:var(--shop-line)] hover:ring-[color:var(--shop-faint)]'}`}>
+                            <label key={m.id} className={`relative flex cursor-pointer items-center gap-2.5 rounded-2xl p-3 ring-2 transition-all ${m.id === 'ON_DELIVERY' ? 'col-span-2' : ''} ${active ? 'theme-soft ring-[color:var(--shop)]' : 'sh-surface ring-[color:var(--shop-line)] hover:ring-[color:var(--shop-faint)]'}`}>
                               <input type="radio" name="payment" value={m.id} checked={active} onChange={() => setCheckoutData({...checkoutData, paymentMethod: m.id})} className="sr-only" />
                               {active && <span className="theme-gradient absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full"><Check className="h-3 w-3" strokeWidth={3} /></span>}
-                              <m.icon className={`mb-2 h-6 w-6 ${active ? 'theme-text' : 'sh-faint'}`} />
-                              <span className="block text-sm font-bold">{m.label}</span>
-                              <span className="sh-muted block text-[11px]">{m.sub}</span>
+                              {m.id === 'ON_DELIVERY' ? (
+                                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${active ? 'theme-text' : 'sh-faint'}`}><Truck className="h-6 w-6" /></span>
+                              ) : m.logo ? (
+                                <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white p-1 ring-1 ring-black/5"><img src={m.logo} alt="" className="max-h-full max-w-full object-contain" /></span>
+                              ) : (
+                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[11px] font-extrabold tracking-tight" style={{ background: m.tint, color: m.ink }} aria-hidden="true">{m.monogram}</span>
+                              )}
+                              <span className="min-w-0 pr-5">
+                                <span className="block text-sm font-bold leading-tight [overflow-wrap:anywhere]">{m.label}</span>
+                                <span className="sh-muted block text-[11px]">{m.sub}</span>
+                              </span>
                             </label>
                           );
                         })}
                       </div>
+                      {isMobileChannel(checkoutData.paymentMethod) && (
+                        <p className="sh-muted flex items-start gap-1.5 pt-1 text-xs">
+                          <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          Vous serez redirigé vers la page sécurisée {PAYMENT_CHOICES.find((c) => c.id === checkoutData.paymentMethod)?.label} (PayDunya) pour payer, puis ramené ici.
+                        </p>
+                      )}
                     </fieldset>
                   </div>
 
@@ -1512,7 +1974,8 @@ export default function PublicShop() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 60, scale: 0.97 }}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="sh-surface sh-ink relative flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-[var(--shop-r-lg)] shadow-2xl sm:rounded-[var(--shop-r-lg)] md:flex-row"
+              ref={sheetRef}
+              className="sh-surface sh-ink relative flex max-h-[94vh] supports-[height:100dvh]:max-h-[94dvh] w-full max-w-5xl flex-col overflow-y-auto overscroll-contain rounded-t-[var(--shop-r-lg)] shadow-2xl scrollbar-hide sm:rounded-[var(--shop-r-lg)] md:flex-row md:overflow-hidden"
               role="dialog"
               aria-modal="true"
               aria-label={selectedProduct.name}
@@ -1521,26 +1984,11 @@ export default function PublicShop() {
                 <X className="h-5 w-5" />
               </motion.button>
 
-              <div className="sh-fill relative flex w-full flex-col items-center justify-center gap-4 p-5 md:w-1/2 md:p-10">
-                <div className="sh-r-md group relative w-full max-w-sm overflow-hidden shadow-xl">
-                  {quickViewImage ? (
-                    <motion.img key={quickViewImage} initial={{ opacity: 0, scale: 1.04 }} animate={{ opacity: 1, scale: 1 }} src={quickViewImage} alt={selectedProduct.name} className="aspect-[4/5] w-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                  ) : (
-                    <div className="theme-soft theme-text flex aspect-[4/5] w-full items-center justify-center"><Package className="h-24 w-24" strokeWidth={1.2} /></div>
-                  )}
-                </div>
-                {gallery.length > 1 && (
-                  <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-                    {gallery.map((img) => (
-                      <button key={img} onClick={() => setQuickViewImage(img)} className={`sh-r-sm h-14 w-14 shrink-0 overflow-hidden ring-2 transition-all ${quickViewImage === img ? 'scale-105 ring-[color:var(--shop)]' : 'ring-transparent opacity-70 hover:opacity-100'}`} aria-label="Voir cette photo">
-                        <img src={img} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
-                )}
+              <div className="sh-fill relative flex w-full shrink-0 flex-col items-center justify-center gap-3 p-4 md:w-1/2 md:gap-4 md:p-10">
+                <ProductGallery key={selectedProduct.id} images={gallery} alt={selectedProduct.name} />
               </div>
 
-              <div className="flex w-full flex-col overflow-y-auto p-6 scrollbar-hide md:w-1/2 md:p-10">
+              <div ref={detailRef} className="flex w-full flex-col p-6 pb-0 scrollbar-hide md:w-1/2 md:overflow-y-auto md:p-10 md:pb-0">
                 <span className="theme-soft theme-text mb-3 inline-flex w-max items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold">
                   {React.createElement(categoryIcon(selectedProduct.category || 'Autres'), { className: 'h-3.5 w-3.5' })} {selectedProduct.category || 'Standard'}
                 </span>
@@ -1567,13 +2015,24 @@ export default function PublicShop() {
                 )}
                 <p className="sh-muted mt-6 leading-relaxed">{selectedProduct.description || 'Aucune description disponible pour ce produit.'}</p>
 
-                {selectedProduct.variants && typeof selectedProduct.variants === 'object' && !Array.isArray(selectedProduct.variants) && (
+                {selectedOptions.features.length > 0 && (
+                  <dl className="sh-fill sh-r-md mt-6 grid grid-cols-2 gap-x-4 gap-y-3 p-4 text-sm">
+                    {selectedOptions.features.map(([k, v]) => (
+                      <div key={k} className="min-w-0">
+                        <dt className="sh-muted text-xs font-semibold">{k}</dt>
+                        <dd className="sh-ink font-bold [overflow-wrap:anywhere]">{v}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+
+                {(selectedOptions.sizes.length > 0 || selectedOptions.colors.length > 0) && (
                   <div className="mt-6 space-y-5">
-                    {selectedProduct.variants.sizes?.length > 0 && (
+                    {selectedOptions.sizes.length > 0 && (
                       <div>
-                        <p className="mb-2.5 text-sm font-bold">Taille</p>
+                        <p className="mb-2.5 text-sm font-bold">{selectedOptions.legacyList ? 'Option' : 'Taille'}</p>
                         <div className="flex flex-wrap gap-2">
-                          {selectedProduct.variants.sizes.map(s => (
+                          {selectedOptions.sizes.map(s => (
                             <motion.button whileTap={{ scale: 0.92 }} key={s} onClick={() => setQuickViewSize(s)} aria-pressed={quickViewSize === s} className={`sh-r-sm min-w-12 px-4 py-2 text-sm font-bold transition-all ${quickViewSize === s ? 'theme-gradient' : 'sh-chip'}`}>
                               {s}
                             </motion.button>
@@ -1581,11 +2040,11 @@ export default function PublicShop() {
                         </div>
                       </div>
                     )}
-                    {selectedProduct.variants.colors?.length > 0 && (
+                    {selectedOptions.colors.length > 0 && (
                       <div>
                         <p className="mb-2.5 text-sm font-bold">Couleur</p>
                         <div className="flex flex-wrap gap-2">
-                          {selectedProduct.variants.colors.map(c => (
+                          {selectedOptions.colors.map(c => (
                             <motion.button whileTap={{ scale: 0.92 }} key={c} onClick={() => setQuickViewColor(c)} aria-pressed={quickViewColor === c} className={`sh-r-sm px-4 py-2 text-sm font-bold transition-all ${quickViewColor === c ? 'theme-gradient' : 'sh-chip'}`}>
                               {c}
                             </motion.button>
@@ -1595,36 +2054,18 @@ export default function PublicShop() {
                     )}
                   </div>
                 )}
-                {selectedProduct.variants && Array.isArray(selectedProduct.variants) && selectedProduct.variants.length > 0 && (
-                  <div className="mt-6">
-                    <p className="mb-2.5 text-sm font-bold">Option</p>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedProduct.variants.map(v => (
-                        <motion.button whileTap={{ scale: 0.92 }} key={v} onClick={() => setQuickViewSize(v)} aria-pressed={quickViewSize === v} className={`sh-r-sm px-4 py-2 text-sm font-bold transition-all ${quickViewSize === v ? 'theme-gradient' : 'sh-chip'}`}>
-                          {v}
-                        </motion.button>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 <div className="mt-6 grid grid-cols-3 gap-2 text-center text-[11px] font-semibold">
-                  {[{ icon: Truck, t: 'Livraison rapide' }, { icon: Lock, t: 'Code PIN' }, { icon: Smartphone, t: 'Wave / OM' }].map((b) => (
+                  {[{ icon: Truck, t: 'Livraison rapide' }, { icon: Lock, t: 'Code PIN' }, { icon: Smartphone, t: 'Paiement mobile' }].map((b) => (
                     <span key={b.t} className="sh-fill sh-ink-2 sh-r-md flex flex-col items-center gap-1.5 py-3"><b.icon className="theme-text h-5 w-5" /> {b.t}</span>
                   ))}
                 </div>
 
-                <div className="mt-6 flex gap-3 md:mt-auto md:pt-6">
-                  <motion.button
-                    whileTap={{ scale: 0.97 }}
-                    disabled={selectedOut}
-                    onClick={() => addToCart(selectedProduct, quickViewSize, quickViewColor)}
-                    className="theme-gradient theme-glow sh-r-md flex flex-1 items-center justify-center gap-2 py-4 font-bold disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <ShoppingBag className="h-5 w-5" /> {selectedOut ? 'Épuisé' : 'Ajouter au panier'}
-                  </motion.button>
-                  <FavoriteButton active={favorites.includes(selectedProduct.id)} onToggle={() => toggleFavorite(selectedProduct.id)} className="sh-border !h-14 !w-14 !rounded-2xl" />
-                </div>
+                {merchant?.phone_number && (
+                  <a href={askOnWhatsApp(selectedProduct)} target="_blank" rel="noreferrer" className="sh-muted mt-4 inline-flex min-h-9 items-center gap-2 text-sm font-semibold hover:underline">
+                    <WhatsApp className="h-4 w-4 text-[#25D366]" /> Une question sur ce produit ? Écrivez-nous
+                  </a>
+                )}
 
                 <button onClick={() => { setSelectedProduct(null); setReviewData({...reviewData, product_id: selectedProduct.id}); setReviewModalOpen(true); }} className="sh-chip sh-r-md group mt-6 flex w-full items-center justify-between p-4 text-left">
                   <span className="flex items-center gap-3">
@@ -1636,6 +2077,31 @@ export default function PublicShop() {
                   </span>
                   <ChevronRight className="sh-faint h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </button>
+
+                {similarProducts.length > 0 && (
+                  <section className="mt-8" aria-label="Vous aimerez aussi">
+                    <p className="mb-3 text-sm font-bold">Vous aimerez aussi</p>
+                    <div className="scrollbar-hide -mx-6 flex gap-3 overflow-x-auto px-6 pb-1 md:-mx-10 md:px-10">
+                      {similarProducts.map((p) => <MiniProduct key={p.id} product={p} onOpen={() => setSelectedProduct(p)} small />)}
+                    </div>
+                  </section>
+                )}
+
+                {/* Barre d'achat : reste visible en bas de la fiche */}
+                <div className="sh-surface sh-line sticky bottom-0 z-10 -mx-6 mt-auto flex gap-2.5 border-t px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 md:-mx-10 md:gap-3 md:px-10 md:pb-6 md:pt-4">
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    disabled={selectedOut}
+                    onClick={() => addToCart(selectedProduct, quickViewSize, quickViewColor)}
+                    className="theme-gradient theme-glow sh-r-md flex min-w-0 flex-1 items-center justify-center gap-2 py-4 font-bold disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <ShoppingBag className="h-5 w-5 shrink-0" /> <span className="truncate">{selectedOut ? 'Épuisé' : `Ajouter · ${fmt(selectedProduct.price_fcfa)} F`}</span>
+                  </motion.button>
+                  <FavoriteButton active={favorites.includes(selectedProduct.id)} onToggle={() => toggleFavorite(selectedProduct.id)} className="sh-border !h-14 !w-14 shrink-0 !rounded-2xl" />
+                  <motion.button whileTap={{ scale: 0.9 }} onClick={() => shareProduct(selectedProduct)} className="sh-border sh-surface flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl" aria-label="Partager ce produit">
+                    <Share2 className="h-5 w-5" />
+                  </motion.button>
+                </div>
               </div>
             </motion.div>
           </div>
@@ -1714,7 +2180,7 @@ export default function PublicShop() {
           href={`https://wa.me/${whatsappNumber(merchant.phone_number)}`}
           target="_blank"
           rel="noreferrer"
-          className="group fixed bottom-28 right-4 z-[45] flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl shadow-green-600/30 md:bottom-6 md:right-6 md:h-14 md:w-14"
+          className="group fixed bottom-6 right-6 z-[45] hidden h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl shadow-green-600/30 md:flex"
           aria-label="Contacter le vendeur sur WhatsApp"
         >
           <img src="/logos/whatsapp.svg" alt="" className="h-6 w-6 brightness-0 invert md:h-7 md:w-7" />
@@ -1729,14 +2195,14 @@ export default function PublicShop() {
         <div className="sh-header sh-r-lg flex items-end justify-around border px-2 pb-2 pt-2 shadow-[0_20px_40px_-12px_rgba(15,23,42,0.35)] backdrop-blur-xl">
           {[
             { id: 'home', label: 'Accueil', icon: House, onClick: goHome, active: activeTab === 'home' && !showFavoritesOnly },
-            { id: 'fav', label: 'Favoris', icon: Heart, onClick: toggleFavoritesView, active: activeTab === 'home' && showFavoritesOnly, badge: favorites.length },
+            { id: 'fav', label: 'Favoris', icon: Heart, iconOn: HeartFill, onClick: toggleFavoritesView, active: activeTab === 'home' && showFavoritesOnly, badge: favorites.length },
             { id: 'cart' },
             { id: 'track', label: 'Suivi', icon: Package, onClick: () => openTab('order-tracking'), active: activeTab === 'order-tracking' },
             { id: 'profile', label: 'Boutique', icon: Store, onClick: () => openTab('profile'), active: activeTab === 'profile' },
           ].map((item) => item.id === 'cart' ? (
-            <motion.button key="cart" whileTap={{ scale: 0.9 }} onClick={() => setIsCartOpen(true)} className="theme-gradient sh-ring-bg sh-r-md relative -mt-8 flex h-16 w-16 flex-col items-center justify-center" aria-label="Panier">
+            <motion.button key="cart" data-cart-target whileTap={{ scale: 0.9 }} onClick={() => setIsCartOpen(true)} className="theme-gradient sh-ring-bg sh-r-md relative -mt-8 flex h-16 w-16 flex-col items-center justify-center" aria-label="Panier">
               <ShoppingBag className="h-6 w-6" />
-              <span className="text-[10px] font-bold">Panier</span>
+              <span className="text-[11px] font-bold">Panier</span>
               {cartItemsCount > 0 && (
                 <motion.span key={cartItemsCount} initial={{ scale: 1.8 }} animate={{ scale: 1 }} className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-extrabold text-white ring-2 ring-white">
                   {cartItemsCount}
@@ -1747,10 +2213,10 @@ export default function PublicShop() {
             <button key={item.id} onClick={item.onClick} className="relative flex w-14 flex-col items-center gap-0.5 py-1" aria-current={item.active ? 'page' : undefined}>
               {item.active && <motion.span layoutId="mobile-nav" className="theme-soft sh-r-sm absolute inset-0" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
               <span className="relative">
-                <item.icon className={`h-5 w-5 ${item.active ? 'theme-text' : 'sh-muted'} ${item.id === 'fav' && item.active ? 'fill-current' : ''}`} />
+                {React.createElement(item.active && item.iconOn ? item.iconOn : item.icon, { className: `h-5 w-5 ${item.active ? 'theme-text' : 'sh-muted'}` })}
                 {item.badge > 0 && <span className="absolute -right-1.5 -top-1 h-2 w-2 rounded-full bg-rose-500" />}
               </span>
-              <span className={`relative text-[10px] font-bold ${item.active ? 'sh-ink' : 'sh-muted'}`}>{item.label}</span>
+              <span className={`relative text-[11px] font-bold ${item.active ? 'sh-ink' : 'sh-muted'}`}>{item.label}</span>
             </button>
           ))}
         </div>

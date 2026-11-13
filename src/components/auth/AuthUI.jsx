@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, EyeOff, CircleAlert, LoaderCircle, Check } from 'lucide-react';
+import Logo from '../brand/Logo';
 
 export const EASE = [0.16, 1, 0.3, 1];
 
@@ -10,8 +11,8 @@ export const EASE = [0.16, 1, 0.3, 1];
 export function Field({ id, label, icon: Icon, dark = false, right, prefix, hint, error, labelAside, className = '', ...inputProps }) {
   const invalid = Boolean(error);
   const base = dark
-    ? 'border-white/15 bg-white/[0.06] text-white placeholder:text-white/35 focus:border-emerald-400 focus:ring-emerald-400/20'
-    : 'border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-emerald-600 focus:ring-emerald-600/15';
+    ? 'border-white/15 bg-white/[0.06] text-white placeholder:text-white/35 focus:border-brand-400 focus:ring-brand-400/20'
+    : 'border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-brand-600 focus:ring-brand-600/15';
   const errorTone = dark ? 'border-rose-400/70 focus:border-rose-400 focus:ring-rose-400/20' : 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/15';
   const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined;
 
@@ -34,7 +35,7 @@ export function Field({ id, label, icon: Icon, dark = false, right, prefix, hint
           id={id}
           aria-invalid={invalid || undefined}
           aria-describedby={describedBy}
-          className={`h-12 w-full rounded-xl border text-[15px] shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition duration-200 focus:ring-4 disabled:cursor-not-allowed disabled:opacity-60 ${invalid ? errorTone : base} ${prefix ? (Icon ? 'pl-[5.25rem]' : 'pl-[4.25rem]') : Icon ? 'pl-11' : 'pl-4'} ${right ? 'pr-12' : 'pr-4'}`}
+          className={`h-12 w-full rounded-xl border text-base sm:text-[15px] shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition duration-200 focus:ring-4 disabled:cursor-not-allowed disabled:opacity-60 ${invalid ? errorTone : base} ${prefix ? (Icon ? 'pl-[5.25rem]' : 'pl-[4.25rem]') : Icon ? 'pl-11' : 'pl-4'} ${right ? 'pr-12' : 'pr-4'}`}
           {...inputProps}
         />
         {right && <div className="absolute right-2 top-1/2 -translate-y-1/2">{right}</div>}
@@ -64,7 +65,7 @@ export function PasswordField(props) {
         <button
           type="button"
           onClick={() => setVisible((v) => !v)}
-          className={`rounded-lg p-2 transition-colors ${props.dark ? 'text-white/50 hover:bg-white/10 hover:text-white' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'}`}
+          className={`flex h-10 w-10 items-center justify-center rounded-lg transition-colors ${props.dark ? 'text-white/50 hover:bg-white/10 hover:text-white' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'}`}
           aria-label={visible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
         >
           {visible ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
@@ -88,7 +89,7 @@ function passwordStrength(pw) {
 export function StrengthMeter({ password }) {
   const { score, label } = passwordStrength(password);
   if (!password) return null;
-  const colors = ['bg-rose-500', 'bg-orange-500', 'bg-amber-400', 'bg-emerald-500', 'bg-emerald-600'];
+  const colors = ['bg-rose-500', 'bg-orange-500', 'bg-amber-400', 'bg-brand-500', 'bg-brand-600'];
   return (
     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-2.5">
       <div className="flex gap-1.5" aria-hidden="true">
@@ -111,7 +112,7 @@ export function SubmitButton({ loading, success, children, loadingText, classNam
     <button
       type="submit"
       disabled={disabled || loading || Boolean(success)}
-      className={`group flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0b1f17] text-[15px] font-bold text-white shadow-[0_8px_20px_-10px_rgba(11,31,23,0.7)] transition-all hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-600/30 active:scale-[0.99] disabled:cursor-not-allowed ${success ? 'bg-emerald-700' : ''} ${loading ? 'opacity-80' : ''} ${className}`}
+      className={`group flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-ink text-[15px] font-bold text-white shadow-[0_8px_20px_-10px_color-mix(in_srgb,_var(--color-ink)_70%,_transparent)] transition-all hover:bg-brand-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/30 active:scale-[0.99] disabled:cursor-not-allowed ${success ? 'bg-brand-700' : ''} ${loading ? 'opacity-80' : ''} ${className}`}
       {...props}
     >
       {success ? (
@@ -138,7 +139,7 @@ export function ErrorBanner({ message, dark = false, tone = 'error' }) {
           role={tone === 'error' ? 'alert' : 'status'}
           className={`flex items-start gap-3 rounded-xl border p-3.5 text-sm font-medium ${
             tone === 'success'
-              ? dark ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200' : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              ? dark ? 'border-brand-400/30 bg-brand-400/10 text-brand-200' : 'border-brand-200 bg-brand-50 text-brand-800'
               : dark ? 'border-rose-400/30 bg-rose-500/10 text-rose-200' : 'border-rose-200 bg-rose-50 text-rose-700'
           }`}
         >
@@ -166,15 +167,15 @@ export function AuthShell({ title, subtitle, headerAction, photo, photoAlt, side
     <div className="font-jakarta grid min-h-screen bg-white lg:grid-cols-[1fr_1.05fr]">
       <main className="flex min-h-screen flex-col px-5 py-5 sm:px-10 lg:px-14">
         <header className="flex items-center justify-between gap-4">
-          <Link to="/" className="flex h-10 w-auto items-center justify-center overflow-hidden px-1.5 py-0.5" aria-label="SamaBoutik, accueil">
-            <img src="/logo.webp" alt="SamaBoutik" width="252" height="186" decoding="async" className="h-full w-auto object-contain" />
+          <Link to="/" className="flex items-center" aria-label="SamaBoutik, accueil">
+            <Logo markClassName="h-9 w-9" textClassName="text-xl" />
           </Link>
           {headerAction && <div className="text-sm text-slate-500">{headerAction}</div>}
         </header>
 
         <div className="flex flex-1 items-center justify-center py-10">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: EASE }} className="w-full max-w-[420px]">
-            <h1 className="text-[2rem] font-extrabold leading-tight tracking-tight text-[#0b1f17]">{title}</h1>
+            <h1 className="text-[2rem] font-extrabold leading-tight tracking-tight text-ink">{title}</h1>
             {subtitle && <p className="mt-2 text-[15px] leading-relaxed text-slate-500">{subtitle}</p>}
             <div className="mt-8">{children}</div>
           </motion.div>
@@ -187,7 +188,7 @@ export function AuthShell({ title, subtitle, headerAction, photo, photoAlt, side
       </main>
 
       <aside className="relative hidden p-3 lg:block">
-        <div className="sticky top-3 h-[calc(100vh-1.5rem)] overflow-hidden rounded-[2rem] bg-[#0b1f17]">
+        <div className="sticky top-3 h-[calc(100vh-1.5rem)] overflow-hidden rounded-[2rem] bg-ink">
           <motion.img
             initial={{ scale: 1.08, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -200,7 +201,7 @@ export function AuthShell({ title, subtitle, headerAction, photo, photoAlt, side
             decoding="async"
             className="absolute inset-0 h-full w-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#06140f] via-[#06140f]/35 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-night via-night/35 to-transparent" />
           <div className="relative flex h-full flex-col justify-end p-10 text-white xl:p-14">{side}</div>
         </div>
       </aside>

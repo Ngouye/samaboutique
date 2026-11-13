@@ -16,8 +16,8 @@ const BASE_SCRIPTS = [
   'create_drivers_table.sql', 'add_pin_code.sql', 'add_driver_tracking.sql', 'add_driver_assignment.sql',
   'secure_driver_login.sql', 'add_payment_options.sql', 'add_merchant_info.sql', 'update_merchants_table.sql',
 ];
-// Ordre d'installation documenté dans GUIDE_SECURITE.md
-export const INSTALL_ORDER = ['security_fixes.sql', 'security_fixes_2.sql', 'admin_locations.sql', 'new_features.sql', 'security_fixes_3.sql'];
+// Ordre d'installation documenté dans A_FAIRE.md (étape 4)
+export const INSTALL_ORDER = ['security_fixes.sql', 'security_fixes_2.sql', 'admin_locations.sql', 'new_features.sql', 'security_fixes_3.sql', 'stock_et_annuaire.sql', 'paiements_et_ia.sql'];
 
 export const IDS = {
   MERCHANT: '11111111-1111-1111-1111-111111111111',
@@ -56,7 +56,7 @@ const SEED = `
     ('${IDS.ADMIN}', 'boss@test.sn', '{"shop_name":"Admin","phone_number":"773"}');
   INSERT INTO public.platform_admins (user_id) VALUES ('${IDS.ADMIN}') ON CONFLICT DO NOTHING;
   INSERT INTO public.products (id, merchant_id, name, price_fcfa, stock, category) VALUES
-    ('${IDS.BOUBOU}', '${IDS.MERCHANT}', 'Boubou', 25000, 10, 'Vêtements'),
+    ('${IDS.BOUBOU}', '${IDS.MERCHANT}', 'Boubou', 25000, 100, 'Vêtements'),
     ('${IDS.MONTRE}', '${IDS.OTHER}', 'Montre Ali', 18000, 5, 'Montres & Bijoux');
   INSERT INTO public.drivers (id, merchant_id, full_name, phone_number, cni_number) VALUES
     ('${IDS.DRIVER}', '${IDS.MERCHANT}', 'Mamadou', '770000001', 'CNI-1'),

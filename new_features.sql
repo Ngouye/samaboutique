@@ -252,6 +252,7 @@ REVOKE ALL ON FUNCTION public.handle_new_user_location() FROM PUBLIC, anon, auth
 
 -- Boutiques visibles : localisées, inscrites à l'annuaire, non suspendues, avec au moins un produit.
 -- Les boutiques Pro et Premium sont « à la une ».
+-- Version complète (avec numéro WhatsApp et adresse) : stock_et_annuaire.sql, à exécuter après ce script.
 DROP FUNCTION IF EXISTS public.public_shops_directory();
 CREATE FUNCTION public.public_shops_directory()
 RETURNS TABLE (

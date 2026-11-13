@@ -117,13 +117,13 @@ export default function LiveLocationShare({ token, orderId, onSessionExpired }) 
 
   if (status === 'live') {
     return (
-      <div className="mb-5 flex items-center gap-3 rounded-2xl bg-emerald-400/10 px-4 py-3 ring-1 ring-emerald-400/25">
-        <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-400/15 text-emerald-300">
-          <motion.span className="absolute inset-0 rounded-xl ring-2 ring-emerald-400/60" animate={{ scale: [1, 1.35], opacity: [0.8, 0] }} transition={{ duration: 1.6, repeat: Infinity }} />
+      <div className="mb-5 flex items-center gap-3 rounded-2xl bg-brand-400/10 px-4 py-3 ring-1 ring-brand-400/25">
+        <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-400/15 text-brand-300">
+          <motion.span className="absolute inset-0 rounded-xl ring-2 ring-brand-400/60" animate={{ scale: [1, 1.35], opacity: [0.8, 0] }} transition={{ duration: 1.6, repeat: Infinity }} />
           <SatelliteDish className="h-4.5 w-4.5" />
         </span>
         <div className="min-w-0 text-sm">
-          <p className="font-bold text-emerald-200">Le client vous suit en direct</p>
+          <p className="font-bold text-brand-200">Le client vous suit en direct</p>
           <p className="text-xs text-white/50">Position envoyée {ago < 5 ? "à l'instant" : `il y a ${ago} s`} · gardez cette page ouverte</p>
         </div>
       </div>
@@ -132,16 +132,16 @@ export default function LiveLocationShare({ token, orderId, onSessionExpired }) 
 
   const tone = status === 'starting' ? 'text-white/70 bg-white/5 ring-white/10' : 'text-amber-200 bg-amber-400/10 ring-amber-400/25';
   return (
-    <div className={`mb-5 flex items-center gap-3 rounded-2xl px-4 py-3 ring-1 ${tone}`}>
+    <div className={`mb-5 flex flex-wrap items-center gap-x-3 gap-y-2.5 rounded-2xl px-4 py-3 ring-1 ${tone}`}>
       {status === 'starting' ? <LoaderCircle className="h-5 w-5 shrink-0 animate-spin" /> : <TriangleAlert className="h-5 w-5 shrink-0" />}
-      <p className="min-w-0 flex-1 text-sm font-semibold">
+      <p className="min-w-[12rem] flex-1 text-sm font-semibold">
         {status === 'starting' && 'Activation du GPS pour le suivi en direct…'}
         {status === 'denied' && 'Autorisez la localisation dans votre navigateur pour que le client vous suive.'}
         {status === 'unavailable' && 'Ce téléphone ne permet pas le suivi en direct.'}
         {status === 'error' && (detail || 'Suivi en direct interrompu.')}
       </p>
       {(status === 'denied' || status === 'error') && (
-        <button type="button" onClick={() => setAttempt((a) => a + 1)} className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-white">
+        <button type="button" onClick={() => setAttempt((a) => a + 1)} className="ml-auto inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl bg-white/10 px-3.5 py-2 text-xs font-bold text-white">
           <RefreshCw className="h-3.5 w-3.5" /> Réessayer
         </button>
       )}

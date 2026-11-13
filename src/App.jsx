@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import NetworkStatus from './components/NetworkStatus';
+import FarewellHost from './components/FarewellHost';
 
 import { lazyWithRetry } from './utils/lazyWithRetry';
 import { Suspense } from 'react';
@@ -18,13 +19,14 @@ const Landing = lazyWithRetry(() => import('./pages/Landing'));
 const AdminDashboard = lazyWithRetry(() => import('./pages/AdminDashboard'));
 const Directory = lazyWithRetry(() => import('./pages/Directory'));
 const ResetPassword = lazyWithRetry(() => import('./pages/ResetPassword'));
+const NotFound = lazyWithRetry(() => import('./pages/NotFound'));
 const AdminMfaGate = lazyWithRetry(() => import('./components/admin/AdminMfaGate'));
 
 // Écran de chargement aux couleurs de la marque
 const PageLoader = () => (
-  <div className="flex min-h-screen items-center justify-center bg-[#f6f8f7]" role="status" aria-live="polite">
+  <div className="flex min-h-screen items-center justify-center bg-[#f7f6f2]" role="status" aria-live="polite">
     <div className="flex flex-col items-center gap-4">
-      <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-emerald-600/20 border-t-emerald-600" />
+      <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-brand-600/20 border-t-brand-600" />
       <p className="text-sm font-medium text-slate-500">Chargement…</p>
     </div>
   </div>
@@ -83,6 +85,7 @@ export default function App() {
       <Router>
         <ErrorBoundary>
           <NetworkStatus />
+          <FarewellHost />
           <PageTransition>
             <Suspense fallback={<PageLoader />}>
               <Routes>
@@ -114,6 +117,7 @@ export default function App() {
 
                 <Route path="/boutique/:shopName" element={<PublicShop />} />
                 <Route path="/livreur/:shopName" element={<DriverDashboard />} />
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
           </PageTransition>

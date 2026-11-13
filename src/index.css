@@ -30,6 +30,36 @@
   --color-primary-800: #2c3b2a;
   --color-primary-900: #253123;
   --color-primary-950: #151d14;
+
+  /* ================= Identité SamaBoutik : « Indigo & Or » =================
+     La couleur de marque est définie ICI (et répétée pour le code dans src/utils/brand.js, un test
+     vérifie qu'elles sont identiques) : changer ces valeurs change toute la plateforme
+     (accueil, annuaire, tableaux de bord, application livreur, administration).
+     Signature : indigo #3b2fc9 (brand-700). Or : palette « amber ». Le vert « emerald » reste réservé
+     aux succès (livrée, actif, en stock). Les vitrines des marchands gardent leur propre thème. */
+  --color-brand-50: #f2f1fe;
+  --color-brand-100: #e6e4fd;
+  --color-brand-200: #cfcbfb;
+  --color-brand-300: #aea6f7;
+  --color-brand-400: #8a7cf1;
+  --color-brand-500: #6a58e8;
+  --color-brand-600: #5140da;
+  --color-brand-700: #3b2fc9;
+  --color-brand-800: #3027a3;
+  --color-brand-900: #2a2580;
+  --color-brand-950: #1a174d;
+  --color-ink: #12103a;    /* bleu nuit : textes forts, boutons sombres */
+  --color-night: #0b0a26;  /* nuit indigo : grands fonds sombres */
+
+  /* Tableau de bord marchand : titres à empattements (font-ledger) et chiffres de caisse (font-figures). */
+  --font-ledger: 'DM Serif Display', Georgia, 'Times New Roman', serif;
+  --font-figures: 'Space Grotesk', 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+/* Tableau de bord : bord dentelé du « ticket de caisse du jour ». */
+.receipt-edge {
+  -webkit-mask: radial-gradient(circle at 50% 100%, #0000 5px, #000 5.5px) 50% 100% / 14px 7px repeat-x, linear-gradient(#000 0 0) top / 100% calc(100% - 7px) no-repeat;
+  mask: radial-gradient(circle at 50% 100%, #0000 5px, #000 5.5px) 50% 100% / 14px 7px repeat-x, linear-gradient(#000 0 0) top / 100% calc(100% - 7px) no-repeat;
 }
 
 @layer base {
@@ -183,12 +213,46 @@
 /* Texte dégradé scintillant */
 @keyframes shimmer-text { to { background-position: 200% center; } }
 .text-shimmer {
-  background: linear-gradient(110deg, #34d399 0%, #22d3ee 22%, #fde68a 42%, #34d399 60%, #22d3ee 80%, #34d399 100%);
+  background: linear-gradient(110deg, var(--color-brand-700) 0%, var(--color-brand-500) 25%, #e8a33d 42%, var(--color-brand-600) 58%, var(--color-brand-400) 78%, var(--color-brand-700) 100%);
   background-size: 200% auto;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: shimmer-text 6s linear infinite;
+  animation: shimmer-text 7s linear infinite;
+}
+/* Sur fond sombre : même reflet, en plus clair */
+.text-shimmer-light {
+  background: linear-gradient(110deg, var(--color-brand-300) 0%, #fde68a 30%, var(--color-brand-200) 55%, var(--color-brand-400) 78%, var(--color-brand-300) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer-text 7s linear infinite;
+}
+
+/* Reflet de lumière qui suit le curseur sur une carte inclinée (variables posées par useTilt) */
+.tilt-glare { pointer-events: none; position: absolute; inset: 0; border-radius: inherit; opacity: 0; transition: opacity 0.35s;
+  background: radial-gradient(480px circle at var(--glare-x, 50%) var(--glare-y, 50%), rgba(255, 255, 255, 0.16), transparent 45%); }
+.group:hover > .tilt-glare { opacity: 1; }
+
+/* Tableau de bord : nouvelle commande arrivée en direct (halo qui pulse + reflet qui balaie) */
+@keyframes fresh-halo {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-brand-500) 45%, transparent); }
+  70% { box-shadow: 0 0 0 16px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+@keyframes fresh-sweep { from { transform: translateX(-110%) skewX(-12deg); } to { transform: translateX(160%) skewX(-12deg); } }
+.fresh-order { position: relative; overflow: hidden; animation: fresh-halo 1.6s ease-out 3; }
+.fresh-order::after {
+  content: ''; position: absolute; inset: 0; width: 45%; pointer-events: none;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-brand-300) 35%, transparent), transparent);
+  animation: fresh-sweep 1.4s 0.2s ease-out 2 both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .text-shimmer, .text-shimmer-light { animation: none; }
+  .fresh-order, .fresh-order::after { animation: none; }
+  .tilt-glare { display: none; }
 }
 
 /* Reflet qui balaie un bouton */
@@ -221,11 +285,11 @@
 }
 .spotlight-card::before {
   z-index: -1;
-  background: radial-gradient(420px circle at var(--mx) var(--my), rgba(52, 211, 153, 0.12), transparent 60%);
+  background: radial-gradient(420px circle at var(--mx) var(--my), color-mix(in srgb, var(--color-brand-400) 14%, transparent), transparent 60%);
 }
 .spotlight-card::after {
   padding: 1px;
-  background: radial-gradient(280px circle at var(--mx) var(--my), rgba(52, 211, 153, 0.8), transparent 60%);
+  background: radial-gradient(280px circle at var(--mx) var(--my), color-mix(in srgb, var(--color-brand-400) 85%, transparent), transparent 60%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
@@ -584,8 +648,10 @@
   100% { transform: scale(1.4); opacity: 0; }
 }
 
-.leaflet-popup-content-wrapper {
-  background: #061912 !important;
+/* Bulle sombre de l'annuaire uniquement (classe posée par DirectoryMap) : la carte de
+   l'administration garde la bulle claire standard, avec son texte sombre. */
+.custom-shop-popup .leaflet-popup-content-wrapper {
+  background: var(--color-night) !important;
   color: #fff !important;
   border: 1px solid rgba(255, 255, 255, 0.15) !important;
   border-radius: 20px !important;
@@ -594,15 +660,15 @@
   padding: 0 !important;
   overflow: hidden;
 }
-.leaflet-popup-content {
+.custom-shop-popup .leaflet-popup-content {
   margin: 0 !important;
   line-height: 1.4;
 }
-.leaflet-popup-tip {
-  background: #061912 !important;
+.custom-shop-popup .leaflet-popup-tip {
+  background: var(--color-night) !important;
   border: 1px solid rgba(255, 255, 255, 0.15) !important;
 }
-.leaflet-container a.leaflet-popup-close-button {
+.leaflet-container .custom-shop-popup a.leaflet-popup-close-button {
   color: #fff !important;
   padding: 4px !important;
   top: 8px !important;
@@ -617,7 +683,7 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
   transition: background 0.2s;
 }
-.leaflet-container a.leaflet-popup-close-button:hover {
+.leaflet-container .custom-shop-popup a.leaflet-popup-close-button:hover {
   background: rgba(0, 0, 0, 0.75);
 }
 
@@ -683,12 +749,13 @@
   border: 1px solid var(--shop-input-line, #cbd5e1);
   background: var(--shop-surface, #fff);
   padding: 0.75rem 0.875rem;
-  font-size: 15px;
+  font-size: 16px; /* 16 px minimum sur téléphone : sinon l'iPhone zoome au toucher */
   color: var(--shop-ink, #0f172a);
   outline: none;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   transition: border-color 0.2s, box-shadow 0.2s;
 }
+@media (min-width: 768px) { .shop-input { font-size: 15px; } }
 .shop-input::placeholder { color: var(--shop-faint, #94a3b8); }
 .shop-input:focus {
   border-color: var(--shop, #059669);
@@ -698,3 +765,16 @@
 /* Accueil : barre de progression des étapes « Comment ça marche » */
 @keyframes step-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 .step-progress { transform-origin: left; animation-name: step-progress; animation-timing-function: linear; animation-fill-mode: forwards; }
+/* Page d'accueil : ligne de lecture qui balaie le QR code de la boutique */
+@keyframes qr-scan { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(128px); } }
+.qr-scan { animation: qr-scan 2.8s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .qr-scan { animation: none; opacity: 0; } }
+
+/* Filet de sécurité « zoom iPhone » : sur iPhone, un champ écrit en moins de 16 px fait zoomer toute la
+   page dès qu'on le touche. Sur les écrans tactiles, les champs ont donc au moins 16 px
+   (les grands champs, comme le code PIN, gardent leur taille). */
+@media (pointer: coarse) {
+  :is(input:not([type=checkbox], [type=radio], [type=range], [type=file], [type=color], [type=hidden]), select, textarea):not([class*="text-lg"], [class*="text-xl"], [class*="text-2xl"], [class*="text-3xl"], [class*="text-4xl"]) {
+    font-size: 16px;
+  }
+}

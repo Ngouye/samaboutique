@@ -27,8 +27,13 @@ Les étapes marquées *(facultatif)* peuvent attendre.
 | `PAYDUNYA_MASTER_KEY`, `PAYDUNYA_PRIVATE_KEY`, `PAYDUNYA_TOKEN` | vos clés PayDunya |
 | `FRONTEND_URL` | `https://samaboutik-nine.vercel.app` |
 | `BACKEND_URL` | ⚠️ **manquant aujourd'hui** : l'adresse publique du serveur (ex. `https://samaboutik-api.onrender.com`). Sans elle, PayDunya ne peut pas confirmer les paiements. |
+| `ANTHROPIC_API_KEY` | *(facultatif)* clé de l'assistant IA qui rédige les fiches produit. À créer sur console.anthropic.com. |
+| `PHOTOROOM_API_KEY` | *(facultatif)* clé des « photos studio » (Photoroom). À créer sur photoroom.com/api. |
 
-- [ ] Lancer `npm install` dans le dossier `server/` (nouvelles dépendances : `helmet`, `express-rate-limit`, `@sentry/node`).
+Sans les deux clés IA, l'assistant est simplement caché dans le tableau de bord : le reste fonctionne normalement. Voir `GUIDE_NOUVELLES_FONCTIONNALITES.md`, section 7 (coûts et limites par forfait).
+
+- [ ] Lancer `npm install` dans le dossier `server/` (nouvelles dépendances : `helmet`, `express-rate-limit`, `@sentry/node`, `@anthropic-ai/sdk`, `zod`).
+- [ ] Dans votre compte **PayDunya** (Intégrations → moyens de paiement), vérifier que **Wave, Orange Money, Free Money et Wizall** sont activés pour le Sénégal. Le client choisit son opérateur dans la vitrine : un opérateur non activé chez PayDunya ferait échouer son paiement.
 - [ ] Redéployer le serveur.
 - [ ] Vérifier qu'il répond : ouvrez `https://VOTRE-SERVEUR/health` → vous devez lire `"status":"OK"`.
 - [ ] Mettre à jour la clé `service_role` aussi dans `server/.env` sur votre ordinateur.
@@ -55,8 +60,12 @@ Les étapes marquées *(facultatif)* peuvent attendre.
 
 - [ ] Exécuter **`new_features.sql`**, s'il ne l'a pas déjà été. Il active les notifications WhatsApp, l'annuaire des boutiques et le suivi du livreur en direct.
 - [ ] Exécuter **`security_fixes_3.sql`**.
+- [ ] Exécuter **`stock_et_annuaire.sql`**. À partir de là, chaque commande fait baisser le stock (et une commande annulée le rend), et l'annuaire affiche le bouton WhatsApp et l'adresse des boutiques. Le serveur de paiement (étape 2) doit être redéployé avant.
+- [ ] Exécuter **`paiements_et_ia.sql`**, en dernier. Il enregistre l'opérateur choisi par le client (Wave, Orange Money, Free Money, Wizall) et compte les utilisations de l'assistant IA.
 
-Rappel de l'ordre complet, si vous repartez de zéro : `security_fixes.sql` → `security_fixes_2.sql` → `admin_locations.sql` → `new_features.sql` → `security_fixes_3.sql`.
+Rappel de l'ordre complet, si vous repartez de zéro : `security_fixes.sql` → `security_fixes_2.sql` → `admin_locations.sql` → `new_features.sql` → `security_fixes_3.sql` → `stock_et_annuaire.sql` → `paiements_et_ia.sql`.
+
+> Si vous relancez un jour `new_features.sql`, relancez ensuite `stock_et_annuaire.sql` puis `paiements_et_ia.sql`.
 
 ---
 
@@ -87,8 +96,11 @@ Avec une boutique de test :
 - [ ] Créer une boutique, ajouter un produit avec photo. Le message « Photo allégée » doit s'afficher.
 - [ ] Choisir un thème dans Paramètres → Apparence et ouvrir **Aperçu**.
 - [ ] Depuis un autre téléphone, commander avec **paiement à la livraison**, puis suivre la commande avec le téléphone et le code PIN.
+- [ ] Vérifier dans le tableau de bord que le stock du produit a baissé. Annuler une commande de test : le stock doit revenir.
 - [ ] Ajouter un livreur, se connecter avec son lien, accepter la course, puis la valider avec le code PIN.
-- [ ] Faire un **petit paiement Wave ou Orange Money** et vérifier que la commande passe en « En préparation ».
+- [ ] Faire un **petit paiement Wave ou Orange Money** et vérifier que la commande passe en « En préparation ». La page PayDunya doit proposer directement l'opérateur choisi dans la vitrine.
+- [ ] *(si les clés IA sont réglées)* Dans une fiche produit avec photo : **Remplir la fiche avec l'IA**, puis **Créer la photo studio**. Relire la fiche avant d'enregistrer.
+- [ ] Sur une carte produit, bouton **Créer une affiche** : télécharger l'affiche et vérifier que le QR code ouvre bien la boutique.
 - [ ] Se connecter en admin : le code à 6 chiffres doit être demandé.
 
 ---

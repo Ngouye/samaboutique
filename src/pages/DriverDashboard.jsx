@@ -13,17 +13,23 @@ import { CountUp } from '../components/landing/Magic';
 import { Field, ErrorBanner, EASE } from '../components/auth/AuthUI';
 import { friendlyError } from '../utils/networkErrors';
 import LiveLocationShare from '../components/driver/LiveLocationShare';
+import { parseOrderAddress, orderMapsUrl } from '../utils/orderAddress';
+import { BRAND } from '../utils/brand';
+import { paymentLabel } from '../utils/payments';
+import LogoutDialog from '../components/LogoutDialog';
+import { showFarewell } from '../utils/farewell';
+import Logo from '../components/brand/Logo';
 
 const fmt = (n) => Math.round(n || 0).toLocaleString('fr-FR');
-const addressOf = (o) => (o.customer_address || '').split(' || GPS: ')[0];
-const gpsOf = (o) => ((o.customer_address || '').includes('|| GPS: ') ? o.customer_address.split('|| GPS: ')[1].trim() : null);
+const addressOf = (o) => parseOrderAddress(o.customer_address).address;
+const hasGps = (o) => Boolean(parseOrderAddress(o.customer_address).coords);
 const EMPTY_PIN = { isOpen: false, orderId: null, pinValue: '', error: '', isLoading: false, success: false, shake: 0 };
 
 function Aurora() {
   return (
     <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden="true">
-      <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-emerald-500/15 blur-3xl" />
-      <div className="absolute inset-0 bg-[radial-gradient(rgba(110,231,183,0.08)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black,transparent_60%)]" />
+      <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-brand-500/15 blur-3xl" />
+      <div className="absolute inset-0 bg-[radial-gradient(color-mix(in_srgb,_var(--color-brand-300)_8%,_transparent)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black,transparent_60%)]" />
     </div>
   );
 }
@@ -33,7 +39,7 @@ function AmountBadge({ order, large = false }) {
     return (
       <div className={large ? '' : 'text-right'}>
         <span className="inline-flex items-center gap-1 rounded-lg bg-sky-400/15 px-2 py-1 text-[11px] font-extrabold text-sky-300">
-          <Check className="h-3 w-3" strokeWidth={3} /> DÉJÀ PAYÉ (Wave/OM)
+          <Check className="h-3 w-3" strokeWidth={3} /> DÉJÀ PAYÉ ({paymentLabel(order)})
         </span>
         <p className={`mt-1 font-bold text-white/40 line-through ${large ? 'text-xl' : 'text-sm'}`}>{fmt(order.total_amount_fcfa)} FCFA</p>
       </div>
@@ -41,9 +47,9 @@ function AmountBadge({ order, large = false }) {
   }
   return (
     <div className={large ? '' : 'text-right'}>
-      <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">À encaisser</p>
-      <p className={`font-extrabold text-emerald-300 ${large ? 'text-4xl' : 'text-xl'}`}>
-        {fmt(order.total_amount_fcfa)} <span className="text-xs font-bold text-emerald-300/60">FCFA</span>
+      <p className="text-[11px] font-bold uppercase tracking-widest text-white/45">À encaisser</p>
+      <p className={`font-extrabold text-brand-300 ${large ? 'text-4xl' : 'text-xl'}`}>
+        {fmt(order.total_amount_fcfa)} <span className="text-xs font-bold text-brand-300/60">FCFA</span>
       </p>
     </div>
   );
@@ -308,7 +314,7 @@ export default function DriverDashboard() {
           particleCount: 140,
           spread: 90,
           origin: { y: 0.5 },
-          colors: ['#10B981', '#2dd4bf', '#F59E0B', '#ffffff']
+          colors: [BRAND.vivid, BRAND.light, BRAND.gold, '#ffffff']
         });
         setPinModal(prev => ({ ...prev, isLoading: false, success: true }));
         setTimeout(() => {
@@ -334,9 +340,14 @@ export default function DriverDashboard() {
   }, 0);
   const amountToReturn = totalGains - totalDeliveryFees;
 
-  const handleLogout = () => {
+  // Déconnexion : confirmation d'abord, puis écran d'au revoir et retour à l'écran de connexion du livreur.
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const handleLogout = () => setLogoutOpen(true);
+  const confirmLogout = async () => {
+    showFarewell({ name: driverName });
     if (tokenRef.current) supabase.rpc('logout_driver', { p_token: tokenRef.current });
     clearSession();
+    setLogoutOpen(false);
     setShowDriverNameModal(true);
   };
 
@@ -344,9 +355,9 @@ export default function DriverDashboard() {
 
   // Écran de chargement uniquement au premier chargement (les rafraîchissements gardent l'affichage).
   if (loading && !merchant) return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#06150f] text-white">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-night text-white">
       <Aurora />
-      <motion.span animate={{ x: [-30, 30, -30] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }} className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-400 shadow-[0_0_40px_rgba(52,211,153,0.5)]">
+      <motion.span animate={{ x: [-30, 30, -30] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }} className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-400 shadow-[0_0_40px_color-mix(in_srgb,_var(--color-brand-400)_50%,_transparent)]">
         <Bike className="h-8 w-8" />
       </motion.span>
       <p className="font-semibold text-white/70">Chargement des courses…</p>
@@ -354,7 +365,7 @@ export default function DriverDashboard() {
   );
 
   if (!merchant) return (
-    <div className="flex min-h-screen items-center justify-center bg-[#06150f] p-4 text-white">
+    <div className="flex min-h-screen items-center justify-center bg-night p-4 text-white">
       <Aurora />
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm rounded-[2rem] border border-white/10 bg-white/[0.04] p-10 text-center backdrop-blur-xl">
         <span className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-500/15"><Store className="h-8 w-8 text-rose-300" /></span>
@@ -372,20 +383,33 @@ export default function DriverDashboard() {
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className="relative min-h-screen bg-[#06150f] pb-32 font-sans text-white">
+    <div className="relative min-h-screen bg-night pb-32 font-sans text-white">
       <Aurora />
+      <AnimatePresence>
+        {logoutOpen && (
+          <LogoutDialog
+            key="logout"
+            tone="dark"
+            name={driverName}
+            detail={`Livreur · ${shopLabel}`}
+            consequence="Vos courses restent enregistrées. Pour revenir, il faudra votre téléphone et votre numéro de CNI."
+            onCancel={() => setLogoutOpen(false)}
+            onConfirm={confirmLogout}
+          />
+        )}
+      </AnimatePresence>
 
       {/* En-tête */}
-      <header className="sticky top-0 z-40 border-b border-white/5 bg-[#06150f]/75 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-white/5 bg-night/75 backdrop-blur-xl">
         <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3.5">
           <div className="flex items-center gap-3">
             <span className="relative">
-              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-400 text-xl font-extrabold text-[#050b09] shadow-[0_0_24px_rgba(52,211,153,0.4)]">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-400 text-xl font-extrabold text-night shadow-[0_0_24px_color-mix(in_srgb,_var(--color-brand-400)_40%,_transparent)]">
                 {driverName.charAt(0).toUpperCase() || '?'}
               </span>
               <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-                <span className="relative inline-flex h-4 w-4 rounded-full border-2 border-[#050b09] bg-emerald-400" />
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-400 opacity-60" />
+                <span className="relative inline-flex h-4 w-4 rounded-full border-2 border-night bg-brand-400" />
               </span>
             </span>
             <div>
@@ -400,7 +424,7 @@ export default function DriverDashboard() {
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={soundEnabled ? () => setSoundEnabled(false) : enableSound}
-              className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${soundEnabled ? 'bg-emerald-400/20 text-emerald-300' : 'bg-white/5 text-white/50'}`}
+              className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${soundEnabled ? 'bg-brand-400/20 text-brand-300' : 'bg-white/5 text-white/50'}`}
               aria-label={soundEnabled ? 'Couper le son' : 'Activer le son'}
             >
               {soundEnabled ? <BellRing className="h-5 w-5" /> : <BellOff className="h-5 w-5" />}
@@ -432,12 +456,12 @@ export default function DriverDashboard() {
               {activeOrder && (
                 <motion.section initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: 'spring', stiffness: 200, damping: 20 }}>
                   <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/50">
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" /> Course en cours
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-brand-400" /> Course en cours
                   </h2>
-                  <div className="rounded-[2rem] border border-emerald-400/25">
-                    <div className="overflow-hidden rounded-[2rem] bg-[#0b1a14]">
-                      <div className="flex items-center justify-between border-b border-white/5 bg-emerald-400/10 px-5 py-3.5">
-                        <span className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-emerald-300">
+                  <div className="rounded-[2rem] border border-brand-400/25">
+                    <div className="overflow-hidden rounded-[2rem] bg-night">
+                      <div className="flex items-center justify-between border-b border-white/5 bg-brand-400/10 px-5 py-3.5">
+                        <span className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-brand-300">
                           <Bike className="h-4 w-4" /> En route
                         </span>
                         <span className="rounded-lg bg-white/5 px-2.5 py-1 font-mono text-xs text-white/60">#{activeOrder.id.slice(0, 5).toUpperCase()}</span>
@@ -450,13 +474,13 @@ export default function DriverDashboard() {
 
                         {/* Trajet */}
                         <div className="relative mb-6 pl-8">
-                          <div className="absolute bottom-3 left-[11px] top-3 w-0.5 bg-gradient-to-b from-emerald-400 to-amber-300" />
-                          <motion.span initial={{ top: '8%' }} animate={{ top: '40%' }} transition={{ duration: 1.2, ease: EASE }} className="absolute left-0 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#050b09] shadow-[0_0_16px_rgba(255,255,255,0.6)]">
+                          <div className="absolute bottom-3 left-[11px] top-3 w-0.5 bg-gradient-to-b from-brand-400 to-amber-300" />
+                          <motion.span initial={{ top: '8%' }} animate={{ top: '40%' }} transition={{ duration: 1.2, ease: EASE }} className="absolute left-0 flex h-6 w-6 items-center justify-center rounded-full bg-white text-night shadow-[0_0_16px_rgba(255,255,255,0.6)]">
                             <Bike className="h-3.5 w-3.5" />
                           </motion.span>
                           <div className="mb-5">
                             <p className="text-xs text-white/40">Départ</p>
-                            <p className="flex items-center gap-1.5 font-bold"><Store className="h-4 w-4 text-emerald-300" /> {shopLabel}</p>
+                            <p className="flex items-center gap-1.5 font-bold"><Store className="h-4 w-4 text-brand-300" /> {shopLabel}</p>
                           </div>
                           <div>
                             <p className="text-xs text-white/40">Destination · {activeOrder.delivery_zone}</p>
@@ -469,21 +493,21 @@ export default function DriverDashboard() {
                         </div>
 
                         <div className="grid grid-cols-3 gap-2">
-                          <motion.a whileTap={{ scale: 0.94 }} href={`tel:${activeOrder.customer_phone}`} className="flex flex-col items-center gap-1.5 rounded-2xl bg-emerald-400/10 py-3.5 text-sm font-bold text-emerald-300 ring-1 ring-emerald-400/20">
+                          <motion.a whileTap={{ scale: 0.94 }} href={`tel:${activeOrder.customer_phone}`} className="flex flex-col items-center gap-1.5 rounded-2xl bg-brand-400/10 py-3.5 text-sm font-bold text-brand-300 ring-1 ring-brand-400/20">
                             <PhoneCall className="h-5 w-5" /> Appeler
                           </motion.a>
                           <motion.a whileTap={{ scale: 0.94 }} href={`https://wa.me/${activeOrder.customer_phone?.replace(/\+/g, '')}?text=${encodeURIComponent(`Bonjour ${activeOrder.customer_name},\n\n🚚 C'est votre livreur. J'arrive avec votre commande.\n\n🔒 N'oubliez pas de préparer votre code PIN pour valider la livraison.\n\nÀ tout de suite !`)}`} target="_blank" rel="noreferrer" className="flex flex-col items-center gap-1.5 rounded-2xl bg-[#25D366]/10 py-3.5 text-sm font-bold text-[#4ade80] ring-1 ring-[#25D366]/25">
                             <MessageCircle className="h-5 w-5" /> WhatsApp
                           </motion.a>
-                          <motion.a whileTap={{ scale: 0.94 }} href={gpsOf(activeOrder) || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeOrder.customer_address + ', ' + activeOrder.delivery_zone)}`} target="_blank" rel="noreferrer" className="flex flex-col items-center gap-1.5 rounded-2xl bg-sky-400/10 py-3.5 text-sm font-bold text-sky-300 ring-1 ring-sky-400/20">
-                            {gpsOf(activeOrder) ? <MapPin className="h-5 w-5" /> : <Navigation className="h-5 w-5" />} Itinéraire
+                          <motion.a whileTap={{ scale: 0.94 }} href={orderMapsUrl(activeOrder)} target="_blank" rel="noreferrer" className="flex flex-col items-center gap-1.5 rounded-2xl bg-sky-400/10 py-3.5 text-sm font-bold text-sky-300 ring-1 ring-sky-400/20">
+                            {hasGps(activeOrder) ? <MapPin className="h-5 w-5" /> : <Navigation className="h-5 w-5" />} Itinéraire
                           </motion.a>
                         </div>
 
                         <motion.button
                           whileTap={{ scale: 0.97 }}
                           onClick={() => openPinModal(activeOrder.id)}
-                          className="relative mt-4 flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-emerald-400 hover:bg-emerald-300 py-5 text-lg font-extrabold text-[#050b09] shadow-[0_0_40px_rgba(52,211,153,0.35)]"
+                          className="relative mt-4 flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-brand-400 hover:bg-brand-300 py-5 text-lg font-extrabold text-night shadow-[0_0_40px_color-mix(in_srgb,_var(--color-brand-400)_35%,_transparent)]"
                         >
                           <ShieldCheck className="h-6 w-6" /> Livré & encaissé
                         </motion.button>
@@ -496,18 +520,18 @@ export default function DriverDashboard() {
               {/* Radar des courses */}
               <section>
                 <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/50">
-                  <Radar className="h-4 w-4 text-emerald-300" /> Radar des courses
-                  <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] text-emerald-300">{availableOrders.length}</span>
+                  <Radar className="h-4 w-4 text-brand-300" /> Radar des courses
+                  <span className="rounded-full bg-brand-400/15 px-2 py-0.5 text-[10px] text-brand-300">{availableOrders.length}</span>
                 </h2>
 
                 {availableOrders.length === 0 ? (
                   <div className="flex flex-col items-center rounded-[2rem] border border-white/10 bg-white/[0.03] px-6 py-10 text-center">
                     <div className="relative mb-6 h-40 w-40">
                       {[0, 1, 2].map((i) => (
-                        <span key={i} className="absolute rounded-full border border-emerald-400/20" style={{ inset: `${i * 22}px` }} />
+                        <span key={i} className="absolute rounded-full border border-brand-400/20" style={{ inset: `${i * 22}px` }} />
                       ))}
-                      <span className="absolute inset-0 animate-spin rounded-full" style={{ background: 'conic-gradient(from 0deg, rgba(52,211,153,0.35), transparent 28%)', animationDuration: '3s' }} />
-                      <span className="absolute left-1/2 top-1/2 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-emerald-400 text-[#050b09] shadow-[0_0_24px_rgba(52,211,153,0.7)]">
+                      <span className="absolute inset-0 animate-spin rounded-full" style={{ background: 'conic-gradient(from 0deg, color-mix(in srgb, var(--color-brand-400) 35%, transparent), transparent 28%)', animationDuration: '3s' }} />
+                      <span className="absolute left-1/2 top-1/2 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-brand-400 text-night shadow-[0_0_24px_color-mix(in_srgb,_var(--color-brand-400)_70%,_transparent)]">
                         <Bike className="h-5 w-5" />
                       </span>
                       <motion.span animate={{ opacity: [0, 1, 0], scale: [0.5, 1, 0.5] }} transition={{ duration: 3, repeat: Infinity }} className="absolute left-[22%] top-[26%] h-2.5 w-2.5 rounded-full bg-amber-300" />
@@ -515,7 +539,7 @@ export default function DriverDashboard() {
                     </div>
                     <h3 className="text-lg font-bold">En recherche de courses…</h3>
                     <p className="mt-1 text-sm text-white/50">Aucune nouvelle course pour le moment. Activez le son pour être alerté.</p>
-                    <motion.button whileTap={{ scale: 0.95 }} onClick={fetchDriverOrders} className="mt-6 inline-flex items-center gap-2 rounded-full bg-emerald-400/15 px-5 py-2.5 text-sm font-bold text-emerald-300">
+                    <motion.button whileTap={{ scale: 0.95 }} onClick={fetchDriverOrders} className="mt-6 inline-flex items-center gap-2 rounded-full bg-brand-400/15 px-5 py-2.5 text-sm font-bold text-brand-300">
                       <RefreshCw className="h-4 w-4" /> Rafraîchir
                     </motion.button>
                   </div>
@@ -531,10 +555,10 @@ export default function DriverDashboard() {
                           exit={{ opacity: 0, x: -60 }}
                           className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-5"
                         >
-                          <span className="absolute inset-y-0 left-0 w-1 bg-emerald-400" />
+                          <span className="absolute inset-y-0 left-0 w-1 bg-brand-400" />
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
-                              <span className="mb-2 inline-flex items-center gap-1 rounded-md bg-white/5 px-2 py-0.5 font-mono text-[10px] text-white/50">#{order.id.slice(0, 5).toUpperCase()}</span>
+                              <span className="mb-2 inline-flex items-center gap-1 rounded-md bg-white/5 px-2 py-0.5 font-mono text-[11px] text-white/50">#{order.id.slice(0, 5).toUpperCase()}</span>
                               <h3 className="text-lg font-extrabold">{order.delivery_zone}</h3>
                               <p className="mt-0.5 line-clamp-2 flex items-start gap-1 text-sm text-white/60"><MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {addressOf(order)}</p>
                             </div>
@@ -548,7 +572,7 @@ export default function DriverDashboard() {
                               whileTap={{ scale: 0.96 }}
                               onClick={() => assignOrder(order.id)}
                               disabled={!!activeOrder || assigningId === order.id}
-                              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-400 hover:bg-emerald-300 py-3 font-extrabold text-[#050b09] shadow-[0_8px_24px_-8px_rgba(52,211,153,0.6)] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/40 disabled:shadow-none"
+                              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand-400 hover:bg-brand-300 py-3 font-extrabold text-night shadow-[0_8px_24px_-8px_color-mix(in_srgb,_var(--color-brand-400)_60%,_transparent)] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/40 disabled:shadow-none"
                             >
                               {assigningId === order.id ? <LoaderCircle className="h-5 w-5 animate-spin" /> : activeOrder ? <><Clock className="h-4 w-4" /> Course en cours</> : <>Accepter <ArrowRight className="h-4 w-4" /></>}
                             </motion.button>
@@ -564,19 +588,19 @@ export default function DriverDashboard() {
 
           {activeTab === 'gains' && (
             <motion.div key="gains" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.4, ease: EASE }} className="space-y-6">
-              <div className="relative overflow-hidden rounded-[2rem] bg-emerald-700 p-6 shadow-[0_24px_48px_-20px_rgba(16,185,129,0.6)]">
+              <div className="relative overflow-hidden rounded-[2rem] bg-brand-700 p-6 shadow-[0_24px_48px_-20px_color-mix(in_srgb,_var(--color-brand-500)_60%,_transparent)]">
                 <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
-                <p className="relative text-sm font-medium text-emerald-50/90">Total encaissé aujourd'hui (espèces)</p>
+                <p className="relative text-sm font-medium text-brand-50/90">Total encaissé aujourd'hui (espèces)</p>
                 <p className="relative mt-1 text-5xl font-extrabold tracking-tight">
-                  <CountUp to={totalGains} /> <span className="text-lg font-semibold text-emerald-100/70">FCFA</span>
+                  <CountUp to={totalGains} /> <span className="text-lg font-semibold text-brand-100/70">FCFA</span>
                 </p>
                 <div className="relative mt-5 grid grid-cols-2 gap-2">
                   <div className="rounded-2xl bg-white/15 p-3 backdrop-blur">
-                    <p className="text-xs text-emerald-50/80">Mes frais (gains)</p>
+                    <p className="text-xs text-brand-50/80">Mes frais (gains)</p>
                     <p className="text-lg font-extrabold">+{fmt(totalDeliveryFees)} F</p>
                   </div>
                   <div className="rounded-2xl bg-white/15 p-3 backdrop-blur">
-                    <p className="text-xs text-emerald-50/80">{amountToReturn < 0 ? 'Le marchand vous doit' : 'À reverser'}</p>
+                    <p className="text-xs text-brand-50/80">{amountToReturn < 0 ? 'Le marchand vous doit' : 'À reverser'}</p>
                     <p className="text-lg font-extrabold">{fmt(Math.abs(amountToReturn))} F</p>
                   </div>
                 </div>
@@ -592,12 +616,12 @@ export default function DriverDashboard() {
                   <div className="space-y-2.5">
                     {deliveredOrders.map((order, i) => (
                       <motion.div key={order.id} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-400/15 text-emerald-300"><Check className="h-5 w-5" strokeWidth={3} /></span>
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-400/15 text-brand-300"><Check className="h-5 w-5" strokeWidth={3} /></span>
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-bold">{order.delivery_zone}</p>
                           <p className="font-mono text-xs text-white/40">#{order.id.slice(0, 5).toUpperCase()}</p>
                         </div>
-                        <p className="font-extrabold text-emerald-300">+{fmt(order.total_amount_fcfa)} F</p>
+                        <p className="font-extrabold text-brand-300">+{fmt(order.total_amount_fcfa)} F</p>
                       </motion.div>
                     ))}
                   </div>
@@ -609,8 +633,8 @@ export default function DriverDashboard() {
           {activeTab === 'profil' && (
             <motion.div key="profil" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.4, ease: EASE }}>
               <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04] p-8 text-center">
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-emerald-400/20 to-transparent" />
-                <motion.span initial={{ scale: 0.6, rotate: -12 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 200 }} className="relative mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-[1.75rem] bg-emerald-400 text-4xl font-extrabold text-[#050b09] shadow-[0_0_40px_rgba(52,211,153,0.4)]">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-brand-400/20 to-transparent" />
+                <motion.span initial={{ scale: 0.6, rotate: -12 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 200 }} className="relative mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-[1.75rem] bg-brand-400 text-4xl font-extrabold text-night shadow-[0_0_40px_color-mix(in_srgb,_var(--color-brand-400)_40%,_transparent)]">
                   {driverName.charAt(0).toUpperCase() || '?'}
                 </motion.span>
                 <h3 className="relative text-2xl font-extrabold">{driverName}</h3>
@@ -635,15 +659,15 @@ export default function DriverDashboard() {
 
       {/* Navigation basse */}
       <nav className="fixed inset-x-3 bottom-3 z-40" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="mx-auto flex max-w-md items-center justify-around rounded-3xl border border-white/10 bg-[#0b1a14]/85 p-2 shadow-[0_20px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+        <div className="mx-auto flex max-w-md items-center justify-around rounded-3xl border border-white/10 bg-night/85 p-2 shadow-[0_20px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl">
           {tabs.map((t) => {
             const active = activeTab === t.id;
             return (
               <button key={t.id} onClick={() => setActiveTab(t.id)} className="relative flex flex-1 flex-col items-center gap-1 rounded-2xl py-2.5">
-                {active && <motion.span layoutId="driver-tab" className="absolute inset-0 rounded-2xl bg-emerald-400/15 ring-1 ring-emerald-400/25" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+                {active && <motion.span layoutId="driver-tab" className="absolute inset-0 rounded-2xl bg-brand-400/15 ring-1 ring-brand-400/25" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
                 <span className="relative">
-                  <t.icon className={`h-6 w-6 transition-colors ${active ? 'text-emerald-300' : 'text-white/40'}`} />
-                  {t.badge > 0 && <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-400 px-1 text-[10px] font-extrabold text-[#050b09]">{t.badge}</span>}
+                  <t.icon className={`h-6 w-6 transition-colors ${active ? 'text-brand-300' : 'text-white/40'}`} />
+                  {t.badge > 0 && <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-400 px-1 text-[10px] font-extrabold text-night">{t.badge}</span>}
                 </span>
                 <span className={`relative text-[11px] font-bold ${active ? 'text-white' : 'text-white/40'}`}>{t.label}</span>
               </button>
@@ -662,15 +686,15 @@ export default function DriverDashboard() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', stiffness: 300, damping: 32 }}
-              className="relative w-full max-w-sm overflow-hidden rounded-t-[2rem] border border-white/10 bg-[#0b1a14] p-7 pb-10 text-center sm:rounded-[2rem]"
+              className="relative w-full max-w-sm overflow-hidden rounded-t-[2rem] border border-white/10 bg-night p-7 pb-10 text-center sm:rounded-[2rem]"
             >
-              <div className="pointer-events-none absolute -top-20 left-1/2 h-40 w-40 -translate-x-1/2 rounded-full bg-emerald-400/25 blur-3xl" />
+              <div className="pointer-events-none absolute -top-20 left-1/2 h-40 w-40 -translate-x-1/2 rounded-full bg-brand-400/25 blur-3xl" />
               <button onClick={closePinModal} className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white/60" aria-label="Fermer"><X className="h-5 w-5" /></button>
 
               <AnimatePresence mode="wait">
                 {pinModal.success ? (
                   <motion.div key="ok" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="relative py-8">
-                    <motion.span initial={{ scale: 0, rotate: -120 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 220, damping: 12 }} className="mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-[#050b09] shadow-[0_0_60px_rgba(52,211,153,0.6)]">
+                    <motion.span initial={{ scale: 0, rotate: -120 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 220, damping: 12 }} className="mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-night shadow-[0_0_60px_color-mix(in_srgb,_var(--color-brand-400)_60%,_transparent)]">
                       <Check className="h-12 w-12" strokeWidth={3} />
                     </motion.span>
                     <h3 className="text-2xl font-extrabold">Livraison validée !</h3>
@@ -678,7 +702,7 @@ export default function DriverDashboard() {
                   </motion.div>
                 ) : (
                   <motion.form key="form" onSubmit={submitPinCode} className="relative">
-                    <motion.span className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-300">
+                    <motion.span className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-400/15 text-brand-300">
                       <ShieldCheck className="h-8 w-8" />
                     </motion.span>
                     <h3 className="text-2xl font-extrabold">Code client</h3>
@@ -709,13 +733,13 @@ export default function DriverDashboard() {
                             <div
                               key={i}
                               className={`flex h-[4.5rem] items-center justify-center rounded-2xl border-2 text-4xl font-extrabold transition-colors ${
-                                pinModal.error ? 'border-rose-400/60 bg-rose-400/10' : ch ? 'border-emerald-400 bg-emerald-400/10' : current ? 'border-emerald-400/50 bg-white/5' : 'border-white/10 bg-white/5'
+                                pinModal.error ? 'border-rose-400/60 bg-rose-400/10' : ch ? 'border-brand-400 bg-brand-400/10' : current ? 'border-brand-400/50 bg-white/5' : 'border-white/10 bg-white/5'
                               }`}
                             >
                               {ch ? (
                                 <motion.span initial={{ scale: 0, y: 10 }} animate={{ scale: 1, y: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 18 }}>{ch}</motion.span>
                               ) : current ? (
-                                <span className="h-8 w-0.5 animate-pulse rounded bg-emerald-400" />
+                                <span className="h-8 w-0.5 animate-pulse rounded bg-brand-400" />
                               ) : null}
                             </div>
                           );
@@ -732,7 +756,7 @@ export default function DriverDashboard() {
                       type="submit"
                       disabled={pinModal.isLoading || pinModal.pinValue.length !== 4}
                       onMouseEnter={playPop}
-                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 hover:bg-emerald-300 py-4 text-lg font-extrabold text-[#050b09] shadow-[0_0_30px_rgba(52,211,153,0.35)] transition-opacity disabled:opacity-30 disabled:shadow-none"
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-400 hover:bg-brand-300 py-4 text-lg font-extrabold text-night shadow-[0_0_30px_color-mix(in_srgb,_var(--color-brand-400)_35%,_transparent)] transition-opacity disabled:opacity-30 disabled:shadow-none"
                     >
                       {pinModal.isLoading ? <LoaderCircle className="h-6 w-6 animate-spin" /> : <><CheckCircle2 className="h-6 w-6" /> Valider la livraison</>}
                     </motion.button>
@@ -747,17 +771,17 @@ export default function DriverDashboard() {
       {/* Connexion du livreur */}
       <AnimatePresence>
         {showDriverNameModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="font-jakarta fixed inset-0 z-[100] overflow-y-auto bg-[#06140f]">
-            <div className="pointer-events-none absolute left-1/2 top-0 h-80 w-[640px] -translate-x-1/2 rounded-full bg-emerald-500/15 blur-[120px]" aria-hidden="true" />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="font-jakarta fixed inset-0 z-[100] overflow-y-auto bg-night">
+            <div className="pointer-events-none absolute left-1/2 top-0 h-80 w-[640px] -translate-x-1/2 rounded-full bg-brand-500/15 blur-[120px]" aria-hidden="true" />
             <div className="relative mx-auto flex min-h-full max-w-[420px] flex-col px-5 py-6">
-              <a href="/" className="flex h-10 w-auto items-center justify-center overflow-hidden px-1.5 py-0.5 rounded-xl bg-white" aria-label="SamaBoutik">
-                <img src="/logo.webp" alt="SamaBoutik" width="252" height="186" decoding="async" className="h-full w-auto object-contain" />
+              <a href="/" className="flex w-max items-center self-start" aria-label="SamaBoutik">
+                <Logo variant="dark" markClassName="h-9 w-9" textClassName="text-lg" />
               </a>
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: EASE }} className="flex flex-1 flex-col justify-center py-10">
-                <span className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-400 text-[#06140f]">
+                <span className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-400 text-night">
                   <Bike className="h-7 w-7" />
                 </span>
-                <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-emerald-300">
+                <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-brand-300">
                   <Store className="h-4 w-4" /> {shopLabel}
                 </p>
                 <h2 className="text-[2rem] font-extrabold leading-tight tracking-tight text-white">Espace livreur</h2>
@@ -793,7 +817,7 @@ export default function DriverDashboard() {
                   <button
                     type="submit"
                     disabled={!loginForm.phone.trim() || !loginForm.cni.trim() || loginForm.isLoading}
-                    className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-400 text-[15px] font-bold text-[#06140f] transition-colors hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-400 text-[15px] font-bold text-night transition-colors hover:bg-brand-300 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {loginForm.isLoading ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <>Commencer ma tournée <ArrowRight className="h-4 w-4" /></>}
                   </button>

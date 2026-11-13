@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { MessageCircle, Store, Users, CircleCheck, Clock, CircleX, Hourglass, Globe } from 'lucide-react';
+import { MessageCircle, Store, Users, CircleCheck, Clock, CircleX, Hourglass, Globe } from './icons';
 import { supabase } from '../../supabaseClient';
 import { SectionCard, Toggle } from './ui';
 import { timeAgo } from './status';
@@ -133,7 +133,7 @@ export function DirectoryToggle({ location, onChange, showToast }) {
         disabled={saving}
       />
       {location?.is_public && (
-        <a href="/boutiques" target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-bold text-emerald-700 underline underline-offset-2">Voir l'annuaire →</a>
+        <a href="/boutiques" target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-bold text-brand-700 underline underline-offset-2">Voir l'annuaire →</a>
       )}
     </div>
   );

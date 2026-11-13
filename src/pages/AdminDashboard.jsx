@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../supabaseClient';
 import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 import {
-  LayoutDashboard, Map as MapIcon, Store, CreditCard, LogOut, Menu, X, RefreshCw, Download, Search, MapPin,
+  LayoutDashboard, Map as MapIcon, Store, CreditCard, Menu, X, RefreshCw, Download, Search, MapPin,
   Phone, Mail, MessageCircle, ShieldCheck, ShieldAlert, Crown, Wallet, ShoppingBag,
   Users, CalendarDays, Clock, TriangleAlert, CircleCheck, Eye, Copy, ChevronRight, Sparkles, Globe, Navigation,
   TrendingUp, ArrowUpRight, ArrowDownRight, Minus, LoaderCircle, Camera, Music2,
@@ -11,9 +11,13 @@ import {
 import ShopsMap, { PLAN_META } from '../components/admin/ShopsMap';
 import { nearestCity } from '../components/admin/geo';
 import { ChartCard, AreaChart, ColumnChart, DonutChart, BarList, Sparkline } from '../components/dashboard/Charts';
-import { MagicIcon, CARD, rise } from '../components/dashboard/ui';
+import { MagicIcon, LogoutButton, CARD, rise } from '../components/dashboard/ui';
 import { friendlyError } from '../utils/networkErrors';
 import { fmt, compact } from '../components/dashboard/analytics';
+import { BRAND } from '../utils/brand';
+import LogoutDialog from '../components/LogoutDialog';
+import { showFarewell, markLoggedOut } from '../utils/farewell';
+import Logo from '../components/brand/Logo';
 
 // Tarifs mensuels des forfaits (FCFA), identiques à la page Facturation et au webhook.
 const PLAN_PRICES = { debutant: 0, pro: 5000, premium: 15000 };
@@ -62,7 +66,7 @@ function ShopAvatar({ merchant, size = 'h-11 w-11 text-base' }) {
   return merchant.logo_url ? (
     <img src={merchant.logo_url} alt="" className={`${size} shrink-0 rounded-xl bg-white object-cover ring-1 ring-slate-200`} />
   ) : (
-    <span className={`${size} flex shrink-0 items-center justify-center rounded-xl bg-emerald-600 font-extrabold text-white`}>
+    <span className={`${size} flex shrink-0 items-center justify-center rounded-xl bg-brand-600 font-extrabold text-white`}>
       {(merchant.shop_name || '?').charAt(0).toUpperCase()}
     </span>
   );
@@ -154,10 +158,10 @@ function MerchantDrawer({ merchant, onClose, onToggleSuspension, onShowOnMap, bu
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 300, damping: 34 }}
-            className="relative flex h-full w-full max-w-xl flex-col overflow-hidden bg-[#f6f8f7] shadow-2xl"
+            className="relative flex h-full w-full max-w-xl flex-col overflow-hidden bg-[#f7f6f2] shadow-2xl"
           >
-            <div className="relative overflow-hidden bg-[#0b1f17] p-6 text-white">
-              <div className="pointer-events-none absolute -left-24 -top-28 h-80 w-80 rounded-full bg-emerald-500/20 blur-3xl" aria-hidden="true" />
+            <div className="relative overflow-hidden bg-ink p-6 text-white">
+              <div className="pointer-events-none absolute -left-24 -top-28 h-80 w-80 rounded-full bg-brand-500/20 blur-3xl" aria-hidden="true" />
               <div className="relative flex items-start gap-4">
                 <ShopAvatar merchant={merchant} size="h-16 w-16 text-2xl" />
                 <div className="min-w-0 flex-1">
@@ -187,7 +191,7 @@ function MerchantDrawer({ merchant, onClose, onToggleSuspension, onShowOnMap, bu
 
             <div className="flex-1 space-y-4 overflow-y-auto p-5">
               <section className={`${CARD} p-5`}>
-                <p className="mb-1 flex items-center gap-2 text-sm font-bold text-slate-900"><Wallet className="h-4 w-4 text-emerald-600" /> Chiffre d'affaires livré</p>
+                <p className="mb-1 flex items-center gap-2 text-sm font-bold text-slate-900"><Wallet className="h-4 w-4 text-brand-600" /> Chiffre d'affaires livré</p>
                 <p className="text-3xl font-extrabold text-slate-900">{fmt(Number(merchant.revenue_fcfa))} <span className="text-base text-slate-400">FCFA</span></p>
                 <p className="text-xs text-slate-500">Dernière commande : {merchant.last_order_at ? `${dateFr(merchant.last_order_at)} (${relDays(merchant.last_order_at)})` : 'aucune'}</p>
               </section>
@@ -258,7 +262,7 @@ function MerchantDrawer({ merchant, onClose, onToggleSuspension, onShowOnMap, bu
 
               <section className={`${CARD} px-5 py-3`}>
                 <p className="py-2 text-sm font-bold text-slate-900">Vitrine</p>
-                <InfoRow icon={Globe} label="Adresse de la vitrine"><a href={shopUrl(merchant)} target="_blank" rel="noreferrer" className="text-emerald-700 hover:underline">{shopUrl(merchant)}</a></InfoRow>
+                <InfoRow icon={Globe} label="Adresse de la vitrine"><a href={shopUrl(merchant)} target="_blank" rel="noreferrer" className="text-brand-700 hover:underline">{shopUrl(merchant)}</a></InfoRow>
                 <InfoRow icon={Sparkles} label="Description">{merchant.description}</InfoRow>
                 <InfoRow icon={Users} label="Réseaux sociaux">
                   {Object.entries(merchant.social_links || {}).filter(([, v]) => v).length > 0 && (
@@ -284,7 +288,7 @@ function MerchantDrawer({ merchant, onClose, onToggleSuspension, onShowOnMap, bu
               <button
                 onClick={() => onToggleSuspension(merchant)}
                 disabled={busy}
-                className={`flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white disabled:opacity-60 ${merchant.is_suspended ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-red-600 hover:bg-red-500'}`}
+                className={`flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white disabled:opacity-60 ${merchant.is_suspended ? 'bg-brand-600 hover:bg-brand-500' : 'bg-red-600 hover:bg-red-500'}`}
               >
                 {busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : merchant.is_suspended ? <ShieldCheck className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4" />}
                 {merchant.is_suspended ? 'Débloquer' : 'Suspendre'}
@@ -495,12 +499,19 @@ export default function AdminDashboard() {
   ];
   const current = NAV.find((n) => n.id === tab);
 
+  // Déconnexion : confirmation, puis écran d'au revoir pendant le retour à la page de connexion.
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const onLogout = () => { setMobileNav(false); setLogoutOpen(true); };
+  const confirmLogout = async ({ everywhere }) => {
+    showFarewell({ name: '' });
+    const { error } = await logout({ everywhere });
+    markLoggedOut({ everywhere, partial: Boolean(error && everywhere) });
+  };
+
   const sidebar = (prefix) => (
-    <div className="relative flex h-full flex-col overflow-hidden bg-[#06150f] text-slate-300">
+    <div className="relative flex h-full flex-col overflow-hidden bg-night text-slate-300">
       <div className="relative flex items-center justify-between px-5 pt-6">
-        <div className="flex h-11 w-auto items-center justify-center overflow-hidden px-1.5 py-0.5 rounded-xl bg-white shadow-[0_0_24px_rgba(52,211,153,0.25)]">
-          <img src="/logo.webp" alt="SamaBoutik" width="252" height="186" decoding="async" className="h-full w-auto object-contain" />
-        </div>
+        <Logo variant="dark" markClassName="h-9 w-9" textClassName="text-lg" />
         {prefix === 'mobile' && <button onClick={() => setMobileNav(false)} className="rounded-xl p-2 text-slate-400 hover:bg-white/5" aria-label="Fermer le menu"><X className="h-5 w-5" /></button>}
       </div>
       <div className="relative mx-4 mt-6 rounded-2xl border border-amber-300/20 bg-gradient-to-br from-amber-300/15 to-transparent p-4">
@@ -517,9 +528,9 @@ export default function AdminDashboard() {
           const active = tab === id;
           return (
             <button key={id} onClick={() => { setTab(id); setMobileNav(false); }} className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${active ? 'text-white' : 'text-slate-400 hover:text-white'}`}>
-              {active && <motion.span layoutId={`${prefix}-admin-nav`} className="absolute inset-0 rounded-xl border border-emerald-400/20 bg-gradient-to-r from-emerald-400/15 to-emerald-400/[0.03]" transition={{ type: 'spring', stiffness: 400, damping: 34 }} />}
-              {active && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)]" />}
-              <Icon className={`relative h-[18px] w-[18px] transition-transform group-hover:scale-110 ${active ? 'text-emerald-300' : ''}`} />
+              {active && <motion.span layoutId={`${prefix}-admin-nav`} className="absolute inset-0 rounded-xl border border-brand-400/20 bg-gradient-to-r from-brand-400/15 to-brand-400/[0.03]" transition={{ type: 'spring', stiffness: 400, damping: 34 }} />}
+              {active && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-brand-400 shadow-[0_0_12px_color-mix(in_srgb,_var(--color-brand-400)_90%,_transparent)]" />}
+              <Icon className={`relative h-[18px] w-[18px] transition-transform group-hover:scale-110 ${active ? 'text-brand-300' : ''}`} />
               <span className="relative flex-1 text-left">{label}</span>
               {badge > 0 && <span className="relative rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-bold text-white">{badge}</span>}
             </button>
@@ -527,17 +538,28 @@ export default function AdminDashboard() {
         })}
       </nav>
       <div className="relative border-t border-white/5 p-3">
-        <button onClick={logout} className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-400 transition-colors hover:bg-red-500/10 hover:text-red-300">
-          <LogOut className="h-[18px] w-[18px]" /> Déconnexion
-        </button>
+        <LogoutButton onClick={onLogout} detail={user?.email} tone="dark" />
       </div>
     </div>
   );
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className="min-h-screen bg-[#f3f5f4] font-sans text-slate-900">
+    <div className="min-h-screen bg-[#f7f6f2] font-sans text-slate-900">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[268px] md:block">{sidebar('desktop')}</aside>
+      <AnimatePresence>
+        {logoutOpen && (
+          <LogoutDialog
+            key="logout"
+            name="Administration"
+            detail={user?.email}
+            consequence="Pour revenir, il faudra votre mot de passe et le code à 6 chiffres de votre application."
+            allowEverywhere
+            onCancel={() => setLogoutOpen(false)}
+            onConfirm={confirmLogout}
+          />
+        )}
+      </AnimatePresence>
       <AnimatePresence>
         {mobileNav && (
           <>
@@ -548,7 +570,7 @@ export default function AdminDashboard() {
       </AnimatePresence>
 
       <div className="md:pl-[268px]">
-        <header className="sticky top-0 z-20 border-b border-slate-200/60 bg-[#f3f5f4]/80 backdrop-blur-xl">
+        <header className="sticky top-0 z-20 border-b border-slate-200/60 bg-[#f7f6f2]/80 backdrop-blur-xl">
           <div className="mx-auto flex max-w-[1400px] items-center gap-3 px-4 py-3 md:px-8">
             <button onClick={() => setMobileNav(true)} className="rounded-xl p-2 text-slate-600 hover:bg-white md:hidden" aria-label="Ouvrir le menu"><Menu className="h-5 w-5" /></button>
             <div className="min-w-0 flex-1">
@@ -573,28 +595,28 @@ export default function AdminDashboard() {
             )}
 
             {loading ? (
-              <div className="flex min-h-[50vh] items-center justify-center"><div className="h-12 w-12 animate-spin rounded-full border-2 border-emerald-600/20 border-t-emerald-600" /></div>
+              <div className="flex min-h-[50vh] items-center justify-center"><div className="h-12 w-12 animate-spin rounded-full border-2 border-brand-600/20 border-t-brand-600" /></div>
             ) : (
               <AnimatePresence mode="wait">
                 <motion.div key={tab} initial="initial" animate="animate" exit={{ opacity: 0, y: -10 }} variants={{ animate: { transition: { staggerChildren: 0.06 } } }} className="space-y-6">
 
                   {tab === 'overview' && (
                     <>
-                      <motion.section variants={rise} className="relative overflow-hidden rounded-[2rem] bg-[#0b1f17] p-6 text-white md:p-8">
+                      <motion.section variants={rise} className="relative overflow-hidden rounded-[2rem] bg-ink p-6 text-white md:p-8">
                         <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-                          <div className="absolute -left-24 -top-32 h-96 w-96 rounded-full bg-emerald-500/25 blur-3xl" />
-                          <div className="absolute inset-0 bg-[radial-gradient(rgba(110,231,183,0.12)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]" />
+                          <div className="absolute -left-24 -top-32 h-96 w-96 rounded-full bg-brand-500/25 blur-3xl" />
+                          <div className="absolute inset-0 bg-[radial-gradient(color-mix(in_srgb,_var(--color-brand-300)_12%,_transparent)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]" />
                         </div>
                         <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                           <div>
-                            <p className="mb-2 flex items-center gap-2 text-sm font-medium capitalize text-emerald-200/80"><CalendarDays className="h-4 w-4" /> {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                            <h2 className="text-3xl font-extrabold tracking-tight md:text-4xl">Plateforme <span className="text-emerald-300">SamaBoutik</span></h2>
-                            <p className="mt-3 max-w-xl text-emerald-50/80">
+                            <p className="mb-2 flex items-center gap-2 text-sm font-medium capitalize text-brand-200/80"><CalendarDays className="h-4 w-4" /> {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                            <h2 className="text-3xl font-extrabold tracking-tight md:text-4xl">Plateforme <span className="text-brand-300">SamaBoutik</span></h2>
+                            <p className="mt-3 max-w-xl text-brand-50/80">
                               <strong className="text-white">{merchants.length} boutique{merchants.length > 1 ? 's' : ''}</strong> inscrite{merchants.length > 1 ? 's' : ''}, dont <strong className="text-white">{a.located.length}</strong> localisée{a.located.length > 1 ? 's' : ''} et <strong className="text-white">{a.paid.length}</strong> sur un forfait payant.
                             </p>
                           </div>
                           <div className="flex flex-wrap gap-3">
-                            <button onClick={() => setTab('map')} className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[#0b1f17] transition-transform hover:-translate-y-0.5"><MapIcon className="h-4 w-4" /> Voir la carte</button>
+                            <button onClick={() => setTab('map')} className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-ink transition-transform hover:-translate-y-0.5"><MapIcon className="h-4 w-4" /> Voir la carte</button>
                             <button onClick={() => setTab('merchants')} className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold hover:bg-white/10"><Store className="h-4 w-4" /> Tous les marchands</button>
                           </div>
                         </div>
@@ -613,7 +635,7 @@ export default function AdminDashboard() {
                       </motion.div>
 
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        <Kpi label="Chiffre d'affaires livré" value={compact(a.revenue)} unit="FCFA" icon={Wallet} gradient="emerald" deltaValue={a.revenueDelta} deltaLabel={`vs ${period} j préc.`} spark={a.buckets.slice(-12).map((b) => b.revenue)} accent="#059669" />
+                        <Kpi label="Chiffre d'affaires livré" value={compact(a.revenue)} unit="FCFA" icon={Wallet} gradient="emerald" deltaValue={a.revenueDelta} deltaLabel={`vs ${period} j préc.`} spark={a.buckets.slice(-12).map((b) => b.revenue)} accent={BRAND.signature} />
                         <Kpi label="Commandes" value={fmt(a.orders)} icon={ShoppingBag} gradient="sky" deltaValue={a.ordersDelta} deltaLabel={`vs ${period} j préc.`} spark={a.buckets.slice(-12).map((b) => b.orders)} accent="#2a78d6" />
                         <Kpi label="Nouvelles boutiques" value={fmt(a.newMerchants)} icon={Store} gradient="violet" deltaValue={a.newMerchantsDelta} deltaLabel={`vs ${period} j préc.`} spark={a.buckets.slice(-12).map((b) => b.newMerchants)} accent="#4a3aa7" />
                         <Kpi label="Revenu mensuel (abonnements)" value={fmt(a.mrr)} unit="FCFA" icon={Crown} gradient="amber" hint={`${a.paid.length} forfait${a.paid.length > 1 ? 's' : ''} payant${a.paid.length > 1 ? 's' : ''} actif${a.paid.length > 1 ? 's' : ''} · ${a.suspended} suspendue${a.suspended > 1 ? 's' : ''}`} />
@@ -627,7 +649,7 @@ export default function AdminDashboard() {
                             subtitle={period > 31 ? 'Par semaine, toutes boutiques confondues' : 'Par jour, toutes boutiques confondues'}
                             table={{ columns: [{ key: 'longLabel', label: 'Période' }, { key: 'revenue', label: 'CA livré', align: 'right', format: (v) => `${fmt(v)} F` }, { key: 'orders', label: 'Commandes', align: 'right' }, { key: 'newMerchants', label: 'Nouvelles boutiques', align: 'right' }], rows: a.buckets }}
                           >
-                            <AreaChart data={a.buckets} valueKey="revenue" color="#059669" seriesLabel="CA livré" formatValue={(v) => `${fmt(v)} FCFA`} extraRows={(d) => [{ label: 'commande(s)', value: d.orders, color: '#cbd5e1' }]} height={340} animationKey={period} />
+                            <AreaChart data={a.buckets} valueKey="revenue" color={BRAND.signature} seriesLabel="CA livré" formatValue={(v) => `${fmt(v)} FCFA`} extraRows={(d) => [{ label: 'commande(s)', value: d.orders, color: '#cbd5e1' }]} height={340} animationKey={period} />
                           </ChartCard>
                         </motion.div>
                         <motion.div variants={rise}>
@@ -650,7 +672,7 @@ export default function AdminDashboard() {
                         </motion.div>
                         <motion.div variants={rise}>
                           <ChartCard className="h-full" title="Meilleures boutiques" subtitle="Chiffre d'affaires livré (depuis l'inscription)" table={{ columns: [{ key: 'label', label: 'Boutique' }, { key: 'orders', label: 'Livrées', align: 'right' }, { key: 'value', label: 'CA', align: 'right', format: (v) => `${fmt(v)} F` }], rows: a.top }}>
-                            <BarList items={a.top} color="#059669" formatValue={(v) => `${compact(v)} F`} detail={(t) => `${t.orders} livraison${t.orders > 1 ? 's' : ''}`} emptyText="Aucune vente livrée pour le moment." animationKey="top" />
+                            <BarList items={a.top} color={BRAND.signature} formatValue={(v) => `${compact(v)} F`} detail={(t) => `${t.orders} livraison${t.orders > 1 ? 's' : ''}`} emptyText="Aucune vente livrée pour le moment." animationKey="top" />
                           </ChartCard>
                         </motion.div>
                       </div>
@@ -661,7 +683,7 @@ export default function AdminDashboard() {
                             <h3 className="text-base font-bold">Carte des boutiques</h3>
                             <p className="text-sm text-slate-500">{a.located.length} boutique{a.located.length > 1 ? 's' : ''} localisée{a.located.length > 1 ? 's' : ''} sur {merchants.length}</p>
                           </div>
-                          <button onClick={() => setTab('map')} className="inline-flex items-center gap-1 text-sm font-bold text-emerald-700 hover:text-emerald-800">Plein écran <ChevronRight className="h-4 w-4" /></button>
+                          <button onClick={() => setTab('map')} className="inline-flex items-center gap-1 text-sm font-bold text-brand-700 hover:text-brand-800">Plein écran <ChevronRight className="h-4 w-4" /></button>
                         </header>
                         <ShopsMap merchants={merchants} height={360} onOpenDetails={(m) => setDetailsId(m.id)} />
                       </motion.section>
@@ -681,12 +703,12 @@ export default function AdminDashboard() {
                           </div>
                           <div className="relative">
                             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                            <input value={mapSearch} onChange={(e) => setMapSearch(e.target.value)} placeholder="Boutique, ville, téléphone…" className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10" />
+                            <input value={mapSearch} onChange={(e) => setMapSearch(e.target.value)} placeholder="Boutique, ville, téléphone…" className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-brand-400 focus:bg-white focus:ring-4 focus:ring-brand-500/10" />
                           </div>
                         </div>
                         <div className="flex-1 overflow-y-auto p-2">
                           {mapList.map((m) => (
-                            <button key={m.id} onClick={() => setMapSelectedId(m.id)} className={`flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-colors ${mapSelectedId === m.id ? 'bg-emerald-50 ring-1 ring-emerald-200' : 'hover:bg-slate-50'}`}>
+                            <button key={m.id} onClick={() => setMapSelectedId(m.id)} className={`flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-colors ${mapSelectedId === m.id ? 'bg-brand-50 ring-1 ring-brand-200' : 'hover:bg-slate-50'}`}>
                               <ShopAvatar merchant={m} size="h-10 w-10 text-sm" />
                               <span className="min-w-0 flex-1">
                                 <span className="block truncate text-sm font-bold">{m.shop_name}</span>
@@ -725,7 +747,7 @@ export default function AdminDashboard() {
                       <motion.div variants={rise} className={`${CARD} flex flex-col gap-3 p-4 lg:flex-row lg:items-center`}>
                         <div className="relative flex-1">
                           <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nom, téléphone, email, adresse, ville…" className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-4 text-sm font-medium outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10" />
+                          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nom, téléphone, email, adresse, ville…" className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-4 text-sm font-medium outline-none focus:border-brand-400 focus:bg-white focus:ring-4 focus:ring-brand-500/10" />
                         </div>
                         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                           {[
@@ -734,7 +756,7 @@ export default function AdminDashboard() {
                             [locFilter, setLocFilter, [['all', 'Toutes positions'], ['located', 'Localisées'], ['missing', 'Non localisées']]],
                             [sortBy, setSortBy, [['recent', 'Plus récentes'], ['revenue', 'Meilleur CA'], ['orders', 'Plus de commandes'], ['name', 'Nom (A→Z)']]],
                           ].map(([value, setter, options], i) => (
-                            <select key={i} value={value} onChange={(e) => setter(e.target.value)} className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10">
+                            <select key={i} value={value} onChange={(e) => setter(e.target.value)} className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-500/10">
                               {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                             </select>
                           ))}
@@ -763,7 +785,7 @@ export default function AdminDashboard() {
                                   animate={{ opacity: 1, y: 0 }}
                                   transition={{ delay: Math.min(i, 15) * 0.02 }}
                                   onClick={() => setDetailsId(m.id)}
-                                  className="cursor-pointer transition-colors hover:bg-emerald-50/40"
+                                  className="cursor-pointer transition-colors hover:bg-brand-50/40"
                                 >
                                   <td className="px-5 py-3.5">
                                     <div className="flex items-center gap-3">

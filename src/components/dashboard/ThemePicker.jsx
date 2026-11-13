@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Check, ExternalLink } from 'lucide-react';
+import { Check, ExternalLink } from './icons';
 import { SHOP_THEMES } from '../shop/themes';
 
 // Choix du thème de la vitrine : mini-aperçu (photo, police, couleurs) de chacun des 6 thèmes.
@@ -11,7 +11,7 @@ export default function ThemePicker({ value, onChange, shopUrl }) {
       {SHOP_THEMES.map((t) => {
         const active = value === t.id;
         return (
-          <div key={t.id} className={`group relative overflow-hidden rounded-2xl border-2 bg-white transition-colors ${active ? 'border-emerald-600' : 'border-slate-200 hover:border-slate-300'}`}>
+          <div key={t.id} className={`group relative overflow-hidden rounded-2xl border-2 bg-white transition-colors ${active ? 'border-brand-600' : 'border-slate-200 hover:border-slate-300'}`}>
             <motion.button
               type="button"
               role="radio"
@@ -44,7 +44,7 @@ export default function ThemePicker({ value, onChange, shopUrl }) {
                   </span>
                 </span>
                 {active && (
-                  <span className="absolute right-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white shadow-md">
+                  <span className="absolute right-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-white shadow-md">
                     <Check className="h-3.5 w-3.5" strokeWidth={3} />
                   </span>
                 )}
@@ -63,7 +63,7 @@ export default function ThemePicker({ value, onChange, shopUrl }) {
                 href={`${shopUrl}?theme=${t.id}`}
                 target="_blank"
                 rel="noreferrer"
-                className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-slate-800 shadow-sm backdrop-blur transition-colors hover:bg-white"
+                className="absolute left-1.5 top-1.5 inline-flex min-h-9 items-center gap-1 rounded-full bg-white/90 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-sm backdrop-blur transition-colors hover:bg-white"
               >
                 Aperçu <ExternalLink className="h-3 w-3" />
               </a>

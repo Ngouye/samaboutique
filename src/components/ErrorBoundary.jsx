@@ -48,12 +48,12 @@ class ErrorBoundary extends React.Component {
     const { offline, reference, error } = this.state;
 
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f6f8f7] p-6" role="alert">
+      <div className="flex min-h-screen items-center justify-center bg-[#f7f6f2] p-6" role="alert">
         <div className="w-full max-w-md rounded-3xl border border-slate-200/80 bg-white p-8 text-center shadow-[0_20px_50px_-24px_rgba(15,23,42,0.25)]">
           <span className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20" aria-hidden="true">
             {offline ? <WifiOff className="h-7 w-7" /> : <TriangleAlert className="h-7 w-7" />}
           </span>
-          <h1 className="text-2xl font-extrabold tracking-tight text-[#0b1f17]">
+          <h1 className="text-2xl font-extrabold tracking-tight text-ink">
             {offline ? 'Pas de connexion internet' : 'Un problème est survenu'}
           </h1>
           <p className="mt-3 text-slate-600">
@@ -72,7 +72,7 @@ class ErrorBoundary extends React.Component {
           <div className="mt-7 flex flex-col gap-2.5 sm:flex-row sm:justify-center">
             <button
               onClick={() => window.location.reload()}
-              className="inline-flex items-center justify-center rounded-full bg-[#0b1f17] px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-emerald-800"
+              className="inline-flex items-center justify-center rounded-full bg-ink px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-800"
             >
               {offline ? 'Réessayer' : 'Recharger la page'}
             </button>

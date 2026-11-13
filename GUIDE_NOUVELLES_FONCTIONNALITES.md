@@ -12,6 +12,8 @@
 Dans Supabase, ouvrez **SQL Editor** et exécutez `new_features.sql`. Les scripts `security_fixes.sql`, `security_fixes_2.sql` et `admin_locations.sql` doivent déjà avoir été exécutés.
 
 > Si vous relancez un jour `admin_locations.sql`, relancez ensuite `new_features.sql`.
+>
+> Exécutez ensuite `security_fixes_3.sql`, `stock_et_annuaire.sql` (gestion du stock, WhatsApp et adresse dans l'annuaire) puis `paiements_et_ia.sql` (opérateur de paiement, compteur de l'assistant IA). Si vous relancez `new_features.sql`, relancez aussi les deux derniers, dans cet ordre.
 
 ### Étape 2 — Le serveur (dossier `server/`)
 1. Ajoutez les variables ci-dessous chez votre hébergeur (Render, Railway…) ou dans `server/.env`.
@@ -23,6 +25,8 @@ Dans Supabase, ouvrez **SQL Editor** et exécutez `new_features.sql`. Les script
 | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` | Si `meta` | Pour WhatsApp |
 | `ULTRAMSG_INSTANCE_ID`, `ULTRAMSG_TOKEN` | Si `ultramsg` | Pour WhatsApp |
 | `FRONTEND_URL` | Adresse du site (déjà utilisée) : sert aussi aux liens envoyés sur WhatsApp | Oui |
+| `ANTHROPIC_API_KEY` | Assistant IA : rédaction des fiches produit (section 7) | Pour l'assistant |
+| `PHOTOROOM_API_KEY` | Assistant IA : photos studio (section 7) | Pour l'assistant |
 
 Ces clés restent **uniquement sur le serveur**. Ne les mettez jamais dans les variables Vercel du site.
 
@@ -165,3 +169,89 @@ Dans la fiche produit, le marchand peut ajouter des **mots-clés** (par exemple 
   - `src/components/driver/LiveLocationShare.jsx`
   - `src/components/dashboard/SmartSettings.jsx`, `TagsInput.jsx`
 - **Site — pages modifiées** : `PublicShop.jsx`, `DriverDashboard.jsx`, `MerchantDashboard.jsx`, `Register.jsx`, `Landing.jsx`, `App.jsx`, `AuthContext.jsx`, `index.css`
+
+---
+
+## 7. Assistant IA des fiches produit
+
+Dans la fiche d'un produit (ajout ou modification), un encadré **Assistant IA** apparaît dès qu'il y a une photo.
+
+**Remplir la fiche avec l'IA.** L'IA (Claude, d'Anthropic) regarde la photo et propose :
+- le nom ;
+- une description de 2 à 4 phrases ;
+- la catégorie ;
+- les caractéristiques (taille, couleur, matière…) ;
+- des mots-clés pour la recherche.
+
+Le marchand peut ajouter une précision (« bazin riche », « taille 42 »…).
+
+L'IA ne décrit que ce qu'elle voit : elle n'invente ni marque, ni prix, ni garantie. Le prix et le stock restent à saisir par le marchand, qui relit et corrige avant d'enregistrer. Si la photo ne montre pas un produit (floue, capture d'écran…), l'IA le dit et rien n'est rempli.
+
+**Créer la photo studio.** Photoroom détoure le **vrai** produit et le pose sur un fond au choix :
+- studio blanc ;
+- marbre ;
+- bois et plantes ;
+- tissu wax.
+
+Le produit n'est jamais redessiné : le client reçoit bien ce qu'il voit. Le marchand compare et choisit « Utiliser » ou « Garder l'originale ».
+
+**Limites par mois** (comptées par le serveur, remises à zéro le 1er de chaque mois) :
+
+| Forfait | Fiches IA | Photos studio |
+|---|---|---|
+| Débutant | 30 | 10 |
+| Pro | 300 | 100 |
+| Premium | 1000 | 300 |
+
+Il y a aussi une limite par heure (40 fiches, 20 photos), contre les abus.
+
+**Coûts approximatifs pour vous** :
+- une fiche IA coûte environ 0,01 à 0,03 $ (Anthropic) ;
+- une photo studio coûte environ 0,10 $ (Photoroom).
+
+Pensez à fixer un plafond de dépenses dans les deux consoles.
+
+**Mise en route** :
+1. Créez une clé sur console.anthropic.com et une clé sur photoroom.com/api.
+2. Ajoutez `ANTHROPIC_API_KEY` et `PHOTOROOM_API_KEY` sur le serveur, jamais dans Vercel.
+3. Lancez `npm install` dans `server/`, puis redéployez le serveur.
+
+On peut n'activer que l'une des deux fonctions : seule celle dont la clé est réglée apparaît.
+
+---
+
+## 8. Affiche pour WhatsApp
+
+Sur chaque carte produit du tableau de bord, le bouton **Créer une affiche** (mégaphone) fabrique une image prête à publier :
+- la photo, le nom et le prix ;
+- les moyens de paiement ;
+- l'adresse de la boutique et un **QR code**.
+
+Deux formats sont proposés :
+- **Statut** (9:16), pour le statut WhatsApp ;
+- **Publication** (carré), pour Facebook et Instagram.
+
+Sur téléphone, **Partager** ouvre directement WhatsApp avec l'image et le lien. Sur ordinateur, **Télécharger** enregistre l'image. L'affiche est créée dans le navigateur : elle ne coûte rien.
+
+---
+
+## 9. Choix du moyen de paiement
+
+Au moment de commander, le client choisit :
+- **À la livraison** (espèces au livreur) ;
+- **Wave** ;
+- **Orange Money** ;
+- **Free Money** ;
+- **Wizall Money**.
+
+Pour un paiement mobile, la page sécurisée PayDunya s'ouvre directement sur l'opérateur choisi. L'opérateur est enregistré avec la commande : il s'affiche dans le tableau de bord du marchand et chez le livreur (« Déjà payé (Wave) »).
+
+Ces quatre opérateurs doivent être activés dans le compte PayDunya.
+
+Tant que `paiements_et_ia.sql` n'a pas été exécuté, le paiement fonctionne quand même, mais l'opérateur n'est pas enregistré.
+
+**Fichiers** :
+- `paiements_et_ia.sql` ;
+- `server/routes/ai.js`, `server/lib/aiQuota.js`, `server/lib/productCategories.js`, `server/routes/payment.js` ;
+- `src/components/dashboard/AiProductAssistant.jsx`, `ProductPoster.jsx` ;
+- `src/utils/aiAssistant.js`, `src/utils/payments.js`.

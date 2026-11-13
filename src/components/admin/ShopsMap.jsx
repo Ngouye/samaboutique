@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Phone, ExternalLink, Eye } from 'lucide-react';
 import { DAKAR_CENTER } from './geo';
+import { BRAND } from '../../utils/brand';
 
 export const PLAN_META = {
   debutant: { label: 'Débutant', color: '#2a78d6' },
@@ -70,7 +71,7 @@ export default function ShopsMap({ merchants, selectedId, onSelect, onOpenDetail
         <FitToMarkers points={points} />
         {selected && <FlyToSelected merchant={selected} />}
         {selected?.location_accuracy_m > 0 && (
-          <Circle center={[selected.latitude, selected.longitude]} radius={selected.location_accuracy_m} pathOptions={{ color: '#059669', fillColor: '#34d399', fillOpacity: 0.15, weight: 1 }} />
+          <Circle center={[selected.latitude, selected.longitude]} radius={selected.location_accuracy_m} pathOptions={{ color: BRAND.signature, fillColor: BRAND.light, fillOpacity: 0.15, weight: 1 }} />
         )}
         {located.map((m) => (
           <Marker

@@ -5,13 +5,14 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "cd .. && npx vitest run tests/server"
+    "test": "node ../scripts/test.mjs run tests/server"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
     "@sentry/node": "^11.4.0",
     "@supabase/supabase-js": "^2.116.0",
     "axios": "^1.20.0",
@@ -19,7 +20,8 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
-    "helmet": "^8.3.0"
+    "helmet": "^8.3.0",
+    "zod": "^4.6.7"
   },
   "engines": {
     "node": ">=20.19"

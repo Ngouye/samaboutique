@@ -83,7 +83,7 @@ export default function StoreStories({ products = [], onProductClick }) {
                   />
                 </div>
               </div>
-              <span className="w-20 truncate text-center text-[10px] font-bold text-[color:var(--shop-ink,#1f2937)]">
+              <span className="w-20 truncate text-center text-[11px] font-bold text-[color:var(--shop-ink,#1f2937)]">
                 {product.name}
               </span>
             </div>

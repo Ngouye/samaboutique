@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import paymentRoutes from './routes/payment.js';
 import reviewRoutes from './routes/reviews.js';
+import aiRoutes from './routes/ai.js';
 import { Sentry, monitoringEnabled, reportError } from './lib/monitoring.js';
 
 dotenv.config();
@@ -51,6 +52,9 @@ app.use(cors({
 // Après CORS : le message « trop de demandes » reste lisible par le site.
 app.use(generalLimiter);
 app.use('/api/payments/create', paymentLimiter);
+
+// Assistant IA : reçoit une photo (quelques centaines de Ko) -> lecteur JSON plus large, avant le lecteur général.
+app.use('/api/ai', express.json({ limit: '8mb' }), aiRoutes);
 
 app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({ extended: true, limit: '100kb' })); // Notifications PayDunya (formulaire)
