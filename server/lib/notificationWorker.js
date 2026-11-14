@@ -70,6 +70,9 @@ export function startNotificationWorker() {
     }
   };
 
-  setInterval(tick, POLL_MS).unref();
+  const timer = setInterval(tick, POLL_MS);
+  timer.unref();
   tick();
+  // Arrêt propre : plus de nouveaux envois (un envoi déjà commencé se termine).
+  return () => clearInterval(timer);
 }

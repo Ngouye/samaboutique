@@ -15,7 +15,9 @@ Les étapes marquées *(facultatif)* peuvent attendre.
 
 ## Étape 2 · Serveur de paiement
 
-> Si le serveur n'est pas encore hébergé (Render, Railway…), c'est la première chose à faire. Sans lui, le paiement Wave / Orange Money et les notifications WhatsApp ne fonctionnent pas.
+> Si le serveur n'est pas encore hébergé, c'est la première chose à faire. Sans lui, le paiement mobile et les notifications WhatsApp ne fonctionnent pas.
+>
+> **Hébergement recommandé : Northflank, gratuit, en 2 microservices (`api-commandes` et `api-ia`).** Suivez `DEPLOIEMENT.md` pas à pas : il remplace les réglages ci-dessous.
 
 - [ ] Vérifier que l'hébergeur utilise **Node 20.19 ou plus récent**.
 - [ ] Renseigner ces réglages chez l'hébergeur (variables d'environnement) :

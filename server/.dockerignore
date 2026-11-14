@@ -1,0 +1,10 @@
+# Jamais dans l'image : secrets, dépendances locales, fichiers de travail.
+.env
+.env.*
+node_modules
+npm-debug.log*
+.git
+.gitignore
+Dockerfile
+.dockerignore
+*.md
