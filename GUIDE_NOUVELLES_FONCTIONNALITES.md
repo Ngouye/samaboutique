@@ -13,7 +13,7 @@ Dans Supabase, ouvrez **SQL Editor** et exécutez `new_features.sql`. Les script
 
 > Si vous relancez un jour `admin_locations.sql`, relancez ensuite `new_features.sql`.
 >
-> Exécutez ensuite `security_fixes_3.sql`, `stock_et_annuaire.sql` (gestion du stock, WhatsApp et adresse dans l'annuaire) puis `paiements_et_ia.sql` (opérateur de paiement, compteur de l'assistant IA), `suivi_commande.sql` (suivi de commande quelle que soit l'écriture du numéro) et `produits_brouillons.sql` (produits en brouillon, publication programmée). Si vous relancez `new_features.sql` ou `stock_et_annuaire.sql`, relancez ensuite les scripts qui les suivent, dans cet ordre.
+> Exécutez ensuite `security_fixes_3.sql`, `stock_et_annuaire.sql` (gestion du stock, WhatsApp et adresse dans l'annuaire) puis `paiements_et_ia.sql` (opérateur de paiement, compteur de l'assistant IA), `suivi_commande.sql` (suivi de commande quelle que soit l'écriture du numéro) `produits_brouillons.sql` (produits en brouillon, publication programmée) et `admin_complet.sql` (administration complète : commandes, clients, produits, livreurs, avis, paiements, système, changement d'offre, journal). Si vous relancez `new_features.sql` ou `stock_et_annuaire.sql`, relancez ensuite les scripts qui les suivent, dans cet ordre.
 
 ### Étape 2 — Le serveur (dossier `server/`)
 1. Ajoutez les variables ci-dessous chez votre hébergeur (Render, Railway…) ou dans `server/.env`.

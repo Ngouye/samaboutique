@@ -7,6 +7,7 @@ import {
   Phone, Mail, MessageCircle, ShieldCheck, ShieldAlert, Crown, Wallet, ShoppingBag,
   Users, CalendarDays, Clock, TriangleAlert, CircleCheck, Eye, Copy, ChevronRight, Sparkles, Globe, Navigation,
   TrendingUp, ArrowUpRight, ArrowDownRight, Minus, LoaderCircle, Camera, Music2,
+  UserRound, Package, Bike, Star, Activity, Receipt, Banknote, Truck, PackageX,
 } from 'lucide-react';
 import ShopsMap, { PLAN_META } from '../components/admin/ShopsMap';
 import { nearestCity } from '../components/admin/geo';
@@ -18,6 +19,30 @@ import { BRAND } from '../utils/brand';
 import LogoutDialog from '../components/LogoutDialog';
 import { showFarewell, markLoggedOut } from '../utils/farewell';
 import Logo from '../components/brand/Logo';
+import { SetupNotice, StatGrid, StatTile, DataTable } from '../components/admin/AdminKit';
+import OrdersSection, { OrderDrawer, StatusChip } from '../components/admin/sections/OrdersSection';
+import CustomersSection, { CustomerDrawer } from '../components/admin/sections/CustomersSection';
+import ProductsSection from '../components/admin/sections/ProductsSection';
+import DriversSection from '../components/admin/sections/DriversSection';
+import ReviewsSection from '../components/admin/sections/ReviewsSection';
+import SystemSection from '../components/admin/sections/SystemSection';
+import SubscriptionDialog from '../components/admin/SubscriptionDialog';
+import { ORDER_STATUSES } from '../components/dashboard/status';
+import { paymentLabel } from '../utils/payments';
+import { filterOrders, ordersSummary, customersSummary, productsSummary, paymentsSummary, toCsv, shortRef } from '../utils/adminData';
+
+// Données complémentaires (admin_complet.sql) : clé d'état, fonction, paramètres.
+const EXTRA_SOURCES = [
+  ['orders', 'admin_orders', { p_days: 365 }],
+  ['customers', 'admin_customers'],
+  ['products', 'admin_products'],
+  ['drivers', 'admin_drivers'],
+  ['reviews', 'admin_reviews'],
+  ['payments', 'admin_subscription_payments'],
+  ['health', 'admin_platform_health'],
+];
+const isMissingFunction = (error) => error?.code === 'PGRST202' || /Could not find the function/i.test(error?.message || '');
+const PAY_COLORS = ['#3b2fc9', '#e8a33d', '#1dc8ff', '#ff7900', '#d6001c', '#0d6fb8'];
 
 // Tarifs mensuels des forfaits (FCFA), identiques à la page Facturation et au webhook.
 const PLAN_PRICES = { debutant: 0, pro: 5000, premium: 15000 };
@@ -120,7 +145,7 @@ function InfoRow({ icon: Icon, label, children }) {
 /* Fiche détaillée d'un marchand                                       */
 /* ------------------------------------------------------------------ */
 
-function MerchantDrawer({ merchant, onClose, onToggleSuspension, onShowOnMap, busy }) {
+function MerchantDrawer({ merchant, onClose, onToggleSuspension, onShowOnMap, busy, onChangePlan, recentOrders = [], onOpenOrder }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!merchant) return undefined;
@@ -258,7 +283,31 @@ function MerchantDrawer({ merchant, onClose, onToggleSuspension, onShowOnMap, bu
                 <InfoRow icon={Crown} label="Forfait">{PLAN_META[planOf(merchant)].label} · {fmt(PLAN_PRICES[planOf(merchant)])} FCFA / mois</InfoRow>
                 <InfoRow icon={CalendarDays} label="Fin de l'abonnement">{merchant.subscription_end_date ? `${dateFr(merchant.subscription_end_date)}` : null}</InfoRow>
                 <InfoRow icon={Wallet} label="Reversements (moyen et numéro)">{merchant.payout_phone_number ? `${merchant.payout_provider || '—'} · ${merchant.payout_phone_number}` : null}</InfoRow>
+                {onChangePlan && (
+                  <button onClick={() => onChangePlan(merchant)} className="mb-2 mt-1 flex w-full items-center justify-center gap-2 rounded-full bg-ink py-2.5 text-sm font-bold text-white hover:bg-brand-800">
+                    <Crown className="h-4 w-4" /> Changer l'offre
+                  </button>
+                )}
               </section>
+
+              {recentOrders.length > 0 && (
+                <section className={`${CARD} px-5 py-3`}>
+                  <p className="py-2 text-sm font-bold text-slate-900">Dernières commandes</p>
+                  <ul className="divide-y divide-slate-100">
+                    {recentOrders.slice(0, 6).map((o) => (
+                      <li key={o.id}>
+                        <button onClick={() => onOpenOrder(o.id)} className="flex w-full items-center justify-between gap-3 py-2.5 text-left hover:bg-slate-50">
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-semibold">{o.customer_name}</span>
+                            <span className="block text-xs text-slate-500">#{shortRef(o.id)} · {dateFr(o.created_at)}</span>
+                          </span>
+                          <span className="flex shrink-0 flex-col items-end gap-1"><span className="text-sm font-bold">{fmt(o.total_amount_fcfa)} F</span><StatusChip status={o.status} /></span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
 
               <section className={`${CARD} px-5 py-3`}>
                 <p className="py-2 text-sm font-bold text-slate-900">Vitrine</p>
@@ -325,19 +374,41 @@ export default function AdminDashboard() {
   const [locFilter, setLocFilter] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
   const [mapSearch, setMapSearch] = useState('');
+  // Données de toute la plateforme (admin_complet.sql) et fonctions absentes de la base
+  const [extra, setExtra] = useState({ orders: [], customers: [], products: [], drivers: [], reviews: [], payments: [], health: null });
+  const [missing, setMissing] = useState([]);
+  const [orderId, setOrderId] = useState(null);
+  const [customerKey, setCustomerKey] = useState(null);
+  const [subscriptionFor, setSubscriptionFor] = useState(null);
+  // Heure du dernier chargement : référence des calculs « depuis 24 h », « 30 derniers jours »…
+  const [loadedAt, setLoadedAt] = useState(() => Date.now());
 
   const fetchAdminData = async () => {
     setRefreshing(true);
     setLoadError('');
     try {
-      const [overview, activity] = await Promise.all([
+      const [overview, activity, ...extras] = await Promise.all([
         supabase.rpc('admin_merchants_overview'),
         supabase.rpc('admin_platform_series', { p_days: 365 }),
+        ...EXTRA_SOURCES.map(([, fn, args]) => supabase.rpc(fn, args)),
       ]);
       if (overview.error) throw overview.error;
       if (activity.error) throw activity.error;
       setMerchants((overview.data || []).map((m) => ({ ...m, city: nearestCity(m.latitude, m.longitude) })));
       setSeries(activity.data || []);
+      const next = {};
+      const absent = [];
+      extras.forEach(({ data, error }, i) => {
+        const key = EXTRA_SOURCES[i][0];
+        if (error) {
+          if (isMissingFunction(error)) absent.push(key);
+          else console.error(`Erreur ${EXTRA_SOURCES[i][1]} :`, error);
+        }
+        next[key] = key === 'health' ? (error ? null : data) : (error ? [] : data || []);
+      });
+      setExtra(next);
+      setMissing(absent);
+      setLoadedAt(Date.now());
     } catch (err) {
       console.error('Erreur chargement admin:', err);
       setLoadError(err?.code === 'PGRST202'
@@ -353,13 +424,22 @@ export default function AdminDashboard() {
     fetchAdminData();
   }, []);
 
+  const refreshHealth = async () => {
+    const { data, error } = await supabase.rpc('admin_platform_health');
+    if (!error) setExtra((e) => ({ ...e, health: data }));
+  };
+
   const toggleSuspension = async (merchant) => {
     const action = merchant.is_suspended ? 'débloquer' : 'suspendre';
     if (!window.confirm(`Voulez-vous vraiment ${action} « ${merchant.shop_name} » ?`)) return;
     setBusyId(merchant.id);
     try {
-      const { error } = await supabase.from('merchants').update({ is_suspended: !merchant.is_suspended }).eq('id', merchant.id);
+      // Fonction journalisée (admin_complet.sql) ; sinon, mise à jour directe comme avant.
+      let { data, error } = await supabase.rpc('admin_set_suspension', { p_merchant_id: merchant.id, p_suspended: !merchant.is_suspended });
+      if (isMissingFunction(error)) ({ error } = await supabase.from('merchants').update({ is_suspended: !merchant.is_suspended }).eq('id', merchant.id));
+      else if (!error && data?.ok === false) error = new Error(data.error);
       if (error) throw error;
+      refreshHealth();
       setMerchants((list) => list.map((m) => (m.id === merchant.id ? { ...m, is_suspended: !merchant.is_suspended } : m)));
     } catch (err) {
       alert(`Mise à jour impossible : ${friendlyError(err, 'réessayez dans un instant.')}`);
@@ -368,8 +448,37 @@ export default function AdminDashboard() {
     }
   };
 
+  const saveSubscription = async (merchant, plan, months) => {
+    const { data, error } = await supabase.rpc('admin_set_subscription', { p_merchant_id: merchant.id, p_plan: plan, p_months: months });
+    if (error || data?.ok === false) {
+      alert(isMissingFunction(error)
+        ? "Exécutez d'abord admin_complet.sql dans Supabase pour pouvoir modifier les offres."
+        : `Modification impossible : ${data?.error || friendlyError(error, 'réessayez dans un instant.')}`);
+      return false;
+    }
+    setMerchants((list) => list.map((m) => (m.id === merchant.id
+      ? { ...m, subscription_plan: plan, subscription_status: 'active', subscription_end_date: data.subscription_end_date }
+      : m)));
+    refreshHealth();
+    return true;
+  };
+
+  const deleteReview = async (review) => {
+    const { data, error } = await supabase.rpc('admin_delete_review', { p_review_id: review.id });
+    if (error || data?.ok === false) {
+      alert(`Suppression impossible : ${data?.error || friendlyError(error, 'réessayez dans un instant.')}`);
+      return;
+    }
+    setExtra((e) => ({ ...e, reviews: e.reviews.filter((r) => r.id !== review.id) }));
+    refreshHealth();
+  };
+
+  const openMerchant = (id) => { setOrderId(null); setCustomerKey(null); setDetailsId(id); };
+  const openOrder = (id) => { setDetailsId(null); setCustomerKey(null); setOrderId(id); };
+  const openCustomer = (key) => { setDetailsId(null); setOrderId(null); setCustomerKey(key); };
+
   const exportCsv = () => {
-    const columns = [
+    const merchantColumns = [
       ['Boutique', (m) => m.shop_name], ['Téléphone', (m) => m.phone_number], ['Email du compte', (m) => m.account_email],
       ['Email de contact', (m) => m.contact_email], ['Adresse', (m) => m.address], ['Ville (GPS)', (m) => m.city || ''],
       ['Latitude', (m) => m.latitude ?? ''], ['Longitude', (m) => m.longitude ?? ''], ['Précision (m)', (m) => m.location_accuracy_m ?? ''],
@@ -379,12 +488,41 @@ export default function AdminDashboard() {
       ['Livrées', (m) => m.delivered_count], ['CA livré (FCFA)', (m) => m.revenue_fcfa], ['Inscription', (m) => m.created_at],
       ['Dernière connexion', (m) => m.last_sign_in_at || ''], ['Vitrine', (m) => shopUrl(m)],
     ];
-    const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const csv = [columns.map(([h]) => cell(h)).join(';'), ...merchants.map((m) => columns.map(([, get]) => cell(get(m))).join(';'))].join('\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    // Export de l'onglet ouvert
+    const sets = {
+      orders: ['commandes', extra.orders, [
+        ['Référence', (o) => shortRef(o.id)], ['Date', (o) => o.created_at], ['Boutique', (o) => o.shop_name], ['Client', (o) => o.customer_name],
+        ['Téléphone', (o) => o.customer_phone], ['Zone', (o) => o.delivery_zone], ['Adresse', (o) => o.customer_address], ['Montant (FCFA)', (o) => o.total_amount_fcfa],
+        ['Articles', (o) => o.items_count], ['Paiement', (o) => paymentLabel(o)], ['Statut', (o) => ORDER_STATUSES.find((st) => st.id === o.status)?.label || o.status],
+        ['Livreur', (o) => o.driver_name || ''], ['Livrée le', (o) => o.delivered_at || ''],
+      ]],
+      customers: ['clients', extra.customers, [
+        ['Client', (c) => c.customer_name], ['Téléphone', (c) => c.customer_phone], ['Commandes', (c) => c.orders_count], ['Livrées', (c) => c.delivered_count],
+        ['Annulées', (c) => c.cancelled_count], ['Dépensé (FCFA)', (c) => c.total_spent_fcfa], ['Boutiques', (c) => (c.shops || []).join(', ')],
+        ['Quartiers', (c) => (c.zones || []).join(', ')], ['Première commande', (c) => c.first_order_at], ['Dernière commande', (c) => c.last_order_at],
+      ]],
+      products: ['produits', extra.products, [
+        ['Produit', (x) => x.name], ['Boutique', (x) => x.shop_name], ['Catégorie', (x) => x.category], ['Prix (FCFA)', (x) => x.price_fcfa], ['Stock', (x) => x.stock],
+        ['Vendus', (x) => x.units_sold], ['CA livré (FCFA)', (x) => x.revenue_fcfa], ['Note', (x) => x.rating ?? ''], ['Avis', (x) => x.reviews_count],
+        ['Visibilité', (x) => x.visibility], ['Créé le', (x) => x.created_at],
+      ]],
+      drivers: ['livreurs', extra.drivers, [
+        ['Livreur', (d) => d.full_name], ['Téléphone', (d) => d.phone_number], ['Véhicule', (d) => d.vehicle_type], ['Boutique', (d) => d.shop_name],
+        ['Livrées', (d) => d.delivered_count], ['En route', (d) => d.in_transit_count], ['Espèces (FCFA)', (d) => d.cash_collected_fcfa], ['Dernière livraison', (d) => d.last_delivery_at || ''],
+      ]],
+      billing: ['paiements-abonnements', extra.payments, [
+        ['Date', (x) => x.created_at], ['Boutique', (x) => x.shop_name], ['Forfait', (x) => PLAN_META[x.plan]?.label || x.plan], ['Montant (FCFA)', (x) => x.amount_fcfa], ['Référence PayDunya', (x) => x.invoice_token],
+      ]],
+      reviews: ['avis', extra.reviews, [
+        ['Date', (r) => r.created_at], ['Note', (r) => r.rating], ['Commentaire', (r) => r.comment], ['Client', (r) => r.customer_name],
+        ['Achat vérifié', (r) => (r.verified ? 'oui' : 'non')], ['Produit', (r) => r.product_name], ['Boutique', (r) => r.shop_name],
+      ]],
+    };
+    const [name, rows, columns] = sets[tab] || ['boutiques', merchants, merchantColumns];
+    const blob = new Blob([toCsv(columns, rows)], { type: 'text/csv;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `samaboutik-marchands-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `samaboutik-${name}-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
   };
@@ -461,6 +599,29 @@ export default function AdminDashboard() {
     };
   }, [merchants, series, period]);
 
+  // Activité de la période (commandes de toute la plateforme)
+  const ov = useMemo(() => {
+    const now = loadedAt;
+    const orders = filterOrders(extra.orders, { days: period }, now);
+    const os = ordersSummary(orders);
+    const late = extra.orders.filter((o) => o.status === 'PENDING' && now - Date.parse(o.created_at) > DAY);
+    const ps = productsSummary(extra.products, now);
+    const negative = extra.reviews.filter((r) => Number(r.rating) <= 2 && now - Date.parse(r.created_at) <= 30 * DAY);
+    const wa = extra.health?.whatsapp?.by_status || {};
+    return {
+      os,
+      cs: customersSummary(extra.customers, now),
+      pay: paymentsSummary(extra.payments, now),
+      late,
+      outOfStock: ps.outOfStock,
+      drafts: ps.draft,
+      negative,
+      waFailed: Number(wa.failed || 0) + Number(wa.expired || 0),
+      statusBars: ORDER_STATUSES.map((st) => ({ label: st.label, value: os.byStatus[st.id] || 0 })).filter((b) => b.value > 0),
+      paySegments: os.payments.map((x, i) => ({ id: x.label, label: x.label, value: x.value, color: PAY_COLORS[i % PAY_COLORS.length] })),
+    };
+  }, [extra, period, loadedAt]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const list = merchants.filter((m) => {
@@ -492,10 +653,16 @@ export default function AdminDashboard() {
   const showOnMap = (m) => { setDetailsId(null); setTab('map'); setMapSelectedId(m.id); };
 
   const NAV = [
-    { id: 'overview', label: "Vue d'ensemble", icon: LayoutDashboard },
-    { id: 'map', label: 'Carte des boutiques', icon: MapIcon, badge: a.located.length },
-    { id: 'merchants', label: 'Marchands', icon: Store, badge: merchants.length },
-    { id: 'billing', label: 'Abonnements', icon: CreditCard, badge: a.expiringSoon.length || null },
+    { id: 'overview', label: "Vue d'ensemble", icon: LayoutDashboard, group: 'Pilotage' },
+    { id: 'orders', label: 'Commandes', icon: ShoppingBag, badge: ov.os.inProgress || null, group: 'Pilotage' },
+    { id: 'customers', label: 'Clients', icon: UserRound, badge: extra.customers.length || null, group: 'Pilotage' },
+    { id: 'merchants', label: 'Boutiques', icon: Store, badge: merchants.length, group: 'Réseau' },
+    { id: 'products', label: 'Produits', icon: Package, badge: extra.products.length || null, group: 'Réseau' },
+    { id: 'drivers', label: 'Livreurs', icon: Bike, badge: extra.drivers.length || null, group: 'Réseau' },
+    { id: 'map', label: 'Carte des boutiques', icon: MapIcon, badge: a.located.length, group: 'Réseau' },
+    { id: 'billing', label: 'Abonnements et offres', icon: CreditCard, badge: a.expiringSoon.length || null, group: 'Plateforme' },
+    { id: 'reviews', label: 'Avis clients', icon: Star, badge: ov.negative.length || null, group: 'Plateforme' },
+    { id: 'system', label: 'Système et journal', icon: Activity, badge: ov.waFailed || null, group: 'Plateforme' },
   ];
   const current = NAV.find((n) => n.id === tab);
 
@@ -523,17 +690,20 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
-      <nav className="relative mt-6 flex-1 space-y-1 px-3">
-        {NAV.map(({ id, label, icon: Icon, badge }) => {
+      <nav className="relative mt-5 flex-1 space-y-1 overflow-y-auto px-3 pb-3">
+        {NAV.map(({ id, label, icon: Icon, badge, group }, i) => {
           const active = tab === id;
           return (
-            <button key={id} onClick={() => { setTab(id); setMobileNav(false); }} className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${active ? 'text-white' : 'text-slate-400 hover:text-white'}`}>
+            <div key={id}>
+            {group !== NAV[i - 1]?.group && <p className={`px-3 pb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 ${i === 0 ? 'pt-0' : 'pt-4'}`}>{group}</p>}
+            <button onClick={() => { setTab(id); setMobileNav(false); }} className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${active ? 'text-white' : 'text-slate-400 hover:text-white'}`}>
               {active && <motion.span layoutId={`${prefix}-admin-nav`} className="absolute inset-0 rounded-xl border border-brand-400/20 bg-gradient-to-r from-brand-400/15 to-brand-400/[0.03]" transition={{ type: 'spring', stiffness: 400, damping: 34 }} />}
               {active && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-brand-400 shadow-[0_0_12px_color-mix(in_srgb,_var(--color-brand-400)_90%,_transparent)]" />}
               <Icon className={`relative h-[18px] w-[18px] transition-transform group-hover:scale-110 ${active ? 'text-brand-300' : ''}`} />
               <span className="relative flex-1 text-left">{label}</span>
               {badge > 0 && <span className="relative rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-bold text-white">{badge}</span>}
             </button>
+            </div>
           );
         })}
       </nav>
@@ -580,7 +750,7 @@ export default function AdminDashboard() {
             <motion.button whileTap={{ scale: 0.95 }} onClick={fetchAdminData} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50" aria-label="Actualiser">
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> <span className="hidden lg:inline">Actualiser</span>
             </motion.button>
-            <motion.button whileTap={{ scale: 0.95 }} onClick={exportCsv} disabled={!merchants.length} className="flex items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
+            <motion.button whileTap={{ scale: 0.95 }} onClick={exportCsv} disabled={!merchants.length || tab === 'system'} className="flex items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
               <Download className="h-4 w-4" /> <span className="hidden sm:inline">Exporter (CSV)</span>
             </motion.button>
           </div>
@@ -640,6 +810,61 @@ export default function AdminDashboard() {
                         <Kpi label="Nouvelles boutiques" value={fmt(a.newMerchants)} icon={Store} gradient="violet" deltaValue={a.newMerchantsDelta} deltaLabel={`vs ${period} j préc.`} spark={a.buckets.slice(-12).map((b) => b.newMerchants)} accent="#4a3aa7" />
                         <Kpi label="Revenu mensuel (abonnements)" value={fmt(a.mrr)} unit="FCFA" icon={Crown} gradient="amber" hint={`${a.paid.length} forfait${a.paid.length > 1 ? 's' : ''} payant${a.paid.length > 1 ? 's' : ''} actif${a.paid.length > 1 ? 's' : ''} · ${a.suspended} suspendue${a.suspended > 1 ? 's' : ''}`} />
                       </div>
+
+                      {missing.length > 0 && <SetupNotice what="Commandes, clients, produits, livreurs, avis et système" />}
+
+                      {!missing.includes('orders') && (
+                        <>
+                          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                            <Kpi label="Clients" value={fmt(ov.cs.total)} icon={UserRound} gradient="sky" hint={`${ov.cs.repeat} fidèle${ov.cs.repeat > 1 ? 's' : ''} · ${ov.cs.newLast30} nouveau${ov.cs.newLast30 > 1 ? 'x' : ''} en 30 j`} />
+                            <Kpi label="Panier moyen" value={fmt(ov.os.avgBasket)} unit="FCFA" icon={Receipt} gradient="violet" hint={`sur ${ov.os.delivered} commande${ov.os.delivered > 1 ? 's' : ''} livrée${ov.os.delivered > 1 ? 's' : ''} (${period} j)`} />
+                            <Kpi label="Taux de livraison" value={ov.os.deliveryRate == null ? '—' : `${Math.round(ov.os.deliveryRate * 100)} %`} icon={Truck} gradient="emerald" hint={`livrées sur (livrées + annulées) · ${Math.round(ov.os.onlineShare * 100)} % payées en ligne`} />
+                            <Kpi label="Abonnements encaissés" value={compact(ov.pay.last30)} unit="FCFA" icon={Banknote} gradient="amber" hint={`30 derniers jours · ${compact(ov.pay.total)} F depuis le début`} />
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+                            <motion.div variants={rise}>
+                              <ChartCard className="h-full" title="Commandes par statut" subtitle={`${period} derniers jours · ${ov.os.count} commande${ov.os.count > 1 ? 's' : ''}`} table={{ columns: [{ key: 'label', label: 'Statut' }, { key: 'value', label: 'Commandes', align: 'right' }], rows: ov.statusBars }}>
+                                <BarList items={ov.statusBars} color="#2a78d6" formatValue={(v) => `${v}`} detail={(b) => `${Math.round((b.value / Math.max(1, ov.os.count)) * 100)} % des commandes`} emptyText="Aucune commande sur la période." animationKey={`status-${period}`} />
+                              </ChartCard>
+                            </motion.div>
+                            <motion.div variants={rise}>
+                              <ChartCard className="h-full" title="Moyens de paiement" subtitle={`${period} derniers jours`} table={{ columns: [{ key: 'label', label: 'Paiement' }, { key: 'value', label: 'Commandes', align: 'right' }], rows: ov.paySegments }}>
+                                {ov.paySegments.length ? <DonutChart segments={ov.paySegments} centerLabel="Commandes" animationKey={`pay-${period}`} /> : <p className="py-10 text-center text-sm text-slate-500">Aucune commande sur la période.</p>}
+                              </ChartCard>
+                            </motion.div>
+                            <motion.section variants={rise} className={`${CARD} h-full p-5 md:p-6`}>
+                              <h3 className="text-base font-bold">À surveiller</h3>
+                              <p className="mb-3 text-sm text-slate-500">Ce qui demande votre attention</p>
+                              {(() => {
+                                const watch = [
+                                  { n: ov.late.length, label: 'commande(s) à traiter depuis plus de 24 h', tab: 'orders', icon: Clock, tone: 'bg-amber-50 text-amber-700' },
+                                  { n: a.expiringSoon.length, label: 'abonnement(s) expirent dans les 7 jours', tab: 'billing', icon: Crown, tone: 'bg-amber-50 text-amber-700' },
+                                  { n: ov.waFailed, label: 'message(s) WhatsApp en échec (30 j)', tab: 'system', icon: MessageCircle, tone: 'bg-red-50 text-red-700' },
+                                  { n: ov.negative.length, label: 'avis négatif(s) ces 30 derniers jours', tab: 'reviews', icon: Star, tone: 'bg-red-50 text-red-700' },
+                                  { n: ov.outOfStock, label: 'produit(s) en rupture de stock', tab: 'products', icon: PackageX, tone: 'bg-slate-100 text-slate-700' },
+                                  { n: merchants.length - a.located.length, label: 'boutique(s) non localisée(s)', tab: 'merchants', icon: MapPin, tone: 'bg-slate-100 text-slate-700' },
+                                ].filter((w) => w.n > 0);
+                                return watch.length === 0 ? (
+                                  <p className="rounded-xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">Tout est en ordre. 👍</p>
+                                ) : (
+                                  <ul className="space-y-1">
+                                    {watch.map((w) => (
+                                      <li key={w.label}>
+                                        <button onClick={() => setTab(w.tab)} className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-slate-50">
+                                          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${w.tone}`}><w.icon className="h-4 w-4" /></span>
+                                          <span className="min-w-0 flex-1 text-sm"><strong className="font-figures">{w.n}</strong> {w.label}</span>
+                                          <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
+                                        </button>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                );
+                              })()}
+                            </motion.section>
+                          </div>
+                        </>
+                      )}
 
                       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
                         <motion.div variants={rise} className="xl:col-span-2">
@@ -763,65 +988,44 @@ export default function AdminDashboard() {
                         </div>
                       </motion.div>
 
-                      <motion.div variants={rise} className={`${CARD} overflow-hidden`}>
-                        <div className="overflow-x-auto">
-                          <table className="w-full min-w-[980px] text-sm">
-                            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
-                              <tr>
-                                <th className="px-5 py-3 font-semibold">Boutique</th>
-                                <th className="px-5 py-3 font-semibold">Contact</th>
-                                <th className="px-5 py-3 font-semibold">Localisation</th>
-                                <th className="px-5 py-3 font-semibold">Forfait</th>
-                                <th className="px-5 py-3 text-right font-semibold">Activité</th>
-                                <th className="px-5 py-3 font-semibold">Statut</th>
-                                <th className="px-5 py-3" />
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                              {filtered.map((m, i) => (
-                                <motion.tr
-                                  key={m.id}
-                                  initial={{ opacity: 0, y: 8 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  transition={{ delay: Math.min(i, 15) * 0.02 }}
-                                  onClick={() => setDetailsId(m.id)}
-                                  className="cursor-pointer transition-colors hover:bg-brand-50/40"
-                                >
-                                  <td className="px-5 py-3.5">
-                                    <div className="flex items-center gap-3">
-                                      <ShopAvatar merchant={m} />
-                                      <div className="min-w-0">
-                                        <p className="truncate font-bold">{m.shop_name || 'Sans nom'}</p>
-                                        <p className="text-xs text-slate-400">Inscrite {relDays(m.created_at)}</p>
-                                      </div>
-                                    </div>
-                                  </td>
-                                  <td className="px-5 py-3.5">
-                                    <p className="font-semibold text-slate-800">{m.phone_number || '—'}</p>
-                                    <p className="max-w-[220px] truncate text-xs text-slate-500">{m.account_email}</p>
-                                  </td>
-                                  <td className="px-5 py-3.5">
-                                    {m.latitude != null ? (
-                                      <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-700"><MapPin className="h-3.5 w-3.5" /> {m.city}</span>
-                                    ) : (
-                                      <span className="text-xs text-slate-400">Non localisée</span>
-                                    )}
-                                    {m.address && <p className="mt-1 max-w-[200px] truncate text-xs text-slate-500">{m.address}</p>}
-                                  </td>
-                                  <td className="px-5 py-3.5"><PlanBadge plan={planOf(m)} /></td>
-                                  <td className="px-5 py-3.5 text-right tabular-nums">
-                                    <p className="font-bold">{fmt(Number(m.revenue_fcfa))} F</p>
-                                    <p className="text-xs text-slate-500">{m.orders_count} cmd · {m.products_count} produits</p>
-                                  </td>
-                                  <td className="px-5 py-3.5"><StatusBadge merchant={m} /></td>
-                                  <td className="px-5 py-3.5 text-right"><ChevronRight className="ml-auto h-5 w-5 text-slate-300" /></td>
-                                </motion.tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                        {filtered.length === 0 && <p className="p-10 text-center text-slate-500">Aucun marchand ne correspond à ces filtres.</p>}
-                      </motion.div>
+                      <DataTable
+                        rows={filtered}
+                        rowKey={(m) => m.id}
+                        onRowClick={(m) => setDetailsId(m.id)}
+                        empty="Aucune boutique ne correspond à ces filtres."
+                        minWidth={980}
+                        columns={[
+                          { key: 'shop', label: 'Boutique', render: (m) => (
+                            <div className="flex items-center gap-3">
+                              <ShopAvatar merchant={m} />
+                              <div className="min-w-0"><p className="truncate font-bold">{m.shop_name || 'Sans nom'}</p><p className="text-xs text-slate-400">Inscrite {relDays(m.created_at)}</p></div>
+                            </div>
+                          ) },
+                          { key: 'contact', label: 'Contact', render: (m) => <><p className="font-semibold text-slate-800">{m.phone_number || '—'}</p><p className="max-w-[220px] truncate text-xs text-slate-500">{m.account_email}</p></> },
+                          { key: 'loc', label: 'Localisation', render: (m) => (
+                            <>
+                              {m.latitude != null
+                                ? <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-700"><MapPin className="h-3.5 w-3.5" /> {m.city}</span>
+                                : <span className="text-xs text-slate-400">Non localisée</span>}
+                              {m.address && <p className="mt-1 max-w-[200px] truncate text-xs text-slate-500">{m.address}</p>}
+                            </>
+                          ) },
+                          { key: 'plan', label: 'Forfait', render: (m) => <PlanBadge plan={planOf(m)} /> },
+                          { key: 'activity', label: 'Activité', align: 'right', render: (m) => <><p className="font-bold">{fmt(Number(m.revenue_fcfa))} F</p><p className="text-xs text-slate-500">{m.orders_count} cmd · {m.products_count} produits</p></> },
+                          { key: 'status', label: 'Statut', render: (m) => <StatusBadge merchant={m} /> },
+                        ]}
+                        mobileRow={(m) => (
+                          <div className="flex items-center gap-3">
+                            <ShopAvatar merchant={m} />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-bold">{m.shop_name || 'Sans nom'}</p>
+                              <p className="truncate text-xs text-slate-500">{m.phone_number || m.account_email} · {m.city || 'non localisée'}</p>
+                              <div className="mt-1.5 flex flex-wrap items-center gap-1.5"><PlanBadge plan={planOf(m)} /><StatusBadge merchant={m} /></div>
+                            </div>
+                            <div className="shrink-0 text-right"><p className="font-figures font-bold">{compact(Number(m.revenue_fcfa))} F</p><p className="text-[11px] text-slate-500">{m.orders_count} cmd</p></div>
+                          </div>
+                        )}
+                      />
                     </>
                   )}
 
@@ -866,8 +1070,49 @@ export default function AdminDashboard() {
                           </motion.section>
                         ))}
                       </div>
+
+                      {missing.includes('payments') ? <SetupNotice what="Paiements d'abonnement" /> : (
+                        <>
+                          <StatGrid>
+                            <StatTile label="Revenu mensuel récurrent" value={`${fmt(a.mrr)} F`} sub={`${a.paid.length} forfait${a.paid.length > 1 ? 's' : ''} payant${a.paid.length > 1 ? 's' : ''} actif${a.paid.length > 1 ? 's' : ''}`} icon={Crown} gradient="amber" />
+                            <StatTile label="Encaissé (30 jours)" value={`${fmt(ov.pay.last30)} F`} sub="paiements PayDunya confirmés" icon={Banknote} gradient="emerald" />
+                            <StatTile label="Encaissé au total" value={`${compact(ov.pay.total)} F`} sub={`${ov.pay.count} paiement${ov.pay.count > 1 ? 's' : ''}`} icon={Wallet} gradient="sky" />
+                            <StatTile label="À renouveler" value={fmt(a.expired.length + a.expiringSoon.length)} sub={`${a.expiringSoon.length} cette semaine · ${a.expired.length} expiré${a.expired.length > 1 ? 's' : ''}`} icon={Clock} gradient="rose" />
+                          </StatGrid>
+                          <motion.p variants={rise} className="flex items-center gap-2 text-sm text-slate-500">
+                            <Crown className="h-4 w-4 text-amber-600" /> Pour offrir ou modifier une offre : ouvrez une boutique, puis « Changer l'offre ». Chaque changement est noté dans le journal.
+                          </motion.p>
+                          <DataTable
+                            rows={extra.payments}
+                            rowKey={(x) => x.invoice_token}
+                            onRowClick={(x) => x.merchant_id && openMerchant(x.merchant_id)}
+                            empty="Aucun paiement d'abonnement reçu pour le moment."
+                            minWidth={720}
+                            columns={[
+                              { key: 'date', label: 'Date', render: (x) => <span className="text-sm">{dateFr(x.created_at)}</span> },
+                              { key: 'shop', label: 'Boutique', render: (x) => <span className="font-semibold">{x.shop_name || '—'}</span> },
+                              { key: 'plan', label: 'Forfait', render: (x) => <PlanBadge plan={x.plan} /> },
+                              { key: 'amount', label: 'Montant', align: 'right', render: (x) => <span className="font-bold">{fmt(x.amount_fcfa)} F</span> },
+                              { key: 'ref', label: 'Référence PayDunya', render: (x) => <span className="font-mono text-xs text-slate-500">{x.invoice_token}</span> },
+                            ]}
+                            mobileRow={(x) => (
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0"><p className="truncate font-bold">{x.shop_name || '—'}</p><p className="text-xs text-slate-500">{dateFr(x.created_at)}</p></div>
+                                <div className="flex shrink-0 flex-col items-end gap-1"><span className="font-figures font-bold">{fmt(x.amount_fcfa)} F</span><PlanBadge plan={x.plan} /></div>
+                              </div>
+                            )}
+                          />
+                        </>
+                      )}
                     </>
                   )}
+
+                  {tab === 'orders' && (missing.includes('orders') ? <SetupNotice what="Commandes" /> : <OrdersSection orders={extra.orders} merchants={merchants} onOpenOrder={openOrder} />)}
+                  {tab === 'customers' && (missing.includes('customers') ? <SetupNotice what="Clients" /> : <CustomersSection customers={extra.customers} onOpenCustomer={openCustomer} />)}
+                  {tab === 'products' && (missing.includes('products') ? <SetupNotice what="Produits" /> : <ProductsSection products={extra.products} onOpenMerchant={openMerchant} />)}
+                  {tab === 'drivers' && (missing.includes('drivers') ? <SetupNotice what="Livreurs" /> : <DriversSection drivers={extra.drivers} onOpenMerchant={openMerchant} />)}
+                  {tab === 'reviews' && (missing.includes('reviews') ? <SetupNotice what="Avis clients" /> : <ReviewsSection reviews={extra.reviews} onDelete={deleteReview} onOpenMerchant={openMerchant} />)}
+                  {tab === 'system' && (missing.includes('health') ? <SetupNotice what="Système et journal" /> : <SystemSection health={extra.health} merchants={merchants} />)}
                 </motion.div>
               </AnimatePresence>
             )}
@@ -881,7 +1126,30 @@ export default function AdminDashboard() {
         onToggleSuspension={toggleSuspension}
         onShowOnMap={showOnMap}
         busy={busyId === detailsMerchant?.id}
+        onChangePlan={(m) => setSubscriptionFor(m)}
+        recentOrders={detailsMerchant ? extra.orders.filter((o) => o.merchant_id === detailsMerchant.id) : []}
+        onOpenOrder={openOrder}
       />
+      <OrderDrawer
+        order={extra.orders.find((o) => o.id === orderId) || null}
+        onClose={() => setOrderId(null)}
+        onOpenMerchant={openMerchant}
+        onOpenCustomer={openCustomer}
+      />
+      <CustomerDrawer
+        customer={extra.customers.find((c) => c.customer_key === customerKey) || null}
+        orders={extra.orders}
+        onClose={() => setCustomerKey(null)}
+        onOpenOrder={openOrder}
+      />
+      {subscriptionFor && (
+        <SubscriptionDialog
+          key={subscriptionFor.id}
+          merchant={merchants.find((m) => m.id === subscriptionFor.id) || subscriptionFor}
+          onClose={() => setSubscriptionFor(null)}
+          onSave={saveSubscription}
+        />
+      )}
     </div>
     </MotionConfig>
   );
