@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, ArrowLeft, Mail, Lock, Check, MailCheck, ShieldCheck, Truck, Wallet } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../supabaseClient';
-import { AuthShell, Field, PasswordField, SubmitButton, ErrorBanner, Divider, EASE } from '../components/auth/AuthUI';
+import { AuthShell, HeaderLink, Field, PasswordField, SubmitButton, ErrorBanner, Divider, EASE } from '../components/auth/AuthUI';
 import { authErrorMessage } from '../utils/authErrors';
 import { peekLoggedOut, clearLoggedOut } from '../utils/farewell';
 import Turnstile, { captchaRequired } from '../components/auth/Turnstile';
@@ -127,7 +127,7 @@ export default function Login() {
     <AuthShell
       title={titles[mode][0]}
       subtitle={titles[mode][1]}
-      headerAction={<>Pas encore de boutique ? <Link to="/register" className="font-bold text-brand-700 hover:underline">S'inscrire</Link></>}
+      headerAction={<HeaderLink prompt="Pas encore de boutique ?" to="/register">S'inscrire</HeaderLink>}
       photo="/images/landing/hero-commercante.webp"
       photoAlt="Commerçante qui consulte ses commandes sur son téléphone"
       side={<LoginSide />}

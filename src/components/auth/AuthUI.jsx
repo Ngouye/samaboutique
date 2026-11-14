@@ -161,6 +161,22 @@ export function Divider({ children }) {
   );
 }
 
+// Lien de l'en-tête (« Déjà inscrit ? Se connecter ») : sur téléphone, seul un bouton compact
+// est affiché, sur une ligne ; la question complète revient sur les écrans plus larges.
+export function HeaderLink({ prompt, to, children }) {
+  return (
+    <span className="flex items-center gap-1.5 whitespace-nowrap">
+      {prompt && <span className="hidden sm:inline">{prompt}</span>}
+      <Link
+        to={to}
+        className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3.5 py-2 text-[13px] font-bold text-brand-700 transition-colors hover:border-brand-300 hover:bg-brand-50 sm:border-0 sm:bg-transparent sm:p-0 sm:text-sm sm:hover:bg-transparent sm:hover:underline"
+      >
+        {children}
+      </Link>
+    </span>
+  );
+}
+
 // Pages d'authentification : formulaire à gauche, photo à droite (grand écran).
 export function AuthShell({ title, subtitle, headerAction, photo, photoAlt, side, children }) {
   return (
@@ -170,7 +186,7 @@ export function AuthShell({ title, subtitle, headerAction, photo, photoAlt, side
           <Link to="/" className="flex items-center" aria-label="SamaBoutik, accueil">
             <Logo markClassName="h-9 w-9" textClassName="text-xl" />
           </Link>
-          {headerAction && <div className="text-sm text-slate-500">{headerAction}</div>}
+          {headerAction && <div className="shrink-0 text-sm text-slate-500">{headerAction}</div>}
         </header>
 
         <div className="flex flex-1 items-center justify-center py-10">

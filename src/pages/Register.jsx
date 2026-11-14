@@ -7,8 +7,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { getCurrentPosition } from '../utils/geolocation';
 import { authErrorMessage } from '../utils/authErrors';
 import Turnstile, { captchaRequired } from '../components/auth/Turnstile';
-import { AuthShell, Field, PasswordField, StrengthMeter, SubmitButton, ErrorBanner, EASE } from '../components/auth/AuthUI';
-import { isThemeId, PENDING_THEME_KEY } from '../components/shop/themes';
+import { AuthShell, HeaderLink, Field, PasswordField, StrengthMeter, SubmitButton, ErrorBanner, EASE } from '../components/auth/AuthUI';
+import { isThemeId, PENDING_THEME_KEY } from '../components/shop/themes';
 import { BRAND } from '../utils/brand';
 
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
@@ -144,7 +144,7 @@ export default function Register() {
     <AuthShell
       title="Créez votre boutique"
       subtitle="Gratuit pour démarrer, sans carte bancaire. Vous pourrez tout modifier plus tard."
-      headerAction={<>Déjà inscrit ? <Link to="/login" className="font-bold text-brand-700 hover:underline">Se connecter</Link></>}
+      headerAction={<HeaderLink prompt="Déjà inscrit ?" to="/login">Se connecter</HeaderLink>}
       photo="/images/landing/colis-commande.webp"
       photoAlt="Commerçante qui prépare ses colis"
       side={<RegisterSide shopName={shopName} phoneDigits={phoneDigits} />}
@@ -183,19 +183,22 @@ export default function Register() {
               <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${location ? 'bg-brand-600 text-white' : 'bg-white text-slate-500 ring-1 ring-slate-200'}`}>
                 <MapPin className="h-5 w-5" />
               </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-slate-900">{location ? 'Boutique localisée' : 'Localiser la boutique'} <span className="font-normal text-slate-400">· facultatif</span></p>
-                <p className="mt-0.5 text-sm text-slate-500">
-                  {location ? `Précision ± ${Math.round(location.accuracy)} m. Modifiable dans vos paramètres.` : 'Depuis votre boutique, pour apparaître sur la carte « Boutiques près de moi ».'}
-                </p>
+              {/* Téléphone : le bouton passe sous le texte, qui garde toute la largeur */}
+              <div className="min-w-0 flex-1 sm:flex sm:items-start sm:gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-slate-900">{location ? 'Boutique localisée' : 'Localiser la boutique'} <span className="font-normal text-slate-400">· facultatif</span></p>
+                  <p className="mt-0.5 text-sm text-slate-500">
+                    {location ? `Précision ± ${Math.round(location.accuracy)} m. Modifiable dans vos paramètres.` : 'Depuis votre boutique, pour apparaître sur la carte « Boutiques près de moi ».'}
+                  </p>
+                </div>
+                {location ? (
+                  <button type="button" onClick={() => setLocation(null)} className="mt-2 text-sm font-semibold text-slate-500 hover:text-slate-800 sm:mt-0">Retirer</button>
+                ) : (
+                  <button type="button" onClick={captureLocation} disabled={locating} className="mt-3 inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-50 disabled:opacity-60 sm:mt-0">
+                    {locating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />} {locating ? 'Recherche…' : 'Localiser'}
+                  </button>
+                )}
               </div>
-              {location ? (
-                <button type="button" onClick={() => setLocation(null)} className="text-sm font-semibold text-slate-500 hover:text-slate-800">Retirer</button>
-              ) : (
-                <button type="button" onClick={captureLocation} disabled={locating} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-50 disabled:opacity-60">
-                  {locating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />} {locating ? 'Recherche…' : 'Localiser'}
-                </button>
-              )}
             </div>
             <AnimatePresence>
               {location && (

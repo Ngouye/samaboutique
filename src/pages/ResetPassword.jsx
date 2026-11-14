@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Lock, Check, LoaderCircle, CircleAlert, ArrowLeft } from 'lucide-react';
 import { supabase } from '../supabaseClient';
-import { AuthShell, PasswordField, StrengthMeter, SubmitButton, ErrorBanner, EASE } from '../components/auth/AuthUI';
+import { AuthShell, HeaderLink, PasswordField, StrengthMeter, SubmitButton, ErrorBanner, EASE } from '../components/auth/AuthUI';
 import { authErrorMessage } from '../utils/authErrors';
 
 // Lien expiré ou invalide : Supabase l'indique dans l'adresse (#error_description=…).
@@ -62,7 +62,7 @@ export default function ResetPassword() {
     <AuthShell
       title={status === 'invalid' ? 'Lien expiré' : 'Nouveau mot de passe'}
       subtitle={status === 'invalid' ? null : 'Choisissez un mot de passe que vous n\'utilisez pas ailleurs.'}
-      headerAction={<Link to="/login" className="font-bold text-brand-700 hover:underline">Se connecter</Link>}
+      headerAction={<HeaderLink to="/login">Se connecter</HeaderLink>}
       photo="/images/landing/boutique-mode.webp"
       photoAlt="Commerçante dans sa boutique"
       side={

@@ -201,7 +201,7 @@ function Navbar() {
         <div className="flex items-center gap-2">
           <Link to="/login" className="hidden rounded-full px-4 py-2.5 text-[15px] font-semibold text-slate-700 hover:text-ink sm:block">Se connecter</Link>
           <AnimatePresence initial={false}>
-            {(pastHero || open) && (
+            {pastHero && !open && (
               <motion.span key="cta-mobile" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ duration: 0.2 }} className="sm:hidden">
                 <Link to="/register" onClick={() => setOpen(false)} className="inline-flex whitespace-nowrap rounded-full bg-ink px-3.5 py-2 text-[13px] font-bold text-white transition-colors hover:bg-brand-800">
                   Commencer
