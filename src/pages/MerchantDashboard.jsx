@@ -28,6 +28,7 @@ import { ORDER_STATUSES, statusMeta, timeAgo, dayLabel } from '../components/das
 import { fmt } from '../components/dashboard/analytics';
 import { TagsInput } from '../components/dashboard/TagsInput';
 import { WhatsAppSettingsCard, DirectoryToggle } from '../components/dashboard/SmartSettings';
+import LocationAssist from '../components/dashboard/LocationAssist';
 import { PLAN_FEATURES } from '../utils/plans';
 import { BRAND } from '../utils/brand';
 import { paymentLabel } from '../utils/payments';
@@ -117,6 +118,7 @@ export default function MerchantDashboard() {
   // Position de la boutique (visible uniquement par le marchand et l'administrateur)
   const [shopLocation, setShopLocation] = useState(null);
   const [locating, setLocating] = useState(false);
+  const [locateIssue, setLocateIssue] = useState(null);
 
 const DEFAULT_DELIVERY_ZONES = [
   { id: 'dk-plateau', name: 'Dakar Plateau / Médina', price: 1000, active: true },
@@ -685,20 +687,34 @@ Merci de votre confiance ! 🙏`;
   };
 
   // --- Aides d'affichage des onglets ---
+  // Enregistre une position (GPS ou saisie à la main). Renvoie true si c'est fait.
+  const saveShopLocation = async (position) => {
+    const accuracy = position.accuracy ? Math.round(position.accuracy) : null;
+    const { error } = await supabase.rpc('set_merchant_location', {
+      p_latitude: position.lat,
+      p_longitude: position.lng,
+      p_accuracy_m: accuracy,
+    });
+    if (error) {
+      showToast(friendlyError(error, "Impossible d'enregistrer la position."));
+      return false;
+    }
+    setShopLocation((prev) => ({ ...prev, latitude: position.lat, longitude: position.lng, accuracy_m: accuracy, updated_at: new Date().toISOString() }));
+    setLocateIssue(null);
+    showToast('Position de la boutique enregistrée !');
+    return true;
+  };
+
   const updateShopLocation = async () => {
     setLocating(true);
+    setLocateIssue(null);
     try {
-      const position = await getCurrentPosition();
-      const { error } = await supabase.rpc('set_merchant_location', {
-        p_latitude: position.lat,
-        p_longitude: position.lng,
-        p_accuracy_m: Math.round(position.accuracy || 0),
-      });
-      if (error) throw error;
-      setShopLocation((prev) => ({ ...prev, latitude: position.lat, longitude: position.lng, accuracy_m: Math.round(position.accuracy || 0), updated_at: new Date().toISOString() }));
-      showToast('Position de la boutique enregistrée !');
+      await saveShopLocation(await getCurrentPosition());
     } catch (err) {
-      showToast(err.message || "Impossible d'enregistrer la position.");
+      setLocateIssue(err.reason || 'unavailable');
+      showToast(err.reason === 'denied'
+        ? 'Localisation bloquée : suivez les étapes affichées sous le bouton.'
+        : err.message || 'Impossible de trouver votre position.');
     } finally {
       setLocating(false);
     }
@@ -1838,7 +1854,7 @@ Merci de votre confiance ! 🙏`;
                       <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
                         <p className="flex items-center gap-2 text-sm font-bold text-emerald-800"><CircleCheck className="h-4 w-4" /> Boutique localisée</p>
                         <p className="mt-1 font-mono text-xs text-emerald-900/70">{shopLocation.latitude.toFixed(5)}, {shopLocation.longitude.toFixed(5)}</p>
-                        {shopLocation.accuracy_m != null && <p className="text-xs text-emerald-900/70">Précision ± {shopLocation.accuracy_m} m</p>}
+                        {shopLocation.accuracy_m > 0 && <p className="text-xs text-emerald-900/70">Précision ± {shopLocation.accuracy_m} m</p>}
                         <p className="mt-1 text-xs text-emerald-900/60">Mise à jour le {new Date(shopLocation.updated_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                       </div>
                       <a href={googleMapsUrl(shopLocation.latitude, shopLocation.longitude)} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50">
@@ -1847,6 +1863,9 @@ Merci de votre confiance ! 🙏`;
                       <motion.button type="button" whileTap={{ scale: 0.97 }} onClick={updateShopLocation} disabled={locating} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 py-3 text-sm font-bold text-white transition-colors hover:bg-slate-800 disabled:opacity-60">
                         {locating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />} Mettre à jour ma position
                       </motion.button>
+                    </div>
+                    <div className="md:col-span-2">
+                      <LocationAssist issue={locateIssue} locating={locating} onRetry={updateShopLocation} onSave={saveShopLocation} />
                     </div>
                     <div className="md:col-span-2">
                       <DirectoryToggle location={shopLocation} onChange={setShopLocation} showToast={showToast} />
@@ -1864,6 +1883,9 @@ Merci de votre confiance ! 🙏`;
                     <PrimaryButton type="button" onClick={updateShopLocation} disabled={locating}>
                       {locating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />} Localiser ma boutique
                     </PrimaryButton>
+                    <div className="w-full max-w-lg">
+                      <LocationAssist proactive issue={locateIssue} locating={locating} onRetry={updateShopLocation} onSave={saveShopLocation} />
+                    </div>
                   </div>
                 )}
               </SectionCard>

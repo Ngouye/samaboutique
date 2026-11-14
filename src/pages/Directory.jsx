@@ -4,8 +4,10 @@ import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 import {
   Search, LocateFixed, LoaderCircle, MapPinned, Crown, Star, ArrowRight, Store, Package, List, Map as MapIcon,
   Sparkles, X, CircleAlert, Navigation, ChevronLeft, ChevronRight, Share2, Compass, SlidersHorizontal,
-  Phone, Check
+  Check
 } from 'lucide-react';
+import { WhatsApp } from '../components/dashboard/icons';
+import { shopSummary, shopPlace, isNewShop } from '../utils/shopSummary';
 import { supabase } from '../supabaseClient';
 import { SHOP_CATEGORIES } from '../utils/categories';
 import { nearestCity, distanceKm } from '../components/admin/geo';
@@ -38,30 +40,27 @@ const SORT_OPTIONS = [
   { id: 'products', label: '📦 Plus de choix' },
 ];
 
-// Carte d'une vraie boutique avec carrousel photos, avis et liens directs
-function ShopCard({ shop, index, selected, onHover, onSelect }) {
+// Fiche d'une vraie boutique : photos, description, adresse, chiffres clés et actions directes
+function ShopCard({ shop, index, selected, onHover, onSelect, onShowOnMap }) {
   const color = safeColor(shop.theme_color);
   const covers = shop.cover_images?.length ? shop.cover_images : shop.banner_url ? [shop.banner_url] : [];
   const [activeImgIndex, setActiveImgIndex] = useState(0);
   const [copied, setCopied] = useState(false);
-  const tilt = useTilt({ max: 5 });
+  const tilt = useTilt({ max: 4 });
+  const summary = shopSummary(shop);
+  const fresh = isNewShop(shop);
+  const shopUrl = `/boutique/${encodeURIComponent(shop.shop_name)}`;
 
-  const nextImg = (e) => {
+  const step = (delta) => (e) => {
     e.preventDefault();
     e.stopPropagation();
-    setActiveImgIndex((prev) => (prev + 1) % covers.length);
-  };
-
-  const prevImg = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setActiveImgIndex((prev) => (prev - 1 + covers.length) % covers.length);
+    setActiveImgIndex((prev) => (prev + delta + covers.length) % covers.length);
   };
 
   const handleShare = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    const url = `${window.location.origin}/boutique/${encodeURIComponent(shop.shop_name)}`;
+    const url = `${window.location.origin}${shopUrl}`;
     if (navigator.share) {
       try {
         await navigator.share({ title: shop.shop_name, url });
@@ -77,6 +76,8 @@ function ShopCard({ shop, index, selected, onHover, onSelect }) {
     }
   };
 
+  const stop = (e) => e.stopPropagation();
+
   return (
     <motion.article
       layout
@@ -89,96 +90,71 @@ function ShopCard({ shop, index, selected, onHover, onSelect }) {
       style={tilt.style}
       onMouseMove={tilt.handlers.onMouseMove}
       onMouseLeave={tilt.handlers.onMouseLeave}
-      className={`group relative flex flex-col overflow-hidden rounded-[2rem] bg-gradient-to-b from-white/[0.07] to-white/[0.02] ring-1 backdrop-blur-xl transition-shadow duration-300 hover:shadow-2xl hover:shadow-brand-950/40 ${
-        selected
-          ? 'ring-2 ring-brand-400 shadow-2xl shadow-brand-500/20'
-          : 'ring-white/10 hover:ring-white/30'
+      className={`group relative flex flex-col overflow-hidden rounded-[1.75rem] bg-gradient-to-b from-white/[0.08] to-white/[0.02] ring-1 backdrop-blur-xl transition-shadow duration-300 hover:shadow-2xl hover:shadow-black/40 ${
+        selected ? 'ring-2 ring-brand-400 shadow-2xl shadow-brand-500/20' : 'ring-white/10 hover:ring-white/25'
       }`}
     >
-      {/* Zone visuelle */}
-      <div className="relative h-44 w-full overflow-hidden bg-slate-900">
-        {covers.length > 0 ? (
+      {/* Photos */}
+      <div className="relative aspect-[16/9] w-full overflow-hidden" style={{ background: `linear-gradient(135deg, ${color}, ${BRAND.night})` }}>
+        {covers.length > 0 && (
           <img
             src={covers[activeImgIndex] || covers[0]}
-            alt={shop.shop_name}
+            alt={`Article de ${shop.shop_name}`}
             loading="lazy"
             decoding="async"
             className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
           />
-        ) : (
-          <div
-            className="h-full w-full"
-            style={{ background: `linear-gradient(135deg, ${color}, ${BRAND.night})` }}
-          />
         )}
+        <div className="absolute inset-0 bg-gradient-to-t from-night via-night/10 to-transparent" />
 
-        {/* Dégradé doux */}
-        <div className="absolute inset-0 bg-gradient-to-t from-night via-night/30 to-transparent" />
-
-        {/* Badges superposés */}
-        <div className="absolute left-3 top-3 flex flex-wrap items-center gap-1.5 z-10">
+        <div className="absolute left-3 top-3 z-10 flex flex-wrap items-center gap-1.5">
           {shop.featured && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 px-2.5 py-1 text-[11px] font-extrabold text-amber-950 shadow-md">
+            <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-300 to-amber-400 px-2.5 py-1 text-[11px] font-extrabold text-amber-950 shadow-md">
               <Crown className="h-3 w-3" /> À la une
+            </span>
+          )}
+          {fresh && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-extrabold text-slate-900 shadow-md">
+              <Sparkles className="h-3 w-3 text-brand-600" /> Nouvelle boutique
             </span>
           )}
         </div>
 
-        <div className="absolute right-3 top-3 flex items-center gap-1.5 z-10">
+        <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5">
           {shop.distanceKm != null && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-night/80 border border-white/20 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur shadow-sm">
+            <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-night/80 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm backdrop-blur">
               <Navigation className="h-3 w-3 text-amber-300" /> {formatDistance(shop.distanceKm)}
             </span>
           )}
-
           <button
             type="button"
             onClick={handleShare}
             title="Partager cette boutique"
             aria-label={copied ? 'Lien copié' : `Partager la boutique ${shop.shop_name}`}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur transition hover:bg-black/90"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur transition hover:bg-black/80"
           >
-            {copied ? <Check className="h-3.5 w-3.5 text-brand-400" /> : <Share2 className="h-3.5 w-3.5" />}
+            {copied ? <Check className="h-4 w-4 text-brand-400" /> : <Share2 className="h-4 w-4" />}
           </button>
         </div>
 
-        {/* Commandes carrousel si plusieurs photos */}
         {covers.length > 1 && (
           <>
-            <button
-              type="button"
-              onClick={prevImg}
-              aria-label="Photo précédente"
-              className="absolute left-2 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition group-hover:opacity-100 hover:bg-black/80"
-            >
+            <button type="button" onClick={step(-1)} aria-label="Photo précédente" className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition hover:bg-black/80 group-hover:opacity-100 focus-visible:opacity-100">
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <button
-              type="button"
-              onClick={nextImg}
-              aria-label="Photo suivante"
-              className="absolute right-2 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition group-hover:opacity-100 hover:bg-black/80"
-            >
+            <button type="button" onClick={step(1)} aria-label="Photo suivante" className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition hover:bg-black/80 group-hover:opacity-100 focus-visible:opacity-100">
               <ChevronRight className="h-4 w-4" />
             </button>
-
-            {/* Puces de pagination */}
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
+            <div className="absolute bottom-2 right-3 z-10 flex items-center gap-1">
               {covers.map((_, i) => (
                 <button
                   key={i}
                   type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setActiveImgIndex(i);
-                  }}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActiveImgIndex(i); }}
                   className="group/dot flex h-8 items-center justify-center px-1"
                   aria-label={`Photo ${i + 1}`}
                 >
-                  <span className={`block h-1.5 rounded-full transition-all ${
-                    activeImgIndex === i ? 'w-5 bg-brand-400' : 'w-1.5 bg-white/50 group-hover/dot:bg-white'
-                  }`} />
+                  <span className={`block h-1.5 rounded-full transition-all ${activeImgIndex === i ? 'w-5 bg-white' : 'w-1.5 bg-white/50 group-hover/dot:bg-white'}`} />
                 </button>
               ))}
             </div>
@@ -186,114 +162,99 @@ function ShopCard({ shop, index, selected, onHover, onSelect }) {
         )}
       </div>
 
-      {/* Contenu de la fiche */}
+      {/* Contenu */}
       <div className="relative flex flex-1 flex-col px-5 pb-5">
-        {/* Logo / Avatar flottant + Note */}
-        <div className="-mt-7 mb-3 flex items-end justify-between">
-          <div
-            className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl text-xl font-extrabold text-white shadow-xl ring-4 ring-night"
-            style={{ background: color }}
-          >
+        <div className="-mt-8 mb-3 flex items-end justify-between gap-3">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl text-2xl font-extrabold text-white shadow-xl ring-4 ring-night" style={{ background: color }}>
             {shop.logo_url ? (
-              <img
-                src={shop.logo_url}
-                alt=""
-                loading="lazy"
-                decoding="async"
-                className="h-full w-full object-cover"
-              />
+              <img src={shop.logo_url} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
             ) : (
               shop.shop_name.charAt(0).toUpperCase()
             )}
           </div>
-
-          <div className="flex items-center gap-1.5">
-            {shop.rating > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-xs font-bold text-amber-300">
-                <Star className="h-3 w-3 fill-current" />
-                {Number(shop.rating).toFixed(1)}
-                <span className="text-white/40 font-normal">({shop.reviews_count || 0})</span>
-              </span>
-            )}
-          </div>
+          {shop.rating > 0 ? (
+            <span className="mb-1 inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-xs font-bold text-amber-300">
+              <Star className="h-3 w-3 fill-current" />
+              {Number(shop.rating).toFixed(1).replace('.', ',')}
+              <span className="font-normal text-white/45">· {shop.reviews_count} avis</span>
+            </span>
+          ) : null}
         </div>
 
-        {/* Titre & Localisation */}
-        <Link to={`/boutique/${encodeURIComponent(shop.shop_name)}`} className="group/title block">
-          <h3 className="truncate text-lg font-extrabold text-white transition-colors group-hover/title:text-brand-300">
+        <Link to={shopUrl} onClick={stop} className="group/title block">
+          <h3 className="text-lg font-extrabold leading-snug text-white transition-colors group-hover/title:text-brand-300">
             {shop.shop_name}
           </h3>
-          <p className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold text-brand-400">
-            <MapPinned className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{shop.city}{shop.address ? ` · ${shop.address}` : ''}</span>
-          </p>
         </Link>
+        <p className="mt-1 flex items-start gap-1.5 text-xs font-semibold text-brand-300">
+          <MapPinned className="mt-px h-3.5 w-3.5 shrink-0" />
+          <span className="line-clamp-2">{shopPlace(shop)}</span>
+        </p>
 
-        {/* Description courte */}
-        {shop.description && (
-          <p className="mb-3 line-clamp-2 text-xs leading-relaxed text-slate-400">
-            {shop.description}
-          </p>
-        )}
+        <p className="mt-3 line-clamp-3 text-[13px] leading-relaxed text-slate-300/90">
+          {summary.text}
+        </p>
 
-        {/* Catégories */}
-        {shop.categories && shop.categories.length > 0 && (
-          <div className="mb-4 flex flex-wrap gap-1.5">
+        {shop.categories?.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
             {shop.categories.slice(0, 3).map((c) => (
-              <span
-                key={c}
-                className="rounded-lg bg-brand-950/60 border border-brand-500/20 px-2.5 py-1 text-[11px] font-semibold text-brand-300"
-              >
+              <span key={c} className="rounded-lg border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[11px] font-semibold text-slate-200">
                 {c}
               </span>
             ))}
+            {shop.categories.length > 3 && (
+              <span className="rounded-lg px-1.5 py-1 text-[11px] font-semibold text-slate-400">+{shop.categories.length - 3}</span>
+            )}
           </div>
         )}
 
-        {/* Pied de carte avec prix, produits & actions rapides */}
-        <div className="mt-auto border-t border-white/[0.08] pt-3.5">
-          <div className="mb-3 flex items-center justify-between text-xs text-slate-400">
-            <span className="flex items-center gap-1.5">
-              <Package className="h-3.5 w-3.5 text-slate-500" />
-              <strong className="text-white">{shop.products_count}</strong> produit{shop.products_count > 1 ? 's' : ''}
-            </span>
-            {shop.min_price_fcfa != null && shop.min_price_fcfa > 0 && (
-              <span className="font-semibold text-brand-300">
-                dès {fmt(shop.min_price_fcfa)} FCFA
-              </span>
-            )}
-          </div>
+        <div className="mt-auto pt-4">
+          <dl className="mb-4 grid grid-cols-2 divide-x divide-white/[0.08] rounded-2xl border border-white/[0.08] bg-white/[0.03] text-center">
+            <div className="px-2 py-2.5">
+              <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Articles</dt>
+              <dd className="mt-0.5 flex items-center justify-center gap-1 text-sm font-extrabold text-white">
+                <Package className="h-3.5 w-3.5 text-slate-400" /> {shop.products_count}
+              </dd>
+            </div>
+            <div className="px-2 py-2.5">
+              <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-500">À partir de</dt>
+              <dd className="mt-0.5 text-sm font-extrabold text-white">
+                {shop.min_price_fcfa > 0 ? `${fmt(shop.min_price_fcfa)} FCFA` : '—'}
+              </dd>
+            </div>
+          </dl>
 
           <div className="flex items-center gap-2">
             <Link
-              to={`/boutique/${encodeURIComponent(shop.shop_name)}`}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-brand-400 to-amber-300 py-2.5 text-xs font-extrabold text-night shadow-lg shadow-brand-500/20 transition-all hover:brightness-110 active:scale-95"
+              to={shopUrl}
+              onClick={stop}
+              className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-brand-400 to-amber-300 px-3 text-sm font-extrabold text-night shadow-lg shadow-brand-500/20 transition-all hover:brightness-110 active:scale-95"
             >
-              Visiter <ArrowRight className="h-3.5 w-3.5" />
+              Visiter la vitrine <ArrowRight className="h-4 w-4" />
             </Link>
-
             {shop.whatsapp && (
               <a
-                href={`https://wa.me/${shop.whatsapp}?text=${encodeURIComponent(`Bonjour ${shop.shop_name}, j'ai vu votre vitrine sur SamaBoutik !`)}`}
+                href={`https://wa.me/${shop.whatsapp}?text=${encodeURIComponent(`Bonjour ${shop.shop_name}, j'ai vu votre boutique sur SamaBoutik !`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                title="Contacter sur WhatsApp"
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-brand-500/30 bg-brand-500/10 text-brand-400 transition hover:bg-brand-500/20 active:scale-95"
+                onClick={stop}
+                title="Écrire sur WhatsApp"
+                aria-label={`Écrire à ${shop.shop_name} sur WhatsApp`}
+                className="flex h-11 w-11 items-center justify-center rounded-xl border border-emerald-400/30 bg-emerald-500/10 text-emerald-300 transition hover:bg-emerald-500/20 active:scale-95"
               >
-                <Phone className="h-4 w-4" />
+                <WhatsApp className="h-5 w-5" />
               </a>
             )}
-
             {shop.latitude != null && (
-              <a
-                href={`https://www.google.com/maps/dir/?api=1&destination=${shop.latitude},${shop.longitude}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Itinéraire Google Maps"
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] text-slate-300 transition hover:bg-white/[0.12] hover:text-white active:scale-95"
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onShowOnMap(shop); }}
+                title="Voir sur la carte"
+                aria-label={`Voir ${shop.shop_name} sur la carte`}
+                className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-slate-200 transition hover:bg-white/[0.12] hover:text-white active:scale-95"
               >
-                <Navigation className="h-4 w-4" />
-              </a>
+                <MapIcon className="h-[18px] w-[18px]" />
+              </button>
             )}
           </div>
         </div>
@@ -316,7 +277,27 @@ export default function Directory() {
   const [locating, setLocating] = useState(false);
   const [locateError, setLocateError] = useState('');
   const [selected, setSelected] = useState(null);
+  const [focus, setFocus] = useState(null); // boutique à montrer sur la carte (vol + fiche ouverte)
   const [mobileView, setMobileView] = useState('list'); // 'list' | 'map'
+
+  const isDesktop = () => window.matchMedia('(min-width: 1024px)').matches;
+  // « Voir sur la carte » : sur téléphone, on passe à la vue carte
+  const showOnMap = (shop) => {
+    setSelected(shop);
+    setFocus((f) => ({ shop, n: (f?.n || 0) + 1 }));
+    if (!isDesktop()) setMobileView('map');
+    // La carte doit être à l'écran pour voir le vol jusqu'à la boutique
+    setTimeout(() => {
+      const el = document.getElementById('annuaire-carte');
+      const r = el?.getBoundingClientRect();
+      if (r && (r.top < 0 || r.bottom > window.innerHeight)) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
+  };
+  // Clic sur une fiche : sur grand écran, la carte (toujours visible) suit
+  const selectShop = (shop) => {
+    setSelected(shop);
+    if (isDesktop()) setFocus((f) => ({ shop, n: (f?.n || 0) + 1 }));
+  };
 
   useEffect(() => {
     document.title = 'Boutiques près de chez vous · SamaBoutik';
@@ -360,12 +341,7 @@ export default function Directory() {
       setCity(null);
       setSortBy('distance');
     } catch (err) {
-      setLocateError(
-        (err.message || 'Impossible de vous localiser').replace(
-          ' Vous pourrez localiser votre boutique plus tard depuis vos paramètres.',
-          ''
-        )
-      );
+      setLocateError(err.message || 'Impossible de vous localiser.');
     } finally {
       setLocating(false);
     }
@@ -414,6 +390,7 @@ export default function Directory() {
         s.shop_name.toLowerCase().includes(q) ||
         (s.description || '').toLowerCase().includes(q) ||
         (s.city || '').toLowerCase().includes(q) ||
+        (s.address || '').toLowerCase().includes(q) ||
         (s.categories || []).some((c) => c.toLowerCase().includes(q));
 
       const matchesCat = !category || (s.categories || []).includes(category);
@@ -465,7 +442,7 @@ export default function Directory() {
                 to="/register"
                 className="shine-btn inline-flex min-h-10 items-center rounded-full bg-gradient-to-r from-brand-400 via-amber-200 to-brand-400 px-4 py-2 text-xs font-extrabold text-night shadow-[0_0_25px_color-mix(in_srgb,_var(--color-brand-400)_35%,_transparent)] transition hover:shadow-brand-500/50 sm:text-sm"
               >
-                <span className="hidden sm:inline">Vous êtes commerçant ? </span>Créer ma boutique
+                <span className="hidden sm:inline">Vous êtes commerçant ?&nbsp;</span>Créer ma boutique
               </Link>
             </div>
           </div>
@@ -797,7 +774,8 @@ export default function Directory() {
                       index={i}
                       selected={selected?.shop_name === shop.shop_name}
                       onHover={setSelected}
-                      onSelect={setSelected}
+                      onSelect={selectShop}
+                      onShowOnMap={showOnMap}
                     />
                   </div>
                 ))}
@@ -876,7 +854,8 @@ export default function Directory() {
                         index={i}
                         selected={selected?.shop_name === shop.shop_name}
                         onHover={setSelected}
-                        onSelect={setSelected}
+                        onSelect={selectShop}
+                        onShowOnMap={showOnMap}
                       />
                     ))}
                   </AnimatePresence>
@@ -891,6 +870,7 @@ export default function Directory() {
                     shops={visible}
                     me={me}
                     selected={selected}
+                    focus={focus}
                     onSelect={setSelected}
                     className="h-[75vh] supports-[height:100dvh]:h-[75dvh] lg:h-[calc(100vh-8rem)]"
                   />

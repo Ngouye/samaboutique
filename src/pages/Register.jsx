@@ -103,7 +103,9 @@ export default function Register() {
     try {
       setLocation(await getCurrentPosition());
     } catch (err) {
-      setLocationError(err.message);
+      setLocationError(err.reason === 'denied'
+        ? 'Autorisation refusée. Vous pourrez localiser votre boutique plus tard depuis vos paramètres.'
+        : err.message);
     } finally {
       setLocating(false);
     }
