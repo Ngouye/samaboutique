@@ -6,7 +6,7 @@ import StoreStories from '../components/StoreStories';
 import { getShopTheme, themeStyle } from '../components/shop/themes';
 import { thumbUrl, fallbackToFull } from '../utils/imageUpload';
 import { friendlyError, isOffline, NETWORK_MESSAGE } from '../utils/networkErrors';
-import { whatsappNumber } from '../utils/phone';
+import { whatsappNumber, canonicalPhone, cleanPin } from '../utils/phone';
 import StatusScreen from '../components/StatusScreen';
 import { PAYMENT_CHOICES, isMobileChannel } from '../utils/payments';
 import { COMMANDES_API } from '../utils/apiUrls';
@@ -762,7 +762,7 @@ export default function PublicShop() {
             orderDetails: {
               merchant_id: merchant.id,
               name: checkoutData.name,
-              phone: checkoutData.phone,
+              phone: canonicalPhone(checkoutData.phone),
               address: checkoutData.address,
               zone: checkoutData.zone,
               cartItems: cartItemsArray,
@@ -783,7 +783,7 @@ export default function PublicShop() {
         const { data, error } = await supabase.rpc('place_order', {
           p_merchant_id: merchant.id,
           p_customer_name: checkoutData.name,
-          p_customer_phone: checkoutData.phone,
+          p_customer_phone: canonicalPhone(checkoutData.phone),
           p_customer_address: checkoutData.address + (checkoutData.gpsLocation ? ' || GPS: ' + checkoutData.gpsLocation : ''),
           p_delivery_zone: checkoutData.zone,
           p_cart_items: cartItemsArray,
@@ -854,12 +854,23 @@ export default function PublicShop() {
     }
     setTrackLoading(true);
     try {
-      const query = { phone: String(phoneValue).trim(), pin: String(pinValue).trim().toUpperCase() };
-      const { data, error } = await supabase.rpc('track_order', { p_phone: query.phone, p_pin: query.pin });
+      const typed = String(phoneValue).trim();
+      const pin = cleanPin(pinValue);
+      let query = { phone: canonicalPhone(typed), pin };
+      let { data, error } = await supabase.rpc('track_order', { p_phone: query.phone, p_pin: pin });
+      // Commandes passées avant l'harmonisation des numéros : enregistrées tel que tapé.
+      // Inutile si la base compare déjà toutes les écritures du numéro (suivi_commande.sql).
+      if (!error && !data?.ok && !data?.tolerant && query.phone !== typed && !/tentatives/i.test(data?.error || '')) {
+        query = { phone: typed, pin };
+        ({ data, error } = await supabase.rpc('track_order', { p_phone: typed, p_pin: pin }));
+      }
 
       if (error) setTrackError(friendlyError(error, 'Erreur de connexion'));
-      else if (!data?.ok) setTrackError(data?.error || 'Commande introuvable ou code PIN incorrect');
-      else {
+      else if (!data?.ok) {
+        setTrackError(/tentatives/i.test(data?.error || '')
+          ? data.error
+          : 'Commande introuvable. Vérifiez le numéro donné lors de la commande et le code PIN à 4 chiffres reçu à la validation.');
+      } else {
         trackQueryRef.current = query;
         setTrackResult(data.order);
       }
@@ -881,11 +892,13 @@ export default function PublicShop() {
   const openTab = (tab) => { setActiveTab(tab); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const toggleFavoritesView = () => { setShowFavoritesOnly((v) => !v); goToCatalog(); };
   const trackFinalizedOrder = () => {
-    setTrackPhone(orderFinalized.customer_phone);
-    setTrackPin(orderFinalized.delivery_pin);
+    const { customer_phone: phone, delivery_pin: pin } = orderFinalized;
+    setTrackPhone(phone);
+    setTrackPin(pin);
     setOrderFinalized(null);
     setIsCartOpen(false);
     openTab('order-tracking');
+    runTrack(phone, pin);
   };
 
   // Filtrage
