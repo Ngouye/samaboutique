@@ -219,7 +219,7 @@ export default function DirectoryMap({ shops, me, selected, focus, onSelect, cla
   }, []);
 
   return (
-    <div id="annuaire-carte" className={`directory-map relative isolate overflow-hidden rounded-[2rem] border border-white/10 shadow-2xl ${className}`} style={{ background: MAP_BG }}>
+    <div id="annuaire-carte" className={`directory-map relative isolate overflow-hidden rounded-[2rem] border border-[#e8e5dc] shadow-sm ${className}`} style={{ background: MAP_BG }}>
       <MapContainer
         center={DAKAR_CENTER}
         zoom={12}

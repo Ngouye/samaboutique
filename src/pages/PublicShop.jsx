@@ -7,6 +7,7 @@ import { getShopTheme, themeStyle } from '../components/shop/themes';
 import { thumbUrl, fallbackToFull } from '../utils/imageUpload';
 import { friendlyError, isOffline, NETWORK_MESSAGE } from '../utils/networkErrors';
 import { whatsappNumber, canonicalPhone, cleanPin } from '../utils/phone';
+import { isLive } from '../utils/productVisibility';
 import StatusScreen from '../components/StatusScreen';
 import { PAYMENT_CHOICES, isMobileChannel } from '../utils/payments';
 import { COMMANDES_API } from '../utils/apiUrls';
@@ -601,7 +602,8 @@ export default function PublicShop() {
           .eq('merchant_id', mData.id)
           .order('created_at', { ascending: false });
 
-        if (pData) setProducts(pData);
+        // Brouillons et produits programmés restent cachés (même pour le commerçant qui visite sa vitrine).
+        if (pData) setProducts(pData.filter((p) => isLive(p)));
       } else {
         document.title = failed ? 'Boutique indisponible · SamaBoutik' : 'Boutique introuvable · SamaBoutik';
       }

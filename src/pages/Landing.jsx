@@ -172,8 +172,13 @@ function BrowserFrame({ children, url = 'samaboutik-nine.vercel.app/dashboard' }
 function Navbar() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  // Téléphone : le bouton d'inscription de l'en-tête n'apparaît qu'une fois le grand bouton du héros dépassé.
+  const [pastHero, setPastHero] = useState(false);
   const { scrollY } = useScroll();
-  useMotionValueEvent(scrollY, 'change', (v) => setScrolled(v > 20));
+  useMotionValueEvent(scrollY, 'change', (v) => {
+    setScrolled(v > 20);
+    setPastHero(v > 560);
+  });
   const links = [
     { href: '#produit', label: 'Produit' },
     { href: '#parcours', label: 'Comment ça marche' },
@@ -195,8 +200,17 @@ function Navbar() {
         </div>
         <div className="flex items-center gap-2">
           <Link to="/login" className="hidden rounded-full px-4 py-2.5 text-[15px] font-semibold text-slate-700 hover:text-ink sm:block">Se connecter</Link>
-          <Link to="/register" className="whitespace-nowrap rounded-full bg-ink px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-800 sm:px-5">
-            <span className="min-[440px]:hidden">Commencer</span><span className="hidden min-[440px]:inline">Créer ma boutique</span>
+          <AnimatePresence initial={false}>
+            {(pastHero || open) && (
+              <motion.span key="cta-mobile" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ duration: 0.2 }} className="sm:hidden">
+                <Link to="/register" onClick={() => setOpen(false)} className="inline-flex whitespace-nowrap rounded-full bg-ink px-3.5 py-2 text-[13px] font-bold text-white transition-colors hover:bg-brand-800">
+                  Commencer
+                </Link>
+              </motion.span>
+            )}
+          </AnimatePresence>
+          <Link to="/register" className="hidden whitespace-nowrap rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-800 sm:inline-flex">
+            Créer ma boutique
           </Link>
           <button onClick={() => setOpen(!open)} className="rounded-full p-2.5 text-slate-700 hover:bg-black/5 lg:hidden" aria-label="Menu" aria-expanded={open}>
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -209,7 +223,10 @@ function Navbar() {
             <div className="flex flex-col gap-1 px-5 pb-5">
               {links.map((l) => <a key={l.href} href={l.href} onClick={(e) => { setOpen(false); goTo(e, l.href); }} className="rounded-xl px-4 py-3 font-semibold text-slate-700 hover:bg-black/5">{l.label}</a>)}
               <Link to="/boutiques" className="rounded-xl px-4 py-3 font-semibold text-slate-700 hover:bg-black/5">Boutiques près de moi</Link>
-              <Link to="/login" className="rounded-xl px-4 py-3 font-semibold text-slate-700 hover:bg-black/5">Se connecter</Link>
+              <div className="mt-3 grid grid-cols-2 gap-2 border-t border-black/5 pt-4">
+                <Link to="/login" onClick={() => setOpen(false)} className="inline-flex items-center justify-center rounded-full border border-black/10 bg-white px-4 py-3 text-sm font-bold text-slate-700 hover:border-black/20">Se connecter</Link>
+                <Link to="/register" onClick={() => setOpen(false)} className="inline-flex items-center justify-center rounded-full bg-ink px-4 py-3 text-sm font-bold text-white hover:bg-brand-800">Créer ma boutique</Link>
+              </div>
             </div>
           </motion.div>
         )}

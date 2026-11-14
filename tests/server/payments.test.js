@@ -7,6 +7,8 @@ const MERCHANT = '11111111-1111-1111-1111-111111111111';
 const OTHER = '22222222-2222-2222-2222-222222222222';
 const BOUBOU = 'aaaaaaaa-0000-0000-0000-000000000001';
 const MONTRE = 'aaaaaaaa-0000-0000-0000-000000000002';
+const PAGNE = 'aaaaaaaa-0000-0000-0000-000000000003';
+const SANDALES = 'aaaaaaaa-0000-0000-0000-000000000004';
 const MASTER_KEY = 'cle-principale-de-test';
 const GOOD_HASH = crypto.createHash('sha512').update(MASTER_KEY).digest('hex');
 
@@ -30,6 +32,8 @@ beforeAll(async () => {
     products: [
       { id: BOUBOU, merchant_id: MERCHANT, name: 'Boubou', price_fcfa: 25000 },
       { id: MONTRE, merchant_id: OTHER, name: 'Montre', price_fcfa: 18000 },
+      { id: PAGNE, merchant_id: MERCHANT, name: 'Pagne tissé', price_fcfa: 9000, visibility: 'draft' },
+      { id: SANDALES, merchant_id: MERCHANT, name: 'Sandales', price_fcfa: 7000, visibility: 'scheduled', publish_at: '2099-01-01T09:00:00Z' },
     ],
     orders: [],
   });
@@ -65,6 +69,17 @@ describe('Création du paiement', () => {
     expect(invoice.invoice.total_amount).toBe(51000);
     expect(invoice.actions.return_url).toBe(`https://samaboutik.test/boutique/Chez%20Awa?payment=success&orderId=${saved.id}`);
     expect(invoice.actions.callback_url).toBe('https://api.samaboutik.test/api/payments/webhook');
+  });
+
+  it('refuse un produit en brouillon ou programmé plus tard, avec un message clair', async () => {
+    for (const [id, name] of [[PAGNE, 'Pagne tissé'], [SANDALES, 'Sandales']]) {
+      const before = supabase.db.orders.length;
+      const res = await post('/api/payments/create', order({ cartItems: [{ product_id: id, quantity: 1 }] }), { 'x-forwarded-for': '10.9.8.7' });
+      const body = await res.json();
+      expect(res.status).toBe(400);
+      expect(body.error).toBe(`Désolé, « ${name} » n'est plus en vente. Retirez-le du panier pour continuer.`);
+      expect(supabase.db.orders.length).toBe(before); // aucune commande créée
+    }
   });
 
   it('refuse les paniers et coordonnées invalides', async () => {

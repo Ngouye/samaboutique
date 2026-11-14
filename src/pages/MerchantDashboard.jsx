@@ -34,6 +34,8 @@ import { BRAND } from '../utils/brand';
 import { paymentLabel } from '../utils/payments';
 import AiProductAssistant, { AiTeaser } from '../components/dashboard/AiProductAssistant';
 import ProductPoster from '../components/dashboard/ProductPoster';
+import PublishDialog, { VisibilityPicker, VisibilityBadge } from '../components/dashboard/PublishDialog';
+import { productState, visibilityPayload, visibilityChoice, defaultSchedule, scheduleError, toLocalInput, formatSchedule } from '../utils/productVisibility';
 import { celebrate } from '../utils/motion';
 import RollingNumber from '../components/motion/RollingNumber';
 import Logo from '../components/brand/Logo';
@@ -59,7 +61,7 @@ export default function MerchantDashboard() {
   // Modal State
   const [showProductModal, setShowProductModal] = useState(false);
   const [editingProductId, setEditingProductId] = useState(null);
-  const [newProduct, setNewProduct] = useState({ name: '', description: '', price_fcfa: '', stock: '', category: 'Vêtements', features: {}, tags: [], image: null });
+  const [newProduct, setNewProduct] = useState({ name: '', description: '', price_fcfa: '', stock: '', category: 'Vêtements', features: {}, tags: [], image: null, visibility: 'published', publish_at: '' });
   const [uploading, setUploading] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
@@ -115,6 +117,11 @@ export default function MerchantDashboard() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [productSearch, setProductSearch] = useState('');
   const [productFilter, setProductFilter] = useState('ALL');
+  const [visibilityFilter, setVisibilityFilter] = useState('ALL'); // 'ALL' | 'live' | 'draft' | 'scheduled'
+  // Brouillons et publication programmée : disponibles une fois produits_brouillons.sql exécuté (colonne « visibility »).
+  const [draftsSupported, setDraftsSupported] = useState(false);
+  const [publishTarget, setPublishTarget] = useState(null);
+  const [scheduleTouched, setScheduleTouched] = useState(false);
   // Position de la boutique (visible uniquement par le marchand et l'administrateur)
   const [shopLocation, setShopLocation] = useState(null);
   const [locating, setLocating] = useState(false);
@@ -348,6 +355,11 @@ const DEFAULT_DELIVERY_ZONES = [
       ]);
 
       if (prodData) setProducts(prodData);
+      if (prodData?.length) setDraftsSupported('visibility' in prodData[0]);
+      else if (prodData) {
+        const { error: visibilityError } = await supabase.from('products').select('visibility').eq('merchant_id', user.id).limit(1);
+        setDraftsSupported(!visibilityError);
+      }
       if (ordData) setOrders(ordData);
       if (teamData) setTeam(teamData);
       else if (teamError && teamError.code !== '42P01') console.error(teamError); // Ignore if table doesn't exist yet
@@ -431,6 +443,12 @@ const DEFAULT_DELIVERY_ZONES = [
       return;
     }
 
+    // Mise en ligne programmée : l'heure doit être à venir
+    if (draftsSupported && newProduct.visibility === 'scheduled' && scheduleError(newProduct.publish_at)) {
+      setScheduleTouched(true);
+      return;
+    }
+
     setUploading(true);
     try {
       let image_url = null;
@@ -465,6 +483,8 @@ const DEFAULT_DELIVERY_ZONES = [
       if (image_url) {
         productData.image_url = image_url;
       }
+      const previous = products.find((p) => p.id === editingProductId);
+      if (draftsSupported) Object.assign(productData, visibilityPayload(newProduct.visibility || 'published', newProduct.publish_at, previous));
 
       if (editingProductId) {
         const { error } = await supabase.from('products').update(productData).eq('id', editingProductId);
@@ -477,15 +497,51 @@ const DEFAULT_DELIVERY_ZONES = [
         if (error) throw error;
       }
 
+      const savedAs = draftsSupported ? newProduct.visibility : 'published';
+      showToast(savedAs === 'draft'
+        ? 'Brouillon enregistré : invisible pour vos clients'
+        : savedAs === 'scheduled'
+          ? `Mise en ligne programmée le ${formatSchedule(newProduct.publish_at)}`
+          : editingProductId ? 'Produit enregistré' : 'Produit publié sur votre vitrine');
+      setScheduleTouched(false);
       setShowProductModal(false);
       setEditingProductId(null);
-      setNewProduct({ name: '', description: '', price_fcfa: '', stock: '', category: 'Vêtements', features: {}, tags: [], image: null });
+      setNewProduct({ name: '', description: '', price_fcfa: '', stock: '', category: 'Vêtements', features: {}, tags: [], image: null, visibility: 'published', publish_at: '' });
       fetchData();
     } catch (error) {
       alert(friendlyError(error, "Le produit n'a pas pu être enregistré. Réessayez."));
     } finally {
       setUploading(false);
     }
+  };
+
+  const saveVisibility = async (product, payload) => {
+    const { error } = await supabase.from('products').update(payload).eq('id', product.id);
+    if (error) {
+      showToast(friendlyError(error, "La visibilité du produit n'a pas pu être changée."));
+      return false;
+    }
+    setProducts((list) => list.map((p) => (p.id === product.id ? { ...p, ...payload } : p)));
+    showToast(payload.visibility === 'published'
+      ? `« ${product.name} » est en ligne`
+      : payload.visibility === 'scheduled'
+        ? `« ${product.name} » sera en ligne le ${formatSchedule(payload.publish_at)}`
+        : `« ${product.name} » est passé en brouillon`);
+    return true;
+  };
+
+  const publishReadyDrafts = async (ready) => {
+    if (!ready.length) return;
+    if (!window.confirm(`Publier ${ready.length > 1 ? `ces ${ready.length} brouillons` : 'ce brouillon'} maintenant ? Ils seront visibles par vos clients.`)) return;
+    const payload = { visibility: 'published', publish_at: null, published_at: new Date().toISOString() };
+    const ids = new Set(ready.map((p) => p.id));
+    const { error } = await supabase.from('products').update(payload).in('id', [...ids]);
+    if (error) {
+      showToast(friendlyError(error, "Les produits n'ont pas pu être publiés."));
+      return;
+    }
+    setProducts((list) => list.map((p) => (ids.has(p.id) ? { ...p, ...payload } : p)));
+    showToast(ready.length > 1 ? `${ready.length} produits publiés sur votre vitrine` : 'Produit publié sur votre vitrine');
   };
 
   const deleteProduct = async (id) => {
@@ -722,7 +778,7 @@ Merci de votre confiance ! 🙏`;
 
   const openNewProduct = () => {
     setEditingProductId(null);
-    setNewProduct({ name: '', description: '', price_fcfa: '', stock: '', category: 'Vêtements', features: {}, tags: [], image: null });
+    setNewProduct({ name: '', description: '', price_fcfa: '', stock: '', category: 'Vêtements', features: {}, tags: [], image: null, visibility: 'published', publish_at: '' });
     setShowProductModal(true);
   };
 
@@ -750,8 +806,11 @@ Merci de votre confiance ! 🙏`;
       category: p.category || 'Vêtements',
       features: existingFeatures,
       tags: Array.isArray(p.tags) ? p.tags : [],
-      image: null
+      image: null,
+      visibility: visibilityChoice(p),
+      publish_at: p.visibility === 'scheduled' && p.publish_at ? toLocalInput(p.publish_at) : '',
     });
+    setScheduleTouched(false);
     setShowProductModal(true);
   };
 
@@ -768,8 +827,12 @@ Merci de votre confiance ! 🙏`;
       || (productFilter === 'IN_STOCK' && p.stock > 5)
       || (productFilter === 'LOW' && p.stock > 0 && p.stock <= 5)
       || (productFilter === 'OUT' && p.stock <= 0);
-    return matchesSearch && matchesStock;
+    const matchesVisibility = visibilityFilter === 'ALL' || productState(p) === visibilityFilter;
+    return matchesSearch && matchesStock && matchesVisibility;
   });
+  const visibilityCounts = products.reduce((acc, p) => ({ ...acc, [productState(p)]: (acc[productState(p)] || 0) + 1 }), { live: 0, draft: 0, scheduled: 0 });
+  const draftProducts = products.filter((p) => productState(p) === 'draft');
+  const readyDrafts = draftProducts.filter((p) => p.image_url && Number(p.price_fcfa) > 0);
 
   const orderQuery = searchQuery.trim().toLowerCase();
   const filteredOrders = orders.filter(o =>
@@ -1208,6 +1271,52 @@ Merci de votre confiance ! 🙏`;
               <StatPill icon={CircleX} label="En rupture" value={productStats.out} tone="red" active={productFilter === 'OUT'} onClick={() => setProductFilter('OUT')} />
             </div>
 
+            {draftsSupported && products.length > 0 && (
+              <div className="mb-4 space-y-3">
+                <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0" role="tablist" aria-label="Visibilité des produits">
+                  {[
+                    { id: 'ALL', label: 'Tous', count: products.length },
+                    { id: 'live', label: 'En ligne', count: visibilityCounts.live, dot: 'bg-emerald-500' },
+                    { id: 'draft', label: 'Brouillons', count: visibilityCounts.draft, dot: 'bg-stone-400' },
+                    { id: 'scheduled', label: 'Programmés', count: visibilityCounts.scheduled, dot: 'bg-brand-500' },
+                  ].map((t) => {
+                    const active = visibilityFilter === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={active}
+                        onClick={() => setVisibilityFilter(t.id)}
+                        className={`inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${active ? 'bg-ink text-white' : 'border border-[#e8e5dc] bg-white text-stone-600 hover:border-stone-300'}`}
+                      >
+                        {t.dot && <span className={`h-2 w-2 rounded-full ${t.dot}`} />}
+                        {t.label}
+                        <span className={`font-figures text-xs ${active ? 'text-white/70' : 'text-stone-400'}`}>{t.count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {draftProducts.length > 0 && visibilityFilter !== 'draft' && (
+                  <div className="flex flex-col gap-3 rounded-2xl border border-[#e8e5dc] bg-white p-4 sm:flex-row sm:items-center">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-600"><Pencil className="h-5 w-5" /></span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-ink">{draftProducts.length} brouillon{draftProducts.length > 1 ? 's' : ''} en attente</p>
+                      <p className="text-[13px] text-stone-500">Invisible{draftProducts.length > 1 ? 's' : ''} pour vos clients tant que vous ne les publiez pas.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => setVisibilityFilter('draft')} className="rounded-full border border-[#dcd8cd] bg-white px-4 py-2 text-sm font-bold text-stone-700 hover:border-stone-400">Voir les brouillons</button>
+                      {readyDrafts.length > 0 && (
+                        <PrimaryButton type="button" onClick={() => publishReadyDrafts(readyDrafts)} className="py-2">
+                          <Eye className="h-4 w-4" /> Publier {readyDrafts.length > 1 ? `les ${readyDrafts.length} prêts` : 'le brouillon prêt'}
+                        </PrimaryButton>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <motion.div variants={rise} className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
               <div className="relative flex-1">
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-stone-400" />
@@ -1235,7 +1344,11 @@ Merci de votre confiance ! 🙏`;
                 action={<PrimaryButton onClick={openNewProduct}><Plus className="h-5 w-5" /> Ajouter un produit</PrimaryButton>}
               />
             ) : visibleProducts.length === 0 ? (
-              <EmptyState icon={Search} title="Aucun résultat" text="Essayez un autre mot-clé ou un autre filtre de stock." />
+              <EmptyState
+                icon={Search}
+                title={visibilityFilter === 'draft' ? 'Aucun brouillon' : visibilityFilter === 'scheduled' ? 'Aucune mise en ligne programmée' : 'Aucun résultat'}
+                text={visibilityFilter === 'draft' ? 'Choisissez « Brouillon » en ajoutant un produit pour le préparer sans le montrer.' : 'Essayez un autre mot-clé ou un autre filtre.'}
+              />
             ) : (
               <motion.div layout className="grid grid-cols-2 gap-3 md:gap-5 lg:grid-cols-3 2xl:grid-cols-4">
                 <AnimatePresence mode="popLayout">
@@ -1257,7 +1370,7 @@ Merci de votre confiance ! 🙏`;
                       >
                         <div className="relative aspect-square overflow-hidden bg-[#f1efe8] sm:aspect-[4/3]">
                           {p.image_url ? (
-                            <img src={thumbUrl(p.image_url)} onError={fallbackToFull(p.image_url)} alt={p.name} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                            <img src={thumbUrl(p.image_url)} onError={fallbackToFull(p.image_url)} alt={p.name} loading="lazy" decoding="async" className={`h-full w-full object-cover transition-transform duration-700 group-hover:scale-105 ${productState(p) === 'live' ? '' : 'opacity-60 saturate-50'}`} />
                           ) : (
                             <div className="flex h-full items-center justify-center">
                               <ImageOff className="h-10 w-10 text-stone-300" />
@@ -1279,15 +1392,32 @@ Merci de votre confiance ! 🙏`;
                           </div>
                         </div>
                         <div className="flex flex-1 flex-col p-3 sm:p-5">
-                          <span className="mb-1.5 inline-flex w-max max-w-full items-center gap-1 truncate text-[11px] font-semibold uppercase tracking-[0.1em] text-stone-400 sm:text-xs">
-                            <Tag className="h-3 w-3 shrink-0" /> <span className="truncate">{p.category || 'Sans catégorie'}</span>
-                          </span>
+                          <div className="mb-1.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                            <span className="inline-flex min-w-0 max-w-full items-center gap-1 truncate text-[11px] font-semibold uppercase tracking-[0.1em] text-stone-400 sm:text-xs">
+                              <Tag className="h-3 w-3 shrink-0" /> <span className="truncate">{p.category || 'Sans catégorie'}</span>
+                            </span>
+                            {draftsSupported && (
+                              <button type="button" onClick={() => setPublishTarget(p)} aria-label={`Visibilité de ${p.name}`} title="Changer la visibilité" className="rounded-full transition-opacity hover:opacity-80">
+                                <VisibilityBadge product={p} />
+                              </button>
+                            )}
+                          </div>
                           <h3 className="line-clamp-2 text-[15px] font-bold leading-snug text-ink sm:line-clamp-1 sm:text-lg">{p.name}</h3>
                           {p.description && <p className="mt-1 hidden text-sm text-stone-500 sm:line-clamp-2">{p.description}</p>}
                           <div className="mt-auto pt-3 sm:pt-4">
                             <p className="font-figures text-lg font-semibold tracking-tight text-ink tabular-nums sm:text-2xl">
                               {fmt(p.price_fcfa)} <span className="text-xs font-medium text-stone-400 sm:text-sm">FCFA</span>
                             </p>
+                            {draftsSupported && productState(p) !== 'live' && (
+                              <motion.button
+                                type="button"
+                                whileTap={{ scale: 0.97 }}
+                                onClick={() => setPublishTarget(p)}
+                                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-full bg-ink px-3 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-800"
+                              >
+                                <Eye className="h-4 w-4" /> {productState(p) === 'scheduled' ? 'Publier maintenant' : 'Publier'}
+                              </motion.button>
+                            )}
                             {/* Réassort rapide */}
                             <div className={`mt-3 flex items-center justify-between gap-1 rounded-full p-1 ring-1 ${p.stock <= 0 ? 'bg-red-50 ring-red-200' : p.stock <= 5 ? 'bg-amber-50 ring-amber-200' : 'bg-[#f6f4ee] ring-[#e8e5dc]'}`}>
                               <motion.button
@@ -2165,12 +2295,24 @@ Merci de votre confiance ! 🙏`;
         icon={editingProductId ? Pencil : Package}
         gradient="emerald"
         title={editingProductId ? 'Modifier le produit' : 'Nouveau produit'}
-        subtitle="Les changements apparaissent aussitôt sur votre vitrine"
+        subtitle={draftsSupported && newProduct.visibility === 'draft'
+          ? 'Enregistré sans être montré à vos clients'
+          : draftsSupported && newProduct.visibility === 'scheduled'
+            ? 'Mis en ligne automatiquement à l’heure choisie'
+            : 'Les changements apparaissent aussitôt sur votre vitrine'}
         footer={
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <button type="button" onClick={() => setShowProductModal(false)} className="rounded-2xl px-6 py-3 font-bold text-slate-500 transition-colors hover:bg-slate-100">Annuler</button>
             <PrimaryButton type="submit" form="product-form" disabled={uploading}>
-              {uploading ? <><LoaderCircle className="h-4 w-4 animate-spin" /> Enregistrement...</> : <><Check className="h-4 w-4" /> {editingProductId ? 'Enregistrer' : 'Ajouter le produit'}</>}
+              {uploading ? <><LoaderCircle className="h-4 w-4 animate-spin" /> Enregistrement...</> : (() => {
+                const original = editingProductId ? visibilityChoice(products.find((x) => x.id === editingProductId)) : null;
+                const choice = draftsSupported ? newProduct.visibility : 'published';
+                const label = editingProductId && choice === original && choice !== 'scheduled'
+                  ? 'Enregistrer'
+                  : choice === 'draft' ? 'Enregistrer en brouillon' : choice === 'scheduled' ? 'Programmer la mise en ligne' : editingProductId ? 'Enregistrer et publier' : 'Publier le produit';
+                const Icon = choice === 'draft' ? Pencil : choice === 'scheduled' ? CalendarDays : Check;
+                return <><Icon className="h-4 w-4" /> {label}</>;
+              })()}
             </PrimaryButton>
           </div>
         }
@@ -2265,8 +2407,30 @@ Merci de votre confiance ! 🙏`;
               <input required type="number" min="0" placeholder="10" className={INPUT} value={newProduct.stock} onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })} />
             </div>
           </div>
+
+          {draftsSupported && (
+            <div className="rounded-2xl border border-[#e8e5dc] bg-[#faf9f6] p-4">
+              <VisibilityPicker
+                value={newProduct.visibility || 'published'}
+                schedule={newProduct.publish_at}
+                onChange={(v) => { setScheduleTouched(false); setNewProduct((prev) => ({ ...prev, visibility: v, publish_at: v === 'scheduled' && !prev.publish_at ? defaultSchedule() : prev.publish_at })); }}
+                onScheduleChange={(v) => { setScheduleTouched(true); setNewProduct((prev) => ({ ...prev, publish_at: v })); }}
+                error={scheduleTouched && newProduct.visibility === 'scheduled' ? scheduleError(newProduct.publish_at) : ''}
+              />
+            </div>
+          )}
         </form>
       </Modal>
+
+      {publishTarget && (
+        <PublishDialog
+          key={publishTarget.id}
+          product={publishTarget}
+          onClose={() => setPublishTarget(null)}
+          onSave={saveVisibility}
+          onEdit={(p) => { setPublishTarget(null); openEditProduct(p); }}
+        />
+      )}
 
       {/* Affiche produit (statut WhatsApp, publication) */}
       <ProductPoster product={posterProduct} merchant={merchant} shopUrl={getShopUrl()} onClose={() => setPosterProduct(null)} />

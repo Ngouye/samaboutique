@@ -6,6 +6,10 @@ import dotenv from 'dotenv';
 import { DEFAULT_DELIVERY_ZONES } from '../lib/deliveryZones.js';
 import { reportError, reportWarning } from '../lib/monitoring.js';
 
+// Produit visible par les clients : publié, ou programmé et l'heure est arrivée (même règle que la base).
+const isProductLive = (p, now = Date.now()) =>
+  !p.visibility || p.visibility === 'published' || (p.visibility === 'scheduled' && Boolean(p.publish_at) && Date.parse(p.publish_at) <= now);
+
 dotenv.config();
 
 const router = express.Router();
@@ -82,13 +86,19 @@ router.post('/create', async (req, res) => {
     }
 
     const productIds = [...new Set(items.map((i) => i.product_id))];
+    // Toutes les colonnes : « visibility » n'existe qu'une fois produits_brouillons.sql exécuté.
     const { data: products, error: productsError } = await supabase
       .from('products')
-      .select('id, name, price_fcfa')
+      .select('*')
       .eq('merchant_id', merchant.id)
       .in('id', productIds);
     if (productsError || !products || products.length !== productIds.length) {
       return res.status(400).json({ success: false, error: 'Produit introuvable pour cette boutique' });
+    }
+    // Brouillon ou mise en ligne programmée plus tard : le produit n'est pas en vente.
+    const offSale = products.find((p) => !isProductLive(p));
+    if (offSale) {
+      return res.status(400).json({ success: false, error: `Désolé, « ${offSale.name} » n'est plus en vente. Retirez-le du panier pour continuer.` });
     }
 
     const byId = new Map(products.map((p) => [p.id, p]));
