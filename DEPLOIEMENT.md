@@ -5,7 +5,7 @@ Trois services gratuits :
 | Rôle | Où | Pourquoi |
 |---|---|---|
 | Site (front) | **Vercel** | Réseau mondial, préversion par branche |
-| Serveur, en 2 microservices | **Northflank** (offre « Sandbox ») | Gratuit, sans carte bancaire, toujours allumé (jamais en veille) |
+| Serveur, en 2 microservices | **Northflank** (offre « Sandbox ») | Gratuit, toujours allumé (jamais en veille) ; une carte est demandée pour vérifier le compte, rien n'est prélevé |
 | Base de données, comptes | **Supabase** | Déjà en place |
 
 ```
@@ -39,11 +39,13 @@ Sans `SERVICE`, tout tourne ensemble (développement local).
 
 ### 1.1 Compte et projet
 
-1. Créer un compte sur northflank.com (connexion avec GitHub, pas de carte demandée).
+1. Créer un compte sur northflank.com (connexion avec GitHub).
+   - À la création du projet gratuit, Northflank demande une **carte Visa/Mastercard pour vérifier le compte** (lutte contre les abus).
+   - Selon Northflank, la carte sert seulement à la vérification : rien n'est prélevé sur l'offre gratuite. Pays : Sénégal.
+   - Sans carte, la solution de repli est Render (gratuit sans carte). Mais son serveur se met en veille après 15 minutes sans visite, et le premier paiement attend alors 30 à 60 s.
 2. Créer un projet `samaboutik`.
-   - **Région** : la plus proche de Supabase. Pour SamaBoutik, la base est en **Irlande (`eu-west-1`)** : choisir **« Europe West Netherlands »**.
-     - C'est l'une des plus proches de l'Irlande, et son emplacement est connu.
-     - Northflank n'indique pas la ville de « Europe West ».
+   - **Cible de déploiement** : « Northflank Cloud ». Le navigateur peut le traduire en « Nuage du flanc nord ».
+   - **Région** : la plus proche de Supabase. Pour SamaBoutik, la base est en **Irlande (`eu-west-1`)** : choisir **« Europe - Ouest » (Londres)**, à quelques millisecondes de Dublin.
    - ⚠️ **La région ne peut plus être changée ensuite.**
 3. Autoriser Northflank à lire le dépôt GitHub `Ngouye/samaboutique`.
 
@@ -106,14 +108,21 @@ Sans les clés de l'assistant, le service démarre normalement et l'assistant re
 
 ## Étape 2 · Vercel
 
-Settings → Environment Variables, puis redéployer :
+**Les adresses des deux services sont dans le fichier `.env.production` du dépôt** :
+
+- `VITE_COMMANDES_API_URL` : adresse de `api-commandes` ;
+- `VITE_AI_API_URL` : adresse de `api-ia`.
+
+Elles ne sont pas secrètes : elles apparaissent de toute façon dans le code du site. Vercel reconstruit le site à chaque envoi sur `main` et les prend automatiquement. Elles passent avant une éventuelle ancienne `VITE_API_URL` réglée dans Vercel.
+
+Si l'adresse d'un service change, modifiez `.env.production`, puis envoyez sur `main`.
+
+Dans Vercel (Settings → Environment Variables), il ne reste que les variables de Supabase :
 
 | Variable | Valeur |
 |---|---|
 | `VITE_SUPABASE_URL` | adresse du projet Supabase |
 | `VITE_SUPABASE_ANON_KEY` | clé publique (`anon`) |
-| `VITE_API_URL` | adresse publique de `api-commandes` |
-| `VITE_AI_API_URL` | adresse publique de `api-ia` (sans elle, le site utilise `VITE_API_URL`) |
 
 Puis, dans Northflank, mettre l'adresse Vercel (et votre domaine, s'il y en a un) dans `FRONTEND_URL` des deux services.
 

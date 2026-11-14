@@ -9,6 +9,7 @@ import { friendlyError, isOffline, NETWORK_MESSAGE } from '../utils/networkError
 import { whatsappNumber } from '../utils/phone';
 import StatusScreen from '../components/StatusScreen';
 import { PAYMENT_CHOICES, isMobileChannel } from '../utils/payments';
+import { COMMANDES_API } from '../utils/apiUrls';
 import { productOptions, needsChoice } from '../utils/productOptions';
 import { searchScore, matchesFilters, activeFilterCount, NO_FILTERS } from '../utils/searchText';
 import SearchOverlay from '../components/shop/SearchOverlay';
@@ -751,7 +752,7 @@ export default function PublicShop() {
       }));
 
       if (isMobileChannel(checkoutData.paymentMethod)) {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const apiUrl = COMMANDES_API;
         // Serveur de paiement injoignable alors qu'internet fonctionne : on propose le paiement à la livraison.
         const paymentDown = "Le paiement en ligne est momentanément indisponible. Réessayez dans un instant ou choisissez le paiement à la livraison.";
         const response = await fetch(`${apiUrl}/api/payments/create`, {

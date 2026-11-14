@@ -1,9 +1,10 @@
 // Appels à l'assistant IA du serveur (fiche produit rédigée par Claude, photo studio Photoroom).
 import { supabase } from '../supabaseClient';
 import { isOffline, NETWORK_MESSAGE } from './networkErrors';
+import { IA_API } from './apiUrls';
 
 // Microservice de l'assistant IA (Northflank : service « ia ») ; à défaut, le même serveur que les paiements.
-const API = import.meta.env.VITE_AI_API_URL || import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API = IA_API;
 
 // Image (fichier ou adresse) décodée en bitmap, pour la redimensionner ou la dessiner.
 export async function loadBitmap(source) {
