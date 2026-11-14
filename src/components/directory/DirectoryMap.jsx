@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Link } from 'react-router-dom';
@@ -8,13 +8,8 @@ import { WhatsApp } from '../dashboard/icons';
 import { DAKAR_CENTER } from '../admin/geo';
 import { BRAND } from '../../utils/brand';
 import { shopSummary, shopPlace } from '../../utils/shopSummary';
+import { Basemap, MAP_BG } from '../map/Basemap';
 
-// Fond de carte vectoriel OpenFreeMap : gratuit, sans clé ni inscription, usage commercial autorisé.
-// Si l'appareil ne sait pas afficher de carte vectorielle (WebGL absent), on bascule sur les tuiles OpenStreetMap.
-const MAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';
-const MAP_BG = '#f2f3f0';
-const VECTOR_ATTRIBUTION = '<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
-const RASTER_ATTRIBUTION = '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
 
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const safeColor = (c) => (/^#[0-9a-f]{3,8}$/i.test(c || '') ? c : BRAND.signature);
@@ -23,14 +18,6 @@ const formatDistance = (km) => (km < 1 ? `${Math.round(km * 1000)} m` : `${km.to
 const fmt = (n) => Math.round(n || 0).toLocaleString('fr-FR');
 const directionsUrl = (shop) => `https://www.google.com/maps/dir/?api=1&destination=${shop.latitude},${shop.longitude}`;
 
-function webglAvailable() {
-  try {
-    const canvas = document.createElement('canvas');
-    return Boolean(canvas.getContext('webgl2') || canvas.getContext('webgl'));
-  } catch {
-    return false;
-  }
-}
 
 // Épingle personnalisée : logo ou initiale de la boutique, couleur de marque
 function logoIcon(shop, selected) {
@@ -52,56 +39,6 @@ const meIcon = L.divIcon({
   iconAnchor: [10, 10],
 });
 
-// Fond de carte : vectoriel (net à tous les zooms) ou, à défaut, tuiles OpenStreetMap.
-function Basemap({ onReady }) {
-  const map = useMap();
-  const [raster, setRaster] = useState(() => !webglAvailable());
-
-  useEffect(() => {
-    map.attributionControl?.setPrefix(false);
-    if (raster) {
-      onReady?.();
-      return undefined;
-    }
-    let layer = null;
-    let cancelled = false;
-    map.attributionControl?.addAttribution(VECTOR_ATTRIBUTION);
-    Promise.all([
-      import('maplibre-gl'),
-      // Le « worker » de MapLibre (calcul des tuiles en arrière-plan) doit être un fichier publié à part
-      import('maplibre-gl/dist/maplibre-gl-worker.mjs?url'),
-      import('@maplibre/maplibre-gl-leaflet'),
-      import('maplibre-gl/dist/maplibre-gl.css'),
-    ])
-      .then(([maplibre, worker, plugin]) => {
-        if (cancelled) return;
-        maplibre.setWorkerUrl(new URL(worker.default, window.location.href).href);
-        layer = plugin.maplibreGL({ style: MAP_STYLE, attributionControl: false, interactive: false });
-        layer.addTo(map);
-        const gl = layer.getMaplibreMap();
-        let loaded = false;
-        gl.once('load', () => {
-          loaded = true;
-          onReady?.();
-        });
-        // Style introuvable (réseau coupé, service indisponible) : tuiles classiques
-        gl.on('error', () => {
-          if (!loaded && !cancelled) setRaster(true);
-        });
-      })
-      .catch(() => {
-        if (!cancelled) setRaster(true);
-      });
-    return () => {
-      cancelled = true;
-      map.attributionControl?.removeAttribution(VECTOR_ATTRIBUTION);
-      if (layer) map.removeLayer(layer);
-    };
-  }, [map, raster, onReady]);
-
-  if (!raster) return null;
-  return <TileLayer attribution={RASTER_ATTRIBUTION} url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={19} />;
-}
 
 function Fit({ points, me }) {
   const map = useMap();

@@ -688,8 +688,8 @@
 }
 
 /* Carte de l'annuaire : crédits discrets, fond vectoriel OpenFreeMap */
-.directory-map .leaflet-container { font-family: inherit; }
-.directory-map .leaflet-control-attribution {
+:is(.directory-map, .delivery-map) .leaflet-container { font-family: inherit; }
+:is(.directory-map, .delivery-map) .leaflet-control-attribution {
   margin: 0 8px 8px 0 !important;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.82) !important;
@@ -698,8 +698,8 @@
   color: #475569;
   backdrop-filter: blur(6px);
 }
-.directory-map .leaflet-control-attribution a { color: #334155; }
-.directory-map .leaflet-gl-layer { pointer-events: none; }
+:is(.directory-map, .delivery-map) .leaflet-control-attribution a { color: #334155; }
+:is(.directory-map, .delivery-map) .leaflet-gl-layer { pointer-events: none; }
 
 .me-dot {
   position: relative; width: 18px; height: 18px; border-radius: 9999px;

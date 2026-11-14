@@ -26,3 +26,10 @@ export function orderMapsUrl(order) {
   const query = [address, order?.delivery_zone].filter(Boolean).join(', ');
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
+
+// Itinéraire en voiture ou à moto jusqu'au client (Google Maps ouvre le guidage).
+export function orderDirectionsUrl(order) {
+  const { address, coords } = parseOrderAddress(order?.customer_address);
+  const destination = coords ? `${coords.lat},${coords.lng}` : [address, order?.delivery_zone].filter(Boolean).join(', ');
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving`;
+}
