@@ -103,7 +103,7 @@ function TaskCard({ task }) {
 /* ------------------------------------------------------------------ */
 
 // Premiers pas d'une nouvelle boutique : calculés à partir de ses données, masquables.
-function StartChecklist({ merchant, products, driverCount, ordersCount, onNavigate, onAddProduct, onShare }) {
+function StartChecklist({ merchant, products, driverCount, ordersCount, inDirectory, onNavigate, onAddProduct, onShare }) {
   const storageKey = `sb_demarrage_masque_${merchant?.id}`;
   const [hidden, setHidden] = useState(() => {
     try { return localStorage.getItem(storageKey) === '1'; } catch { return false; }
@@ -113,6 +113,7 @@ function StartChecklist({ merchant, products, driverCount, ordersCount, onNaviga
     { id: 'description', done: (merchant?.description || '').trim().length >= 20, label: 'Présenter votre boutique', hint: 'Quelques mots sur ce que vous vendez.', action: 'Écrire', go: () => onNavigate('settings') },
     { id: 'products', done: products.length >= 3, label: `Ajouter 3 produits (${Math.min(products.length, 3)}/3)`, hint: 'Une belle photo et un prix suffisent.', action: 'Ajouter', go: onAddProduct },
     { id: 'driver', done: driverCount > 0, label: 'Ajouter un livreur', hint: 'Il reçoit vos courses sur son téléphone.', action: 'Ajouter', go: () => onNavigate('team') },
+    { id: 'directory', done: Boolean(inDirectory), label: 'Apparaître dans « Boutiques près de moi »', hint: 'Paramètres : localisez votre boutique, puis cochez la case. Il faut aussi au moins un produit.', action: 'Activer', go: () => onNavigate('settings') },
     { id: 'order', done: ordersCount > 0, label: 'Recevoir votre première commande', hint: 'Partagez votre vitrine sur WhatsApp et dans votre statut.', action: 'Partager', go: onShare },
   ];
   const done = steps.filter((s) => s.done).length;
@@ -161,7 +162,7 @@ function StartChecklist({ merchant, products, driverCount, ordersCount, onNaviga
 }
 
 export default function Overview({
-  merchant, orders, products, driverBalances, today, shopUrl,
+  merchant, orders, products, driverBalances, today, shopUrl, inDirectory,
   onNavigate, onOpenQR, onSelectDriver, onAddProduct, onShare,
 }) {
   const [period, setPeriod] = useState(30);
@@ -278,6 +279,7 @@ export default function Overview({
         products={products}
         driverCount={driverBalances.length}
         ordersCount={orders.length}
+        inDirectory={inDirectory}
         onNavigate={onNavigate}
         onAddProduct={onAddProduct}
         onShare={onShare}

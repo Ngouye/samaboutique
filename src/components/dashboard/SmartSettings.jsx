@@ -127,7 +127,7 @@ export function DirectoryToggle({ location, onChange, showToast }) {
       <SettingRow
         icon={Globe}
         title="Apparaître dans « Boutiques près de moi »"
-        text="Les clients du quartier voient votre boutique sur la carte publique SamaBoutik (sans votre numéro)"
+        text="Les clients du quartier voient votre boutique sur la carte publique SamaBoutik, avec votre adresse et un bouton pour vous écrire sur WhatsApp"
         checked={!!location?.is_public}
         onChange={update}
         disabled={saving}

@@ -1144,11 +1144,9 @@ export default function PublicShop() {
             <button onClick={() => setSearchOpen(true)} className="sh-fill sh-ink-2 sh-r-sm p-2.5" aria-label="Rechercher un produit">
               <Search className="h-5 w-5" />
             </button>
-            {merchant && (
-              <button onClick={shareShop} className="sh-fill sh-ink-2 sh-r-sm p-2.5" aria-label="Partager la boutique">
-                <Share2 className="h-5 w-5" />
-              </button>
-            )}
+            <Link to={`/livreur/${encodeURIComponent(shopName)}`} className="sh-fill sh-ink-2 sh-r-sm p-2.5" aria-label="Accès livreur" title="Accès livreur">
+              <Bike className="h-5 w-5" />
+            </Link>
             {merchant?.phone_number && (
               <a href={`https://wa.me/${whatsappNumber(merchant.phone_number)}`} target="_blank" rel="noreferrer" className="sh-r-sm flex items-center justify-center bg-[#25D366] p-2.5 text-white shadow-md shadow-green-600/25" aria-label="Contacter le vendeur sur WhatsApp">
                 <WhatsApp className="h-5 w-5" />
@@ -1217,8 +1215,7 @@ export default function PublicShop() {
                       <button onClick={() => openTab('order-tracking')} className="sh-hero-chip sh-r-md inline-flex items-center gap-2 px-6 py-4 font-semibold backdrop-blur transition-opacity hover:opacity-90">
                         <Package className="h-5 w-5" /> Suivre ma commande
                       </button>
-                      {/* Sur téléphone, le partage est dans l'en-tête */}
-                      <button onClick={shareShop} className="sh-hero-chip sh-r-md hidden items-center justify-center px-4 py-4 backdrop-blur transition-opacity hover:opacity-90 sm:inline-flex" aria-label="Partager la boutique" title="Partager la boutique">
+                      <button onClick={shareShop} className="sh-hero-chip sh-r-md inline-flex items-center justify-center px-4 py-4 backdrop-blur transition-opacity hover:opacity-90" aria-label="Partager la boutique" title="Partager la boutique">
                         <Share2 className="h-5 w-5" />
                       </button>
                     </motion.div>

@@ -1152,6 +1152,7 @@ Merci de votre confiance ! 🙏`;
             driverBalances={driverBalances}
             today={{ totalEnbaisse, partLivreur, partMarchand }}
             shopUrl={getShopUrl()}
+            inDirectory={Boolean(shopLocation?.is_public)}
             onNavigate={openTab}
             onAddProduct={openNewProduct}
             onOpenQR={() => setShowQRModal(true)}
