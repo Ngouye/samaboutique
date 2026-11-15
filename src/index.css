@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* L'application mobile (dossier mobile/) a ses propres styles : Tailwind ne la parcourt pas. */
+@source not "../mobile";
 
 /* Plus Jakarta Sans (police variable 400 → 800, licence OFL : public/fonts/OFL.txt) */
 @font-face {
