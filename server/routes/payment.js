@@ -44,6 +44,11 @@ const safeEqual = (a, b) => {
 
 const MAX_QUANTITY = 100;
 
+// Commande passée depuis l'application mobile : après le paiement, PayDunya renvoie vers une page du site
+// (/retour-app) qui rouvre l'application. Seules les adresses d'application sont acceptées
+// (samaboutik://… pour l'application installée, exp://… pour les tests avec Expo Go) : jamais un site extérieur.
+export const APP_RETURN_URL = /^(samaboutik|exps?):\/\/[^\s"'<>]{1,300}$/i;
+
 // Opérateurs proposés au client -> identifiants des canaux PayDunya (documentation PayDunya,
 // « Opérateurs Mobile Money disponibles »). Même liste côté site : src/utils/payments.js.
 export const MOBILE_CHANNELS = {
@@ -169,6 +174,8 @@ router.post('/create', async (req, res) => {
     const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',')[0].trim();
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
     const shopPath = `${frontendUrl}/boutique/${encodeURIComponent(merchant.shop_name)}`;
+    const appReturn = typeof orderDetails.appReturnUrl === 'string' && APP_RETURN_URL.test(orderDetails.appReturnUrl) ? orderDetails.appReturnUrl : null;
+    const appBack = (statut) => `${frontendUrl}/retour-app?statut=${statut}&commande=${order.id}&to=${encodeURIComponent(appReturn)}`;
 
     // 2. Facture PayDunya : le montant est celui enregistré en base (recalculé par le trigger SQL si installé)
     const amountDue = isDeposit ? Number(order.payment_deposit_amount) || depositFor(order.total_amount_fcfa) : order.total_amount_fcfa;
@@ -190,8 +197,8 @@ router.post('/create', async (req, res) => {
         order_id: order.id
       },
       actions: {
-        cancel_url: `${shopPath}?payment=cancel`,
-        return_url: `${shopPath}?payment=success&orderId=${order.id}`,
+        cancel_url: appReturn ? appBack('annule') : `${shopPath}?payment=cancel`,
+        return_url: appReturn ? appBack('paye') : `${shopPath}?payment=success&orderId=${order.id}`,
         callback_url: `${backendUrl}/api/payments/webhook`
       }
     };

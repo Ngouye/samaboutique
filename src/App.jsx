@@ -19,6 +19,7 @@ const Landing = lazyWithRetry(() => import('./pages/Landing'));
 const AdminDashboard = lazyWithRetry(() => import('./pages/AdminDashboard'));
 const Directory = lazyWithRetry(() => import('./pages/Directory'));
 const ResetPassword = lazyWithRetry(() => import('./pages/ResetPassword'));
+const AppReturn = lazyWithRetry(() => import('./pages/AppReturn'));
 const NotFound = lazyWithRetry(() => import('./pages/NotFound'));
 const AdminMfaGate = lazyWithRetry(() => import('./components/admin/AdminMfaGate'));
 
@@ -94,6 +95,7 @@ export default function App() {
                 <Route path="/register" element={<Register />} />
                 <Route path="/boutiques" element={<Directory />} />
                 <Route path="/nouveau-mot-de-passe" element={<ResetPassword />} />
+                <Route path="/retour-app" element={<AppReturn />} />
 
                 <Route
                   path="/dashboard"

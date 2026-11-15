@@ -122,6 +122,23 @@ describe('Création du paiement', () => {
     expect((await bad.json()).error).toBe('Moyen de paiement invalide');
   });
 
+  it('commande depuis l’application : PayDunya renvoie vers la page de retour qui rouvre l’application', async () => {
+    const appUrl = 'exp://10.0.0.5:8085/--/paiement-termine';
+    const res = await post('/api/payments/create', order({ channel: 'wave', appReturnUrl: appUrl }), { 'x-forwarded-for': '10.9.6.1' });
+    expect(res.status).toBe(200);
+    const saved = supabase.db.orders.at(-1);
+    const { actions } = paydunya.state.invoices.at(-1).body;
+    expect(actions.return_url).toBe(`https://samaboutik.test/retour-app?statut=paye&commande=${saved.id}&to=${encodeURIComponent(appUrl)}`);
+    expect(actions.cancel_url).toBe(`https://samaboutik.test/retour-app?statut=annule&commande=${saved.id}&to=${encodeURIComponent(appUrl)}`);
+
+    // Une adresse qui n'est pas celle de l'application est ignorée : retour normal sur la vitrine.
+    for (const bad of ['https://site-pirate.test/vol', 'javascript:alert(1)', 'exp://']) {
+      await post('/api/payments/create', order({ channel: 'wave', appReturnUrl: bad }), { 'x-forwarded-for': '10.9.6.2' });
+      const last = supabase.db.orders.at(-1);
+      expect(paydunya.state.invoices.at(-1).body.actions.return_url).toBe(`https://samaboutik.test/boutique/Chez%20Awa?payment=success&orderId=${last.id}`);
+    }
+  });
+
   it('refuse une boutique inexistante', async () => {
     expect((await post('/api/payments/create', order({ merchant_id: '99999999-9999-9999-9999-999999999999' }))).status).toBe(404);
   });
