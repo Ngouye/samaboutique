@@ -1,6 +1,6 @@
 // Administration : filtres et résumés des commandes, clients, produits, paiements ; export CSV.
 import { describe, it, expect } from 'vitest';
-import { filterOrders, ordersSummary, customersSummary, productsSummary, paymentsSummary, toCsv, shortRef } from '../../src/utils/adminData';
+import { filterOrders, ordersSummary, customersSummary, productsSummary, paymentsSummary, toCsv, shortRef, customersFromOrders, scopeData } from '../../src/utils/adminData';
 
 const now = Date.parse('2026-11-14T12:00:00Z');
 const day = (d) => new Date(now - d * 864e5).toISOString();
@@ -66,5 +66,30 @@ describe('Export', () => {
     const csv = toCsv([['Nom', (r) => r.name], ['Note', (r) => r.note]], [{ name: 'Chez "Awa"', note: 'ok;oui' }]);
     expect(csv).toBe('﻿"Nom";"Note"\n"Chez ""Awa""";"ok;oui"');
     expect(shortRef('a4f2c3d4-0000')).toBe('A4F2C3D4');
+  });
+});
+
+describe('Une seule boutique à la fois', () => {
+  const orders = [
+    { id: '1', merchant_id: 'm1', shop_name: 'Chez Awa', customer_key: '771234567', customer_name: 'Fatou', customer_phone: '77 123 45 67', status: 'DELIVERED', total_amount_fcfa: 20000, delivery_zone: 'Médina', created_at: day(10) },
+    { id: '2', merchant_id: 'm1', shop_name: 'Chez Awa', customer_key: '771234567', customer_name: 'Fatou D.', customer_phone: '+221771234567', status: 'CANCELLED', total_amount_fcfa: 5000, delivery_zone: 'Médina', created_at: day(2) },
+    { id: '3', merchant_id: 'm2', shop_name: 'Maison Diouf', customer_key: '771234567', customer_name: 'Fatou', customer_phone: '77 123 45 67', status: 'DELIVERED', total_amount_fcfa: 90000, created_at: day(1) },
+    { id: '4', merchant_id: 'm2', shop_name: 'Maison Diouf', customer_key: '760000000', customer_name: 'Ibou', status: 'DELIVERED', total_amount_fcfa: 8000, created_at: day(3) },
+  ];
+
+  it('recalcule les clients d’une boutique sans mélanger leurs achats ailleurs', () => {
+    const [fatou] = customersFromOrders(orders.filter((o) => o.merchant_id === 'm1'));
+    expect(fatou).toMatchObject({ customer_name: 'Fatou D.', orders_count: 2, delivered_count: 1, cancelled_count: 1, total_spent_fcfa: 20000, shops_count: 1, shops: ['Chez Awa'] });
+  });
+
+  it('filtre toutes les données sur la boutique choisie', () => {
+    const extra = { orders, products: [{ merchant_id: 'm1' }, { merchant_id: 'm2' }], drivers: [{ merchant_id: 'm2' }], reviews: [], payments: [{ merchant_id: 'm1' }], health: { ok: 1 }, customers: [{ customer_key: 'global' }] };
+    const s = scopeData(extra, 'm2');
+    expect(s.orders.map((o) => o.id)).toEqual(['3', '4']);
+    expect(s.customers.map((c) => c.customer_name)).toEqual(['Fatou', 'Ibou']);
+    expect(s.customers[0].total_spent_fcfa).toBe(90000);
+    expect([s.products.length, s.drivers.length, s.payments.length]).toEqual([1, 1, 0]);
+    expect(s.health).toEqual({ ok: 1 });
+    expect(scopeData(extra, 'all')).toBe(extra);
   });
 });

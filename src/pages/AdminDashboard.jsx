@@ -29,7 +29,7 @@ import SystemSection from '../components/admin/sections/SystemSection';
 import SubscriptionDialog from '../components/admin/SubscriptionDialog';
 import { ORDER_STATUSES } from '../components/dashboard/status';
 import { paymentLabel } from '../utils/payments';
-import { filterOrders, ordersSummary, customersSummary, productsSummary, paymentsSummary, toCsv, shortRef } from '../utils/adminData';
+import { filterOrders, ordersSummary, customersSummary, productsSummary, paymentsSummary, toCsv, shortRef, scopeData } from '../utils/adminData';
 
 // Données complémentaires (admin_complet.sql) : clé d'état, fonction, paramètres.
 const EXTRA_SOURCES = [
@@ -145,7 +145,7 @@ function InfoRow({ icon: Icon, label, children }) {
 /* Fiche détaillée d'un marchand                                       */
 /* ------------------------------------------------------------------ */
 
-function MerchantDrawer({ merchant, onClose, onToggleSuspension, onShowOnMap, busy, onChangePlan, recentOrders = [], onOpenOrder }) {
+function MerchantDrawer({ merchant, onClose, onToggleSuspension, onShowOnMap, busy, onChangePlan, recentOrders = [], onOpenOrder, onFocusShop }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!merchant) return undefined;
@@ -219,6 +219,11 @@ function MerchantDrawer({ merchant, onClose, onToggleSuspension, onShowOnMap, bu
                 <p className="mb-1 flex items-center gap-2 text-sm font-bold text-slate-900"><Wallet className="h-4 w-4 text-brand-600" /> Chiffre d'affaires livré</p>
                 <p className="text-3xl font-extrabold text-slate-900">{fmt(Number(merchant.revenue_fcfa))} <span className="text-base text-slate-400">FCFA</span></p>
                 <p className="text-xs text-slate-500">Dernière commande : {merchant.last_order_at ? `${dateFr(merchant.last_order_at)} (${relDays(merchant.last_order_at)})` : 'aucune'}</p>
+                {onFocusShop && (
+                  <button onClick={() => onFocusShop(merchant)} className="mt-4 flex w-full items-center justify-center gap-2 rounded-full border border-brand-200 bg-brand-50 py-2.5 text-sm font-bold text-brand-800 hover:bg-brand-100">
+                    <LayoutDashboard className="h-4 w-4" /> Afficher uniquement cette boutique
+                  </button>
+                )}
               </section>
 
               <section className={`${CARD} px-5 py-3`}>
@@ -382,6 +387,12 @@ export default function AdminDashboard() {
   const [subscriptionFor, setSubscriptionFor] = useState(null);
   // Heure du dernier chargement : référence des calculs « depuis 24 h », « 30 derniers jours »…
   const [loadedAt, setLoadedAt] = useState(() => Date.now());
+  // Boutique affichée : 'all' (toute la plateforme) ou l'identifiant d'une boutique.
+  // Dans ce cas, chaque onglet ne montre QUE ses données (commandes, clients, produits…).
+  const [scope, setScope] = useState('all');
+  const scoped = useMemo(() => scopeData(extra, scope), [extra, scope]);
+  const scopeMerchant = scope === 'all' ? null : merchants.find((m) => m.id === scope) || null;
+  const shopOptions = useMemo(() => [...merchants].sort((x, y) => (x.shop_name || '').localeCompare(y.shop_name || '', 'fr')), [merchants]);
 
   const fetchAdminData = async () => {
     setRefreshing(true);
@@ -490,39 +501,40 @@ export default function AdminDashboard() {
     ];
     // Export de l'onglet ouvert
     const sets = {
-      orders: ['commandes', extra.orders, [
+      orders: ['commandes', scoped.orders, [
         ['Référence', (o) => shortRef(o.id)], ['Date', (o) => o.created_at], ['Boutique', (o) => o.shop_name], ['Client', (o) => o.customer_name],
         ['Téléphone', (o) => o.customer_phone], ['Zone', (o) => o.delivery_zone], ['Adresse', (o) => o.customer_address], ['Montant (FCFA)', (o) => o.total_amount_fcfa],
         ['Articles', (o) => o.items_count], ['Paiement', (o) => paymentLabel(o)], ['Statut', (o) => ORDER_STATUSES.find((st) => st.id === o.status)?.label || o.status],
         ['Livreur', (o) => o.driver_name || ''], ['Livrée le', (o) => o.delivered_at || ''],
       ]],
-      customers: ['clients', extra.customers, [
+      customers: ['clients', scoped.customers, [
         ['Client', (c) => c.customer_name], ['Téléphone', (c) => c.customer_phone], ['Commandes', (c) => c.orders_count], ['Livrées', (c) => c.delivered_count],
         ['Annulées', (c) => c.cancelled_count], ['Dépensé (FCFA)', (c) => c.total_spent_fcfa], ['Boutiques', (c) => (c.shops || []).join(', ')],
         ['Quartiers', (c) => (c.zones || []).join(', ')], ['Première commande', (c) => c.first_order_at], ['Dernière commande', (c) => c.last_order_at],
       ]],
-      products: ['produits', extra.products, [
+      products: ['produits', scoped.products, [
         ['Produit', (x) => x.name], ['Boutique', (x) => x.shop_name], ['Catégorie', (x) => x.category], ['Prix (FCFA)', (x) => x.price_fcfa], ['Stock', (x) => x.stock],
         ['Vendus', (x) => x.units_sold], ['CA livré (FCFA)', (x) => x.revenue_fcfa], ['Note', (x) => x.rating ?? ''], ['Avis', (x) => x.reviews_count],
         ['Visibilité', (x) => x.visibility], ['Créé le', (x) => x.created_at],
       ]],
-      drivers: ['livreurs', extra.drivers, [
+      drivers: ['livreurs', scoped.drivers, [
         ['Livreur', (d) => d.full_name], ['Téléphone', (d) => d.phone_number], ['Véhicule', (d) => d.vehicle_type], ['Boutique', (d) => d.shop_name],
         ['Livrées', (d) => d.delivered_count], ['En route', (d) => d.in_transit_count], ['Espèces (FCFA)', (d) => d.cash_collected_fcfa], ['Dernière livraison', (d) => d.last_delivery_at || ''],
       ]],
-      billing: ['paiements-abonnements', extra.payments, [
+      billing: ['paiements-abonnements', scoped.payments, [
         ['Date', (x) => x.created_at], ['Boutique', (x) => x.shop_name], ['Forfait', (x) => PLAN_META[x.plan]?.label || x.plan], ['Montant (FCFA)', (x) => x.amount_fcfa], ['Référence PayDunya', (x) => x.invoice_token],
       ]],
-      reviews: ['avis', extra.reviews, [
+      reviews: ['avis', scoped.reviews, [
         ['Date', (r) => r.created_at], ['Note', (r) => r.rating], ['Commentaire', (r) => r.comment], ['Client', (r) => r.customer_name],
         ['Achat vérifié', (r) => (r.verified ? 'oui' : 'non')], ['Produit', (r) => r.product_name], ['Boutique', (r) => r.shop_name],
       ]],
     };
-    const [name, rows, columns] = sets[tab] || ['boutiques', merchants, merchantColumns];
+    const [name, rows, columns] = sets[tab] || ['boutiques', scopeMerchant ? [scopeMerchant] : merchants, merchantColumns];
     const blob = new Blob([toCsv(columns, rows)], { type: 'text/csv;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `samaboutik-${name}-${new Date().toISOString().slice(0, 10)}.csv`;
+    const scopeSlug = scopeMerchant ? `-${(scopeMerchant.shop_name || 'boutique').toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}` : '';
+    link.download = `samaboutik-${name}${scopeSlug}-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
   };
@@ -602,29 +614,32 @@ export default function AdminDashboard() {
   // Activité de la période (commandes de toute la plateforme)
   const ov = useMemo(() => {
     const now = loadedAt;
-    const orders = filterOrders(extra.orders, { days: period }, now);
+    const orders = filterOrders(scoped.orders, { days: period }, now);
     const os = ordersSummary(orders);
-    const late = extra.orders.filter((o) => o.status === 'PENDING' && now - Date.parse(o.created_at) > DAY);
-    const ps = productsSummary(extra.products, now);
-    const negative = extra.reviews.filter((r) => Number(r.rating) <= 2 && now - Date.parse(r.created_at) <= 30 * DAY);
+    const late = scoped.orders.filter((o) => o.status === 'PENDING' && now - Date.parse(o.created_at) > DAY);
+    const ps = productsSummary(scoped.products, now);
+    const negative = scoped.reviews.filter((r) => Number(r.rating) <= 2 && now - Date.parse(r.created_at) <= 30 * DAY);
     const wa = extra.health?.whatsapp?.by_status || {};
     return {
       os,
-      cs: customersSummary(extra.customers, now),
-      pay: paymentsSummary(extra.payments, now),
+      cs: customersSummary(scoped.customers, now),
+      pay: paymentsSummary(scoped.payments, now),
       late,
       outOfStock: ps.outOfStock,
       drafts: ps.draft,
       negative,
-      waFailed: Number(wa.failed || 0) + Number(wa.expired || 0),
+      waFailed: scopeMerchant
+        ? (extra.health?.whatsapp?.recent_failures || []).filter((f) => f.shop_name === scopeMerchant.shop_name).length
+        : Number(wa.failed || 0) + Number(wa.expired || 0),
       statusBars: ORDER_STATUSES.map((st) => ({ label: st.label, value: os.byStatus[st.id] || 0 })).filter((b) => b.value > 0),
       paySegments: os.payments.map((x, i) => ({ id: x.label, label: x.label, value: x.value, color: PAY_COLORS[i % PAY_COLORS.length] })),
     };
-  }, [extra, period, loadedAt]);
+  }, [scoped, extra.health, period, loadedAt, scopeMerchant]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const list = merchants.filter((m) => {
+      if (scope !== 'all' && m.id !== scope) return false;
       const haystack = `${m.shop_name} ${m.phone_number} ${m.account_email} ${m.contact_email} ${m.address} ${m.city || ''}`.toLowerCase();
       if (q && !haystack.includes(q)) return false;
       if (planFilter !== 'all' && planOf(m) !== planFilter) return false;
@@ -642,7 +657,7 @@ export default function AdminDashboard() {
       name: (x, y) => (x.shop_name || '').localeCompare(y.shop_name || '', 'fr'),
     };
     return list.sort(sorters[sortBy]);
-  }, [merchants, search, planFilter, statusFilter, locFilter, sortBy]);
+  }, [merchants, search, planFilter, statusFilter, locFilter, sortBy, scope]);
 
   const mapList = useMemo(() => {
     const q = mapSearch.trim().toLowerCase();
@@ -655,10 +670,10 @@ export default function AdminDashboard() {
   const NAV = [
     { id: 'overview', label: "Vue d'ensemble", icon: LayoutDashboard, group: 'Pilotage' },
     { id: 'orders', label: 'Commandes', icon: ShoppingBag, badge: ov.os.inProgress || null, group: 'Pilotage' },
-    { id: 'customers', label: 'Clients', icon: UserRound, badge: extra.customers.length || null, group: 'Pilotage' },
+    { id: 'customers', label: 'Clients', icon: UserRound, badge: scoped.customers.length || null, group: 'Pilotage' },
     { id: 'merchants', label: 'Boutiques', icon: Store, badge: merchants.length, group: 'Réseau' },
-    { id: 'products', label: 'Produits', icon: Package, badge: extra.products.length || null, group: 'Réseau' },
-    { id: 'drivers', label: 'Livreurs', icon: Bike, badge: extra.drivers.length || null, group: 'Réseau' },
+    { id: 'products', label: 'Produits', icon: Package, badge: scoped.products.length || null, group: 'Réseau' },
+    { id: 'drivers', label: 'Livreurs', icon: Bike, badge: scoped.drivers.length || null, group: 'Réseau' },
     { id: 'map', label: 'Carte des boutiques', icon: MapIcon, badge: a.located.length, group: 'Réseau' },
     { id: 'billing', label: 'Abonnements et offres', icon: CreditCard, badge: a.expiringSoon.length || null, group: 'Plateforme' },
     { id: 'reviews', label: 'Avis clients', icon: Star, badge: ov.negative.length || null, group: 'Plateforme' },
@@ -764,6 +779,31 @@ export default function AdminDashboard() {
               </div>
             )}
 
+            {!loading && (
+              <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <label htmlFor="admin-scope" className="shrink-0 text-sm font-semibold text-slate-600">Afficher :</label>
+                <div className="relative sm:w-80">
+                  <Store className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <select
+                    id="admin-scope"
+                    value={scope}
+                    onChange={(e) => setScope(e.target.value)}
+                    className={`w-full cursor-pointer appearance-none rounded-xl border py-2.5 pl-9 pr-9 text-sm font-semibold outline-none focus:ring-4 focus:ring-brand-500/10 ${scopeMerchant ? 'border-brand-300 bg-brand-50 text-brand-900' : 'border-slate-200 bg-white text-slate-700'}`}
+                  >
+                    <option value="all">Toute la plateforme ({merchants.length} boutiques)</option>
+                    {shopOptions.map((m) => <option key={m.id} value={m.id}>{m.shop_name || 'Sans nom'}</option>)}
+                  </select>
+                  <ChevronRight className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-slate-400" />
+                </div>
+                {scopeMerchant && (
+                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-brand-900">
+                    <span>Uniquement les données de <strong>{scopeMerchant.shop_name}</strong>.</span>
+                    <button onClick={() => setScope('all')} className="font-bold underline underline-offset-2">Revenir à toute la plateforme</button>
+                  </p>
+                )}
+              </div>
+            )}
+
             {loading ? (
               <div className="flex min-h-[50vh] items-center justify-center"><div className="h-12 w-12 animate-spin rounded-full border-2 border-brand-600/20 border-t-brand-600" /></div>
             ) : (
@@ -772,6 +812,37 @@ export default function AdminDashboard() {
 
                   {tab === 'overview' && (
                     <>
+                      {scopeMerchant && (
+                        <motion.section variants={rise} className="relative overflow-hidden rounded-[2rem] bg-ink p-6 text-white md:p-8">
+                          <div className="pointer-events-none absolute -left-24 -top-32 h-96 w-96 rounded-full bg-brand-500/25 blur-3xl" aria-hidden="true" />
+                          <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="flex min-w-0 items-center gap-4">
+                              <ShopAvatar merchant={scopeMerchant} size="h-16 w-16 text-2xl" />
+                              <div className="min-w-0">
+                                <p className="text-sm text-brand-200/80">Boutique sélectionnée</p>
+                                <h2 className="truncate text-3xl font-extrabold tracking-tight">{scopeMerchant.shop_name}</h2>
+                                <div className="mt-2 flex flex-wrap gap-2"><PlanBadge plan={planOf(scopeMerchant)} /><StatusBadge merchant={scopeMerchant} /></div>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <button onClick={() => setDetailsId(scopeMerchant.id)} className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-ink"><Eye className="h-4 w-4" /> Fiche complète</button>
+                              <a href={shopUrl(scopeMerchant)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold hover:bg-white/10"><Globe className="h-4 w-4" /> Vitrine</a>
+                              <button onClick={() => setScope('all')} className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold hover:bg-white/10"><LayoutDashboard className="h-4 w-4" /> Toute la plateforme</button>
+                            </div>
+                          </div>
+                          <div className="relative mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                            {[
+                              { l: 'Produits', v: fmt(Number(scopeMerchant.products_count)) },
+                              { l: 'Commandes', v: fmt(Number(scopeMerchant.orders_count)) },
+                              { l: 'Livrées', v: fmt(Number(scopeMerchant.delivered_count)) },
+                              { l: "Chiffre d'affaires livré", v: `${compact(Number(scopeMerchant.revenue_fcfa))} F` },
+                            ].map((x) => (
+                              <div key={x.l} className="rounded-2xl bg-white/[0.07] p-3"><p className="font-figures text-xl font-bold">{x.v}</p><p className="text-xs text-white/60">{x.l}</p></div>
+                            ))}
+                          </div>
+                        </motion.section>
+                      )}
+                      {!scopeMerchant && (
                       <motion.section variants={rise} className="relative overflow-hidden rounded-[2rem] bg-ink p-6 text-white md:p-8">
                         <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
                           <div className="absolute -left-24 -top-32 h-96 w-96 rounded-full bg-brand-500/25 blur-3xl" />
@@ -791,6 +862,7 @@ export default function AdminDashboard() {
                           </div>
                         </div>
                       </motion.section>
+                      )}
 
                       <motion.div variants={rise} className="flex flex-wrap items-center gap-3">
                         <div className="relative flex rounded-2xl border border-slate-200/70 bg-white p-1 shadow-sm" role="group" aria-label="Période">
@@ -804,12 +876,14 @@ export default function AdminDashboard() {
                         <span className="text-sm text-slate-500">Les indicateurs d'activité portent sur les {period} derniers jours</span>
                       </motion.div>
 
+                      {!scopeMerchant && (
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                         <Kpi label="Chiffre d'affaires livré" value={compact(a.revenue)} unit="FCFA" icon={Wallet} gradient="emerald" deltaValue={a.revenueDelta} deltaLabel={`vs ${period} j préc.`} spark={a.buckets.slice(-12).map((b) => b.revenue)} accent={BRAND.signature} />
                         <Kpi label="Commandes" value={fmt(a.orders)} icon={ShoppingBag} gradient="sky" deltaValue={a.ordersDelta} deltaLabel={`vs ${period} j préc.`} spark={a.buckets.slice(-12).map((b) => b.orders)} accent="#2a78d6" />
                         <Kpi label="Nouvelles boutiques" value={fmt(a.newMerchants)} icon={Store} gradient="violet" deltaValue={a.newMerchantsDelta} deltaLabel={`vs ${period} j préc.`} spark={a.buckets.slice(-12).map((b) => b.newMerchants)} accent="#4a3aa7" />
                         <Kpi label="Revenu mensuel (abonnements)" value={fmt(a.mrr)} unit="FCFA" icon={Crown} gradient="amber" hint={`${a.paid.length} forfait${a.paid.length > 1 ? 's' : ''} payant${a.paid.length > 1 ? 's' : ''} actif${a.paid.length > 1 ? 's' : ''} · ${a.suspended} suspendue${a.suspended > 1 ? 's' : ''}`} />
                       </div>
+                      )}
 
                       {missing.length > 0 && <SetupNotice what="Commandes, clients, produits, livreurs, avis et système" />}
 
@@ -839,11 +913,11 @@ export default function AdminDashboard() {
                               {(() => {
                                 const watch = [
                                   { n: ov.late.length, label: 'commande(s) à traiter depuis plus de 24 h', tab: 'orders', icon: Clock, tone: 'bg-amber-50 text-amber-700' },
-                                  { n: a.expiringSoon.length, label: 'abonnement(s) expirent dans les 7 jours', tab: 'billing', icon: Crown, tone: 'bg-amber-50 text-amber-700' },
+                                  { n: (scopeMerchant ? a.expiringSoon.filter((m) => m.id === scopeMerchant.id) : a.expiringSoon).length, label: 'abonnement(s) expirent dans les 7 jours', tab: 'billing', icon: Crown, tone: 'bg-amber-50 text-amber-700' },
                                   { n: ov.waFailed, label: 'message(s) WhatsApp en échec (30 j)', tab: 'system', icon: MessageCircle, tone: 'bg-red-50 text-red-700' },
                                   { n: ov.negative.length, label: 'avis négatif(s) ces 30 derniers jours', tab: 'reviews', icon: Star, tone: 'bg-red-50 text-red-700' },
                                   { n: ov.outOfStock, label: 'produit(s) en rupture de stock', tab: 'products', icon: PackageX, tone: 'bg-slate-100 text-slate-700' },
-                                  { n: merchants.length - a.located.length, label: 'boutique(s) non localisée(s)', tab: 'merchants', icon: MapPin, tone: 'bg-slate-100 text-slate-700' },
+                                  { n: scopeMerchant ? (scopeMerchant.latitude == null ? 1 : 0) : merchants.length - a.located.length, label: 'boutique(s) non localisée(s)', tab: 'merchants', icon: MapPin, tone: 'bg-slate-100 text-slate-700' },
                                 ].filter((w) => w.n > 0);
                                 return watch.length === 0 ? (
                                   <p className="rounded-xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">Tout est en ordre. 👍</p>
@@ -866,6 +940,8 @@ export default function AdminDashboard() {
                         </>
                       )}
 
+                      {!scopeMerchant && (
+                      <>
                       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
                         <motion.div variants={rise} className="xl:col-span-2">
                           <ChartCard
@@ -912,6 +988,8 @@ export default function AdminDashboard() {
                         </header>
                         <ShopsMap merchants={merchants} height={360} onOpenDetails={(m) => setDetailsId(m.id)} />
                       </motion.section>
+                      </>
+                      )}
                     </>
                   )}
 
@@ -1031,6 +1109,24 @@ export default function AdminDashboard() {
 
                   {tab === 'billing' && (
                     <>
+                      {scopeMerchant && (
+                        <motion.section variants={rise} className={`${CARD} flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between`}>
+                          <div className="flex items-center gap-3">
+                            <ShopAvatar merchant={scopeMerchant} />
+                            <div>
+                              <p className="font-bold">{scopeMerchant.shop_name}</p>
+                              <p className="text-sm text-slate-500">
+                                {PLAN_META[planOf(scopeMerchant)].label} · {fmt(PLAN_PRICES[planOf(scopeMerchant)])} FCFA / mois
+                                {scopeMerchant.subscription_end_date ? ` · jusqu'au ${dateFr(scopeMerchant.subscription_end_date)}` : ''}
+                              </p>
+                              <p className="text-xs text-slate-400">Payé par cette boutique : {fmt(paymentsSummary(scoped.payments, loadedAt).total)} FCFA</p>
+                            </div>
+                          </div>
+                          <button onClick={() => setSubscriptionFor(scopeMerchant)} className="inline-flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-800"><Crown className="h-4 w-4" /> Changer l'offre</button>
+                        </motion.section>
+                      )}
+                      {!scopeMerchant && (
+                      <>
                       <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
                         {Object.entries(PLAN_META).map(([id, meta]) => {
                           const count = merchants.filter((m) => planOf(m) === id).length;
@@ -1070,20 +1166,24 @@ export default function AdminDashboard() {
                           </motion.section>
                         ))}
                       </div>
+                      </>
+                      )}
 
                       {missing.includes('payments') ? <SetupNotice what="Paiements d'abonnement" /> : (
                         <>
+                          {!scopeMerchant && (
                           <StatGrid>
                             <StatTile label="Revenu mensuel récurrent" value={`${fmt(a.mrr)} F`} sub={`${a.paid.length} forfait${a.paid.length > 1 ? 's' : ''} payant${a.paid.length > 1 ? 's' : ''} actif${a.paid.length > 1 ? 's' : ''}`} icon={Crown} gradient="amber" />
                             <StatTile label="Encaissé (30 jours)" value={`${fmt(ov.pay.last30)} F`} sub="paiements PayDunya confirmés" icon={Banknote} gradient="emerald" />
                             <StatTile label="Encaissé au total" value={`${compact(ov.pay.total)} F`} sub={`${ov.pay.count} paiement${ov.pay.count > 1 ? 's' : ''}`} icon={Wallet} gradient="sky" />
                             <StatTile label="À renouveler" value={fmt(a.expired.length + a.expiringSoon.length)} sub={`${a.expiringSoon.length} cette semaine · ${a.expired.length} expiré${a.expired.length > 1 ? 's' : ''}`} icon={Clock} gradient="rose" />
                           </StatGrid>
+                          )}
                           <motion.p variants={rise} className="flex items-center gap-2 text-sm text-slate-500">
                             <Crown className="h-4 w-4 text-amber-600" /> Pour offrir ou modifier une offre : ouvrez une boutique, puis « Changer l'offre ». Chaque changement est noté dans le journal.
                           </motion.p>
                           <DataTable
-                            rows={extra.payments}
+                            rows={scoped.payments}
                             rowKey={(x) => x.invoice_token}
                             onRowClick={(x) => x.merchant_id && openMerchant(x.merchant_id)}
                             empty="Aucun paiement d'abonnement reçu pour le moment."
@@ -1107,11 +1207,11 @@ export default function AdminDashboard() {
                     </>
                   )}
 
-                  {tab === 'orders' && (missing.includes('orders') ? <SetupNotice what="Commandes" /> : <OrdersSection orders={extra.orders} merchants={merchants} onOpenOrder={openOrder} />)}
-                  {tab === 'customers' && (missing.includes('customers') ? <SetupNotice what="Clients" /> : <CustomersSection customers={extra.customers} onOpenCustomer={openCustomer} />)}
-                  {tab === 'products' && (missing.includes('products') ? <SetupNotice what="Produits" /> : <ProductsSection products={extra.products} onOpenMerchant={openMerchant} />)}
-                  {tab === 'drivers' && (missing.includes('drivers') ? <SetupNotice what="Livreurs" /> : <DriversSection drivers={extra.drivers} onOpenMerchant={openMerchant} />)}
-                  {tab === 'reviews' && (missing.includes('reviews') ? <SetupNotice what="Avis clients" /> : <ReviewsSection reviews={extra.reviews} onDelete={deleteReview} onOpenMerchant={openMerchant} />)}
+                  {tab === 'orders' && (missing.includes('orders') ? <SetupNotice what="Commandes" /> : <OrdersSection orders={scoped.orders} merchants={scopeMerchant ? [scopeMerchant] : merchants} onOpenOrder={openOrder} />)}
+                  {tab === 'customers' && (missing.includes('customers') ? <SetupNotice what="Clients" /> : <CustomersSection customers={scoped.customers} onOpenCustomer={openCustomer} />)}
+                  {tab === 'products' && (missing.includes('products') ? <SetupNotice what="Produits" /> : <ProductsSection products={scoped.products} onOpenMerchant={openMerchant} />)}
+                  {tab === 'drivers' && (missing.includes('drivers') ? <SetupNotice what="Livreurs" /> : <DriversSection drivers={scoped.drivers} onOpenMerchant={openMerchant} />)}
+                  {tab === 'reviews' && (missing.includes('reviews') ? <SetupNotice what="Avis clients" /> : <ReviewsSection reviews={scoped.reviews} onDelete={deleteReview} onOpenMerchant={openMerchant} />)}
                   {tab === 'system' && (missing.includes('health') ? <SetupNotice what="Système et journal" /> : <SystemSection health={extra.health} merchants={merchants} />)}
                 </motion.div>
               </AnimatePresence>
@@ -1127,6 +1227,7 @@ export default function AdminDashboard() {
         onShowOnMap={showOnMap}
         busy={busyId === detailsMerchant?.id}
         onChangePlan={(m) => setSubscriptionFor(m)}
+        onFocusShop={(m) => { setScope(m.id); setDetailsId(null); setTab('overview'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
         recentOrders={detailsMerchant ? extra.orders.filter((o) => o.merchant_id === detailsMerchant.id) : []}
         onOpenOrder={openOrder}
       />
@@ -1137,8 +1238,8 @@ export default function AdminDashboard() {
         onOpenCustomer={openCustomer}
       />
       <CustomerDrawer
-        customer={extra.customers.find((c) => c.customer_key === customerKey) || null}
-        orders={extra.orders}
+        customer={scoped.customers.find((c) => c.customer_key === customerKey) || null}
+        orders={scoped.orders}
         onClose={() => setCustomerKey(null)}
         onOpenOrder={openOrder}
       />

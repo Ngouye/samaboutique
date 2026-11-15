@@ -108,3 +108,49 @@ export function toCsv(columns, rows) {
   const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   return '﻿' + [columns.map(([h]) => cell(h)).join(';'), ...rows.map((r) => columns.map(([, get]) => cell(get(r))).join(';'))].join('\n');
 }
+
+// Clients d'une seule boutique, recalculés à partir de ses commandes : aucun chiffre ne mélange
+// ce qu'un client a acheté ailleurs.
+export function customersFromOrders(orders) {
+  const groups = new Map();
+  (orders || []).forEach((o) => {
+    const key = o.customer_key || '';
+    if (!key) return;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(o);
+  });
+  return [...groups.entries()].map(([key, list]) => {
+    const sorted = [...list].sort((a, b) => t(b.created_at) - t(a.created_at));
+    const delivered = sorted.filter((o) => o.status === 'DELIVERED');
+    return {
+      customer_key: key,
+      customer_name: sorted[0].customer_name,
+      customer_phone: sorted[0].customer_phone,
+      orders_count: sorted.length,
+      delivered_count: delivered.length,
+      cancelled_count: sorted.filter((o) => o.status === 'CANCELLED').length,
+      total_spent_fcfa: delivered.reduce((s, o) => s + n(o.total_amount_fcfa), 0),
+      shops_count: new Set(sorted.map((o) => o.merchant_id)).size,
+      shops: [...new Set(sorted.map((o) => o.shop_name).filter(Boolean))].slice(0, 5),
+      zones: [...new Set(sorted.map((o) => o.delivery_zone).filter(Boolean))].slice(0, 5),
+      first_order_at: sorted[sorted.length - 1].created_at,
+      last_order_at: sorted[0].created_at,
+    };
+  }).sort((a, b) => t(b.last_order_at) - t(a.last_order_at));
+}
+
+// Données d'une seule boutique (ou de toute la plateforme si `merchantId` vaut 'all').
+export function scopeData(extra, merchantId) {
+  if (!merchantId || merchantId === 'all') return extra;
+  const mine = (x) => x.merchant_id === merchantId;
+  const orders = (extra.orders || []).filter(mine);
+  return {
+    ...extra,
+    orders,
+    customers: customersFromOrders(orders),
+    products: (extra.products || []).filter(mine),
+    drivers: (extra.drivers || []).filter(mine),
+    reviews: (extra.reviews || []).filter(mine),
+    payments: (extra.payments || []).filter(mine),
+  };
+}
