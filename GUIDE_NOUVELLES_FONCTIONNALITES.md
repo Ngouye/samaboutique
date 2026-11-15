@@ -13,7 +13,7 @@ Dans Supabase, ouvrez **SQL Editor** et exécutez `new_features.sql`. Les script
 
 > Si vous relancez un jour `admin_locations.sql`, relancez ensuite `new_features.sql`.
 >
-> Exécutez ensuite `security_fixes_3.sql`, `stock_et_annuaire.sql` (gestion du stock, WhatsApp et adresse dans l'annuaire) puis `paiements_et_ia.sql` (opérateur de paiement, compteur de l'assistant IA), `suivi_commande.sql` (suivi de commande quelle que soit l'écriture du numéro) `produits_brouillons.sql` (produits en brouillon, publication programmée) et `admin_complet.sql` (administration complète : commandes, clients, produits, livreurs, avis, paiements, système, changement d'offre, journal). Si vous relancez `new_features.sql` ou `stock_et_annuaire.sql`, relancez ensuite les scripts qui les suivent, dans cet ordre.
+> Exécutez ensuite `security_fixes_3.sql`, `stock_et_annuaire.sql` (gestion du stock, WhatsApp et adresse dans l'annuaire) puis `paiements_et_ia.sql` (opérateur de paiement, compteur de l'assistant IA), `suivi_commande.sql` (suivi de commande quelle que soit l'écriture du numéro) `produits_brouillons.sql` (produits en brouillon, publication programmée) et `admin_complet.sql` (administration complète : commandes, clients, produits, livreurs, avis, paiements, système, changement d'offre, journal), puis `acompte_livraison.sql` (acompte de 10 % pour le paiement à la livraison, voir section 10) **après** avoir mis en ligne le nouveau site et le nouveau serveur. Si vous relancez `new_features.sql` ou `stock_et_annuaire.sql`, relancez ensuite les scripts qui les suivent, dans cet ordre.
 
 ### Étape 2 — Le serveur (dossier `server/`)
 1. Ajoutez les variables ci-dessous chez votre hébergeur (Render, Railway…) ou dans `server/.env`.
@@ -255,3 +255,36 @@ Tant que `paiements_et_ia.sql` n'a pas été exécuté, le paiement fonctionne q
 - `server/routes/ai.js`, `server/lib/aiQuota.js`, `server/lib/productCategories.js`, `server/routes/payment.js` ;
 - `src/components/dashboard/AiProductAssistant.jsx`, `ProductPoster.jsx` ;
 - `src/utils/aiAssistant.js`, `src/utils/payments.js`.
+
+## 10. Acompte de 10 % pour le paiement à la livraison
+
+Quand le client choisit **À la livraison** :
+1. il paie tout de suite **10 % du total** (articles + livraison) avec Wave, Orange Money, Free Money ou Wizall Money, sur la page sécurisée PayDunya ;
+2. le livreur encaisse **le reste** en espèces à la livraison.
+
+L'acompte est arrondi aux 5 F supérieurs, pour que le reste à payer soit un montant rendable en espèces. Exemple : pour 12 730 F, l'acompte est de 1 275 F et le livreur encaisse 11 455 F.
+
+**Ce que voit chacun** :
+- **Client** : le panier affiche « Maintenant » et « Au livreur », puis le bouton « Payer l'acompte ». Après le paiement, la confirmation, le message WhatsApp et le suivi indiquent l'acompte payé et le reste à payer.
+- **Boutique** : la commande n'apparaît (avec le son et l'annonce « Nouvelle commande ») **qu'une fois l'acompte payé**. Le badge « Acompte payé … · reste … » et le détail de la commande indiquent ce que le livreur doit encaisser. Les commandes Wave / Orange Money non payées ne s'affichent plus non plus dans « À traiter ».
+- **Livreur** : le montant à encaisser est le reste, avec la mention « Acompte de … déjà payé en ligne ».
+- **Administration** : les espèces encaissées par les livreurs tiennent compte de l'acompte.
+
+**Règles** :
+- tant que l'acompte n'est pas payé, le stock n'est pas réservé (il est seulement vérifié) et personne n'est prévenu ;
+- l'acompte est reversé à la boutique comme un paiement mobile : 95 % pour la boutique, 5 % de commission pour la plateforme ;
+- si la boutique annule une commande dont l'acompte est payé, le stock est rendu ; le remboursement de l'acompte au client se fait à la main ;
+- depuis la vitrine, une commande à la livraison **sans** acompte est refusée par la base.
+
+**Mise en ligne, dans cet ordre** :
+1. mettre en ligne le nouveau site (Vercel) et le nouveau serveur (Northflank, `api-commandes`) ;
+2. exécuter `acompte_livraison.sql` dans l'éditeur SQL de Supabase.
+
+Tant que le script n'est pas exécuté, le paiement à la livraison fonctionne comme avant, sans acompte.
+
+**Fichiers** :
+- `acompte_livraison.sql` (et `admin_complet.sql`, espèces des livreurs) ;
+- `server/routes/payment.js`, `server/lib/deposit.js`, `server/lib/notificationMessages.js` ;
+- `src/pages/PublicShop.jsx`, `src/pages/MerchantDashboard.jsx`, `src/pages/DriverDashboard.jsx`, `src/components/driver/DriverViews.jsx` ;
+- `src/utils/payments.js`, `src/utils/delivery.js` ;
+- tests : `tests/db/acompte.test.js`, `tests/server/payments.test.js`, `tests/server/notifications.test.js`, `tests/unit/payments.test.js`, `tests/unit/delivery.test.js`.

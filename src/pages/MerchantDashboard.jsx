@@ -31,7 +31,8 @@ import { WhatsAppSettingsCard, DirectoryToggle } from '../components/dashboard/S
 import LocationAssist from '../components/dashboard/LocationAssist';
 import { PLAN_FEATURES } from '../utils/plans';
 import { BRAND } from '../utils/brand';
-import { paymentLabel } from '../utils/payments';
+import { paymentLabel, isDeposit, depositAmount, awaitingPayment } from '../utils/payments';
+import { cashToCollect } from '../utils/delivery';
 import AiProductAssistant, { AiTeaser } from '../components/dashboard/AiProductAssistant';
 import ProductPoster from '../components/dashboard/ProductPoster';
 import PublishDialog, { VisibilityPicker, VisibilityBadge } from '../components/dashboard/PublishDialog';
@@ -90,6 +91,27 @@ export default function MerchantDashboard() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  const playNotificationSound = () => {
+    if (!soundEnabled || !audioContextRef.current) return;
+    try {
+      const ctx = audioContextRef.current;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.5);
+    } catch (e) {
+      console.log("Erreur audio", e);
+    }
+  };
+
   // Commandes arrivées pendant que la page est ouverte (mises en lumière quelques secondes)
   const knownOrderIds = useRef(null);
   const [freshOrderIds, setFreshOrderIds] = useState([]);
@@ -103,6 +125,7 @@ export default function MerchantDashboard() {
     const arrived = orders.filter((o) => !knownOrderIds.current.has(o.id));
     ids.forEach((id) => knownOrderIds.current.add(id));
     if (arrived.length === 0) return undefined;
+    playNotificationSound();
     setFreshOrderIds((list) => [...list, ...arrived.map((o) => o.id)]);
     const first = arrived[0];
     setToastMessage(arrived.length > 1
@@ -259,26 +282,6 @@ const DEFAULT_DELIVERY_ZONES = [
     }
   }, [merchant]);
 
-  const playNotificationSound = () => {
-    if (!soundEnabled || !audioContextRef.current) return;
-    try {
-      const ctx = audioContextRef.current;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0, ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.5);
-    } catch (e) {
-      console.log("Erreur audio", e);
-    }
-  };
 
   const enableSound = () => {
     if (!audioContextRef.current) {
@@ -324,10 +327,9 @@ const DEFAULT_DELIVERY_ZONES = [
 
     // Subscribe to real-time orders
     const ordersSubscription = supabase.channel('custom-all-channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `merchant_id=eq.${user.id}` }, payload => {
-        if (payload.eventType === 'INSERT') {
-          playNotificationSound();
-        }
+      // Le son et l'annonce « Nouvelle commande » viennent de l'arrivée de la commande dans la liste :
+      // une commande payée en ligne n'y entre qu'une fois le paiement (ou l'acompte) confirmé.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `merchant_id=eq.${user.id}` }, () => {
         fetchData();
       })
       .subscribe();
@@ -360,7 +362,8 @@ const DEFAULT_DELIVERY_ZONES = [
         const { error: visibilityError } = await supabase.from('products').select('visibility').eq('merchant_id', user.id).limit(1);
         setDraftsSupported(!visibilityError);
       }
-      if (ordData) setOrders(ordData);
+      // Commandes dont le paiement en ligne ou l'acompte n'est pas encore confirmé : pas encore à traiter.
+      if (ordData) setOrders(ordData.filter((o) => !awaitingPayment(o)));
       if (teamData) setTeam(teamData);
       else if (teamError && teamError.code !== '42P01') console.error(teamError); // Ignore if table doesn't exist yet
       setShopLocation(locationData || null);
@@ -635,7 +638,7 @@ const DEFAULT_DELIVERY_ZONES = [
 
 📦 Votre commande N° ${order.id.slice(0,6).toUpperCase()} chez *${merchant?.shop_name}* ${statusText}.
 
-💳 Total: ${order.total_amount_fcfa.toLocaleString('fr-FR')} FCFA
+💳 Total: ${order.total_amount_fcfa.toLocaleString('fr-FR')} FCFA${isDeposit(order) ? ` (acompte de ${depositAmount(order).toLocaleString('fr-FR')} FCFA payé, reste ${cashToCollect(order).toLocaleString('fr-FR')} FCFA à la livraison)` : ''}
 📍 Suivez votre commande en direct ici : ${shopUrl}
 
 Merci de votre confiance ! 🙏`;
@@ -725,7 +728,7 @@ Merci de votre confiance ! 🙏`;
         count++;
         const cartTotal = order.cart_items?.reduce((acc, item) => acc + (item.price * item.quantity), 0) || 0;
         const deliveryFee = order.total_amount_fcfa - cartTotal;
-        const collectedCash = order.payment_method === 'MOBILE_MONEY' ? 0 : order.total_amount_fcfa;
+        const collectedCash = cashToCollect(order);
 
         dEnbaisse += collectedCash;
         dPartLivreur += deliveryFee;
@@ -867,7 +870,7 @@ Merci de votre confiance ! 🙏`;
     driverDeliveries.forEach(order => {
       const cartTotal = order.cart_items?.reduce((acc, item) => acc + (item.price * item.quantity), 0) || 0;
       const deliveryFee = order.total_amount_fcfa - cartTotal;
-      const collectedCash = order.payment_method === 'MOBILE_MONEY' ? 0 : order.total_amount_fcfa;
+      const collectedCash = cashToCollect(order);
 
       dTotalEnbaisse += collectedCash;
       dPartLivreur += deliveryFee;
@@ -1591,6 +1594,12 @@ Merci de votre confiance ! 🙏`;
                                   <div className="flex justify-between gap-3"><dt className="text-stone-500">Articles</dt><dd className="font-figures tabular-nums">{fmt(subtotal)} F</dd></div>
                                   <div className="flex justify-between gap-3"><dt className="min-w-0 truncate text-stone-500">Livraison · {order.delivery_zone}</dt><dd className="shrink-0 font-figures tabular-nums">{fmt(Math.max(0, (order.total_amount_fcfa || 0) - subtotal))} F</dd></div>
                                   <div className="flex justify-between gap-3 font-bold text-ink"><dt>Total</dt><dd className="font-figures tabular-nums">{fmt(order.total_amount_fcfa)} F</dd></div>
+                                  {isDeposit(order) && (
+                                    <>
+                                      <div className="flex justify-between gap-3 text-emerald-700"><dt>Acompte payé en ligne</dt><dd className="font-figures tabular-nums">− {fmt(depositAmount(order))} F</dd></div>
+                                      <div className="flex justify-between gap-3 font-bold text-ink"><dt>Reste à encaisser</dt><dd className="font-figures tabular-nums">{fmt(cashToCollect(order))} F</dd></div>
+                                    </>
+                                  )}
                                 </dl>
                                 <p className="mt-2 text-xs text-stone-500">
                                   Passée le {new Date(order.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} à {new Date(order.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
@@ -1632,7 +1641,7 @@ Merci de votre confiance ! 🙏`;
                             <span className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-700"><Smartphone className="h-3 w-3" /> {paymentLabel(order)}</span>
                           )}
                           {order.payment_method === 'DEPOSIT' && (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700"><CreditCard className="h-3 w-3" /> Acompte : {order.payment_deposit_amount} FCFA</span>
+                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700"><CreditCard className="h-3 w-3" /> Acompte payé {fmt(depositAmount(order))} F · reste {fmt(cashToCollect(order))} F</span>
                           )}
                           {order.payment_method === 'FULL_UPFRONT' && (
                             <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700"><CircleCheck className="h-3 w-3" /> Intégral payé</span>

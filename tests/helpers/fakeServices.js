@@ -42,7 +42,8 @@ export async function startFakeSupabase(initial) {
   const db = structuredClone(tables);
   const log = [];
   // state.failNextInsert = { code, message } : la prochaine insertion est refusée comme par un déclencheur SQL.
-  const state = { failNextInsert: null };
+  // state.rpc = { nom: (arguments) => résultat } : fonctions SQL installées (les autres répondent PGRST202).
+  const state = { failNextInsert: null, rpc: {} };
   const { server, url } = await listen(async (req, res) => {
     const u = new URL(req.url, 'http://x');
     if (u.pathname === '/auth/v1/user') {
@@ -54,6 +55,10 @@ export async function startFakeSupabase(initial) {
     const single = (req.headers.accept || '').includes('vnd.pgrst.object');
     const body = await readBody(req);
     log.push({ method: req.method, table, params: Object.fromEntries(params), body });
+    if (table.startsWith('rpc/')) {
+      const fn = state.rpc[table.slice(4)];
+      return fn ? send(res, 200, fn(body)) : send(res, 404, { code: 'PGRST202', message: 'Could not find the function in the schema cache' });
+    }
     const rows = db[table] || (db[table] = []);
 
     if (req.method === 'HEAD') {

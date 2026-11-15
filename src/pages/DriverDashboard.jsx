@@ -11,7 +11,7 @@ import { playSuccess, playPop } from '../utils/audio';
 import { Field, ErrorBanner, EASE } from '../components/auth/AuthUI';
 import { friendlyError } from '../utils/networkErrors';
 import { BRAND } from '../utils/brand';
-import { paymentLabel } from '../utils/payments';
+import { paymentLabel, depositPaid } from '../utils/payments';
 import LogoutDialog from '../components/LogoutDialog';
 import { showFarewell } from '../utils/farewell';
 import Logo from '../components/brand/Logo';
@@ -557,7 +557,7 @@ export default function DriverDashboard() {
                       <p className={`mx-auto mb-5 mt-4 flex w-max max-w-full items-center gap-2 rounded-xl px-3.5 py-2 text-[13px] font-semibold ${isPrepaid(pinOrder) ? 'bg-sky-50 text-sky-800' : 'bg-amber-50 text-amber-900'}`}>
                         {isPrepaid(pinOrder)
                           ? <><CreditCard className="h-4 w-4 shrink-0" /> Déjà payée ({paymentLabel(pinOrder)}) : n'encaissez rien</>
-                          : <><Banknote className="h-4 w-4 shrink-0" /> Encaissez {fmt(cashToCollect(pinOrder))} FCFA avant de valider</>}
+                          : <><Banknote className="h-4 w-4 shrink-0" /> Encaissez {fmt(cashToCollect(pinOrder))} FCFA{depositPaid(pinOrder) ? ' (acompte déjà payé)' : ''} avant de valider</>}
                       </p>
                     )}
                     {!pinOrder && <div className="mb-7" />}

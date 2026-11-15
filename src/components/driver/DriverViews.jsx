@@ -9,7 +9,7 @@ import { CARD } from '../dashboard/ui';
 import LiveLocationShare from './LiveLocationShare';
 import SlideToConfirm from './SlideToConfirm';
 import { parseOrderAddress, orderDirectionsUrl } from '../../utils/orderAddress';
-import { paymentLabel } from '../../utils/payments';
+import { paymentLabel, depositPaid, depositAmount } from '../../utils/payments';
 import { whatsappNumber, formatPhone } from '../../utils/phone';
 import { callPhone, openExternal } from '../../utils/links';
 import { lazyWithRetry } from '../../utils/lazyWithRetry';
@@ -114,15 +114,25 @@ function PaymentPanel({ order }) {
       </div>
     );
   }
+  // Paiement à la livraison avec acompte : le client a déjà payé 10 % en ligne, le livreur encaisse le reste.
+  const deposit = depositPaid(order) ? depositAmount(order) : 0;
   return (
-    <div className="flex items-end justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3.5">
-      <div>
-        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-amber-800/80">À encaisser en espèces</p>
-        <p className="mt-1 whitespace-nowrap font-figures text-2xl font-bold leading-none text-amber-900">
-          {fmt(cashToCollect(order))} <span className="text-xs font-semibold text-amber-800/70">FCFA</span>
-        </p>
+    <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-amber-800/80">{deposit > 0 ? 'Reste à encaisser' : 'À encaisser en espèces'}</p>
+          <p className="mt-1 whitespace-nowrap font-figures text-2xl font-bold leading-none text-amber-900">
+            {fmt(cashToCollect(order))} <span className="text-xs font-semibold text-amber-800/70">FCFA</span>
+          </p>
+        </div>
+        {fee > 0 && <Chip tone="brand">dont gain {fmt(fee)} F</Chip>}
       </div>
-      {fee > 0 && <Chip tone="brand">dont gain {fmt(fee)} F</Chip>}
+      {deposit > 0 && (
+        <p className="mt-2.5 flex items-start gap-1.5 border-t border-amber-200/80 pt-2.5 text-xs text-amber-900/85">
+          <CreditCard className="mt-px h-3.5 w-3.5 shrink-0" />
+          <span>Acompte de <b className="font-figures">{fmt(deposit)} F</b> déjà payé en ligne · total {fmt(order.total_amount_fcfa)} F</span>
+        </p>
+      )}
     </div>
   );
 }

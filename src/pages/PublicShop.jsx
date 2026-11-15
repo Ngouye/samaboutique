@@ -9,7 +9,7 @@ import { friendlyError, isOffline, NETWORK_MESSAGE } from '../utils/networkError
 import { whatsappNumber, canonicalPhone, cleanPin } from '../utils/phone';
 import { isLive } from '../utils/productVisibility';
 import StatusScreen from '../components/StatusScreen';
-import { PAYMENT_CHOICES, isMobileChannel } from '../utils/payments';
+import { PAYMENT_CHOICES, MOBILE_CHANNELS, isMobileChannel, depositFor, isDeposit, depositAmount, depositPaid, DEPOSIT_PERCENT } from '../utils/payments';
 import { COMMANDES_API } from '../utils/apiUrls';
 import { productOptions, needsChoice } from '../utils/productOptions';
 import { searchScore, matchesFilters, activeFilterCount, NO_FILTERS } from '../utils/searchText';
@@ -25,7 +25,7 @@ import {
   Footprints, Gem, Sparkles, Baby, Sofa, Dumbbell, BookOpen, Car, LayoutGrid, ClipboardCheck, PackageOpen, Bike,
   PartyPopper, Info, Lock, ShieldCheck, LocateFixed, House, Flame, Check, CircleCheck, CircleX, TriangleAlert,
   LoaderCircle, User, Send, ChevronDown, Palette, WifiOff, RotateCw, HeartFill, Share2, History,
-  WhatsApp, Facebook, Instagram, TikTok, SlidersHorizontal,
+  WhatsApp, Facebook, Instagram, TikTok, SlidersHorizontal, Banknote, Wallet,
 } from '../components/dashboard/icons';
 
 // Nom de boutique de l'adresse, lisible même si l'adresse contient un « % » isolé.
@@ -354,6 +354,9 @@ export default function PublicShop() {
   const [orderFinalized, setOrderFinalized] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentStatusMessage, setPaymentStatusMessage] = useState(null);
+  // Paiement à la livraison : acompte de 10 % payé en ligne (acompte_livraison.sql). null = pas encore vérifié.
+  const [depositMode, setDepositMode] = useState(null);
+  const [depositChannel, setDepositChannel] = useState(MOBILE_CHANNELS[0].id);
 
   // Tracking States
   const [trackPhone, setTrackPhone] = useState('');
@@ -572,6 +575,10 @@ export default function PublicShop() {
   const fetchOrderData = async (orderId) => {
     const { data } = await supabase.rpc('get_order_receipt', { p_order_id: orderId });
     if (data) {
+      if (isDeposit(data)) {
+        const balance = Math.max(0, (data.total_amount_fcfa || 0) - depositAmount(data));
+        setPaymentStatusMessage(`Paiement de l'acompte réussi ! Votre commande est confirmée : vous paierez les ${fmt(balance)} F restants au livreur.`);
+      }
       setOrderFinalized(data);
       setCart({});
       setIsCartOpen(true);
@@ -716,6 +723,11 @@ export default function PublicShop() {
   }, [merchant, activeZones, checkoutData.zone]);
 
   const getDeliveryPrice = () => activeZones.find(z => z.name === checkoutData.zone)?.price || 0;
+  // À la livraison : acompte en ligne, sauf tant que la base ne le gère pas (paiement classique).
+  const depositOn = depositMode !== false;
+  const useDeposit = checkoutData.paymentMethod === 'ON_DELIVERY' && depositOn;
+  const orderTotal = getCartTotal() + getDeliveryPrice();
+  const depositDue = depositFor(orderTotal);
   const cartItemsCount = Object.values(cart).reduce((acc, item) => acc + item.quantity, 0);
   const contactDone = Boolean(checkoutData.name.trim() && checkoutData.phone.replace(/\D/g, '').length >= 7 && checkoutData.address.trim() && checkoutData.zone);
   const checkoutSteps = [
@@ -739,6 +751,18 @@ export default function PublicShop() {
     }));
   }, [isCartOpen, activeZones]);
 
+  // L'acompte n'est demandé qu'une fois acompte_livraison.sql installé : vérifié à la première ouverture du panier.
+  useEffect(() => {
+    if (!isCartOpen || depositMode !== null) return undefined;
+    let alive = true;
+    supabase.rpc('order_deposit', { p_total: 0 }).then(({ error }) => {
+      if (!alive) return;
+      if (!error) setDepositMode(true);
+      else if (error.code === 'PGRST202') setDepositMode(false); // fonction absente : script pas encore exécuté
+    }, () => {});
+    return () => { alive = false; };
+  }, [isCartOpen, depositMode]);
+
   const submitOrder = async (e) => {
     e.preventDefault();
     if (Object.keys(cart).length === 0) return;
@@ -753,40 +777,15 @@ export default function PublicShop() {
         quantity: item.quantity
       }));
 
-      if (isMobileChannel(checkoutData.paymentMethod)) {
-        const apiUrl = COMMANDES_API;
-        // Serveur de paiement injoignable alors qu'internet fonctionne : on propose le paiement à la livraison.
-        const paymentDown = "Le paiement en ligne est momentanément indisponible. Réessayez dans un instant ou choisissez le paiement à la livraison.";
-        const response = await fetch(`${apiUrl}/api/payments/create`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            orderDetails: {
-              merchant_id: merchant.id,
-              name: checkoutData.name,
-              phone: canonicalPhone(checkoutData.phone),
-              address: checkoutData.address,
-              zone: checkoutData.zone,
-              cartItems: cartItemsArray,
-              channel: checkoutData.paymentMethod, // wave, orange_money, free_money ou wizall
-            }
-          })
-        }).catch(() => { throw new Error(isOffline() ? NETWORK_MESSAGE : paymentDown); });
-
-        const result = await response.json().catch(() => ({}));
-
-        if (result.success && result.paymentUrl) {
-          window.location.href = result.paymentUrl;
-        } else {
-          throw new Error(result.error || paymentDown);
-        }
-      } else {
+      const fullAddress = checkoutData.address + (checkoutData.gpsLocation ? ' || GPS: ' + checkoutData.gpsLocation : '');
+      // Paiement à la livraison sans acompte (tant que acompte_livraison.sql n'est pas installé).
+      const placeOnDelivery = async () => {
         const pinCode = String(crypto.getRandomValues(new Uint32Array(1))[0] % 9000 + 1000);
         const { data, error } = await supabase.rpc('place_order', {
           p_merchant_id: merchant.id,
           p_customer_name: checkoutData.name,
           p_customer_phone: canonicalPhone(checkoutData.phone),
-          p_customer_address: checkoutData.address + (checkoutData.gpsLocation ? ' || GPS: ' + checkoutData.gpsLocation : ''),
+          p_customer_address: fullAddress,
           p_delivery_zone: checkoutData.zone,
           p_cart_items: cartItemsArray,
           p_delivery_pin: pinCode
@@ -796,6 +795,44 @@ export default function PublicShop() {
 
         setOrderFinalized(data);
         setCart({});
+      };
+
+      if (isMobileChannel(checkoutData.paymentMethod) || useDeposit) {
+        const apiUrl = COMMANDES_API;
+        // Serveur de paiement injoignable alors qu'internet fonctionne.
+        const paymentDown = useDeposit
+          ? "Le paiement de l'acompte est momentanément indisponible. Réessayez dans un instant."
+          : "Le paiement en ligne est momentanément indisponible. Réessayez dans un instant ou choisissez le paiement à la livraison.";
+        const response = await fetch(`${apiUrl}/api/payments/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderDetails: {
+              merchant_id: merchant.id,
+              name: checkoutData.name,
+              phone: canonicalPhone(checkoutData.phone),
+              address: fullAddress,
+              zone: checkoutData.zone,
+              cartItems: cartItemsArray,
+              // wave, orange_money, free_money ou wizall ; à la livraison : opérateur choisi pour l'acompte
+              channel: useDeposit ? depositChannel : checkoutData.paymentMethod,
+              ...(useDeposit ? { mode: 'deposit' } : {}),
+            }
+          })
+        }).catch(() => { throw new Error(isOffline() ? NETWORK_MESSAGE : paymentDown); });
+
+        const result = await response.json().catch(() => ({}));
+
+        if (result.success && result.paymentUrl) {
+          window.location.href = result.paymentUrl;
+        } else if (useDeposit && result.code === 'DEPOSIT_UNAVAILABLE') {
+          setDepositMode(false);
+          await placeOnDelivery();
+        } else {
+          throw new Error(result.error || paymentDown);
+        }
+      } else {
+        await placeOnDelivery();
       }
     } catch (err) {
       console.error(err);
@@ -812,8 +849,16 @@ export default function PublicShop() {
     orderFinalized.cart_items.forEach(item => {
       text += `- ${item.quantity}x ${item.name} (${item.price} FCFA)\n`;
     });
-    text += `\n🚚 *Livraison :* ${orderFinalized.delivery_zone} (${getDeliveryPrice()} FCFA)\n`;
-    text += `💰 *Total à payer :* *${orderFinalized.total_amount_fcfa} FCFA*\n\n`;
+    const itemsTotal = orderFinalized.cart_items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    text += `\n🚚 *Livraison :* ${orderFinalized.delivery_zone} (${Math.max(0, orderFinalized.total_amount_fcfa - itemsTotal)} FCFA)\n`;
+    if (isDeposit(orderFinalized)) {
+      const deposit = depositAmount(orderFinalized);
+      text += `💰 *Total :* ${orderFinalized.total_amount_fcfa} FCFA\n`;
+      text += `✅ *Acompte payé en ligne :* ${deposit} FCFA\n`;
+      text += `💵 *Reste à payer à la livraison :* *${orderFinalized.total_amount_fcfa - deposit} FCFA*\n\n`;
+    } else {
+      text += `💰 *Total à payer :* *${orderFinalized.total_amount_fcfa} FCFA*\n\n`;
+    }
     text += `📍 *Mes coordonnées :*\n👤 Nom: ${orderFinalized.customer_name}\n📞 Tél: ${orderFinalized.customer_phone}\n🏠 Adresse: ${orderFinalized.customer_address}\n\n`;
     text += `🔐 *Code Secret de Livraison :* ${orderFinalized.delivery_pin}`;
     return `https://wa.me/${whatsappNumber(merchant.phone_number)}?text=${encodeURIComponent(text)}`;
@@ -1521,6 +1566,13 @@ export default function PublicShop() {
                     <div className="sm:text-right">
                       <p className="sh-faint text-xs font-bold uppercase tracking-widest">Montant total</p>
                       <p className="theme-text text-2xl font-extrabold">{fmt(trackResult.total_amount_fcfa)} FCFA</p>
+                      {isDeposit(trackResult) && (
+                        <p className="sh-muted mt-1 text-xs font-semibold">
+                          {depositPaid(trackResult)
+                            ? `Acompte payé ${fmt(depositAmount(trackResult))} F · reste ${fmt(trackResult.total_amount_fcfa - depositAmount(trackResult))} F au livreur`
+                            : `Acompte de ${fmt(depositAmount(trackResult))} F en attente de paiement`}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -1784,8 +1836,21 @@ export default function PublicShop() {
                       <p className="theme-text mt-1 font-mono text-4xl font-extrabold tracking-[0.35em]">{orderFinalized.delivery_pin}</p>
                       <p className="sh-muted mt-2 text-xs">Donnez ce code au livreur à la réception de votre colis.</p>
                     </div>
+                    {isDeposit(orderFinalized) && (
+                      <dl className="sh-surface sh-line sh-r-md mt-4 space-y-2 border p-4 text-left text-sm">
+                        <div className="flex justify-between gap-3"><dt className="sh-muted">Total de la commande</dt><dd className="sh-ink font-figures font-semibold tabular-nums">{fmt(orderFinalized.total_amount_fcfa)} F</dd></div>
+                        <div className="flex justify-between gap-3">
+                          <dt className="sh-muted flex items-center gap-1.5"><CircleCheck className="theme-text h-4 w-4 shrink-0" /> {depositPaid(orderFinalized) ? 'Acompte payé' : 'Acompte (en cours de confirmation)'}</dt>
+                          <dd className="sh-ink font-figures font-semibold tabular-nums">− {fmt(depositAmount(orderFinalized))} F</dd>
+                        </div>
+                        <div className="sh-line flex items-baseline justify-between gap-3 border-t pt-2">
+                          <dt className="sh-ink flex items-center gap-1.5 font-bold"><Banknote className="h-4 w-4 shrink-0" /> À payer au livreur</dt>
+                          <dd className="theme-text font-figures text-lg font-extrabold tabular-nums">{fmt(orderFinalized.total_amount_fcfa - depositAmount(orderFinalized))} F</dd>
+                        </div>
+                      </dl>
+                    )}
                     <div className="mt-6 space-y-2.5">
-                      {orderFinalized.payment_method === 'ON_DELIVERY' && (
+                      {(orderFinalized.payment_method === 'ON_DELIVERY' || isDeposit(orderFinalized)) && (
                         <a href={getWhatsAppCheckoutLink()} target="_blank" rel="noreferrer" className="sh-r-md flex w-full items-center justify-center gap-2 bg-[#25D366] py-4 font-bold text-white shadow-lg shadow-green-500/25 transition-colors hover:bg-[#1DA851]">
                           <Send className="h-5 w-5" /> Confirmer sur WhatsApp
                         </a>
@@ -1937,16 +2002,57 @@ export default function PublicShop() {
                               )}
                               <span className="min-w-0 pr-5">
                                 <span className="block text-sm font-bold leading-tight [overflow-wrap:anywhere]">{m.label}</span>
-                                <span className="sh-muted block text-[11px]">{m.sub}</span>
+                                <span className="sh-muted block text-[11px]">{m.id === 'ON_DELIVERY' && depositOn ? m.depositSub : m.sub}</span>
                               </span>
                             </label>
                           );
                         })}
                       </div>
-                      {isMobileChannel(checkoutData.paymentMethod) && (
+                      {useDeposit && (
+                        <div className="sh-surface sh-line sh-r-md mt-1 space-y-3 border p-3.5">
+                          <p className="sh-muted flex items-start gap-2 text-xs leading-relaxed">
+                            <ShieldCheck className="theme-text mt-0.5 h-4 w-4 shrink-0" />
+                            <span><span className="sh-ink font-bold">Acompte de {DEPOSIT_PERCENT} % pour confirmer la commande.</span> Vous payez le reste au livreur, à la réception du colis.</span>
+                          </p>
+                          <dl className="grid grid-cols-2 gap-2">
+                            <div className="theme-soft sh-r-sm px-3 py-2.5">
+                              <dt className="sh-muted flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide"><Wallet className="h-3.5 w-3.5" /> Maintenant</dt>
+                              <dd className="theme-text mt-0.5 font-figures text-lg font-extrabold tabular-nums">{fmt(depositDue)} F</dd>
+                            </div>
+                            <div className="sh-fill sh-r-sm px-3 py-2.5">
+                              <dt className="sh-muted flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide"><Banknote className="h-3.5 w-3.5" /> Au livreur</dt>
+                              <dd className="sh-ink mt-0.5 font-figures text-lg font-extrabold tabular-nums">{fmt(orderTotal - depositDue)} F</dd>
+                            </div>
+                          </dl>
+                          <div role="radiogroup" aria-label="Payer l'acompte avec">
+                            <p className="mb-1.5 text-xs font-bold">Payer l'acompte avec</p>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {MOBILE_CHANNELS.map((c) => {
+                                const on = depositChannel === c.id;
+                                return (
+                                  <button
+                                    key={c.id}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={on}
+                                    onClick={() => setDepositChannel(c.id)}
+                                    className={`flex min-w-0 items-center gap-2 rounded-xl px-2.5 py-2 text-left ring-2 transition-all ${on ? 'theme-soft ring-[color:var(--shop)]' : 'sh-surface ring-[color:var(--shop-line)] hover:ring-[color:var(--shop-faint)]'}`}
+                                  >
+                                    {c.logo
+                                      ? <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white p-0.5 ring-1 ring-black/5"><img src={c.logo} alt="" className="max-h-full max-w-full object-contain" /></span>
+                                      : <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[10px] font-extrabold" style={{ background: c.tint, color: c.ink }} aria-hidden="true">{c.monogram}</span>}
+                                    <span className="min-w-0 truncate text-xs font-bold">{c.label}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {(isMobileChannel(checkoutData.paymentMethod) || useDeposit) && (
                         <p className="sh-muted flex items-start gap-1.5 pt-1 text-xs">
                           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                          Vous serez redirigé vers la page sécurisée {PAYMENT_CHOICES.find((c) => c.id === checkoutData.paymentMethod)?.label} (PayDunya) pour payer, puis ramené ici.
+                          Vous serez redirigé vers la page sécurisée {MOBILE_CHANNELS.find((c) => c.id === (useDeposit ? depositChannel : checkoutData.paymentMethod))?.label} (PayDunya) pour payer{useDeposit ? " l'acompte" : ''}, puis ramené ici.
                         </p>
                       )}
                     </fieldset>
@@ -1956,6 +2062,12 @@ export default function PublicShop() {
                     <div className="mb-4 space-y-1.5 text-sm">
                       <div className="sh-muted flex justify-between"><span>Sous-total</span><span className="sh-ink font-semibold">{fmt(getCartTotal())} F</span></div>
                       <div className="sh-muted flex justify-between"><span className="truncate pr-4">Livraison · {checkoutData.zone}</span><span className="sh-ink shrink-0 font-semibold">{fmt(getDeliveryPrice())} F</span></div>
+                      {useDeposit && (
+                        <>
+                          <div className="sh-muted flex justify-between"><span>Total</span><span className="sh-ink font-semibold">{fmt(orderTotal)} F</span></div>
+                          <div className="sh-muted flex justify-between"><span>Reste à payer au livreur</span><span className="sh-ink font-semibold">{fmt(orderTotal - depositDue)} F</span></div>
+                        </>
+                      )}
                     </div>
                     <motion.button
                       whileTap={{ scale: 0.98 }}
@@ -1965,9 +2077,9 @@ export default function PublicShop() {
                     >
                       <span className="flex items-center gap-2">
                         {isSubmitting ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Lock className="h-5 w-5" />}
-                        {isSubmitting ? 'Traitement...' : 'Commander'}
+                        {isSubmitting ? 'Traitement...' : useDeposit ? "Payer l'acompte" : 'Commander'}
                       </span>
-                      <span className="flex items-center gap-1 text-lg font-extrabold">{fmt(getCartTotal() + getDeliveryPrice())} F <ChevronRight className="h-5 w-5" /></span>
+                      <span className="flex items-center gap-1 text-lg font-extrabold">{fmt(useDeposit ? depositDue : orderTotal)} F <ChevronRight className="h-5 w-5" /></span>
                     </motion.button>
                   </div>
                 </form>

@@ -43,6 +43,15 @@ describe('Messages', () => {
     expect(text).toContain('Position GPS : https://maps.google.com/?q=14.6,-17.4');
   });
 
+  it('acompte : indique l’acompte payé et le reste à remettre au livreur', () => {
+    const withDeposit = { ...order, payment_method: 'DEPOSIT', payment_status: 'DEPOSIT_PAID', payment_deposit_amount: 5100 };
+    const { text, template } = buildNotificationMessage('merchant_new_order', withDeposit);
+    expect(text).toMatch(/acompte de 5\s100 F payé, reste 45\s900 F à payer à la livraison/);
+    expect(template.params).toHaveLength(8); // modèle Meta inchangé
+    expect(buildNotificationMessage('customer_in_transit', withDeposit).text).toMatch(/À remettre au livreur : \*45\s900 F\* \(acompte déjà payé\)/);
+    expect(buildNotificationMessage('customer_in_transit', order).text).not.toContain('À remettre au livreur');
+  });
+
   it('n’envoie rien pour un événement inconnu', () => {
     expect(buildNotificationMessage('inconnu', order)).toBeNull();
   });

@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { DEFAULT_DELIVERY_ZONES } from '../lib/deliveryZones.js';
 import { reportError, reportWarning } from '../lib/monitoring.js';
+import { depositFor } from '../lib/deposit.js';
 
 // Produit visible par les clients : publié, ou programmé et l'heure est arrivée (même règle que la base).
 const isProductLive = (p, now = Date.now()) =>
@@ -52,12 +53,26 @@ export const MOBILE_CHANNELS = {
   wizall: 'wizall-senegal',
 };
 
+// L'acompte du paiement à la livraison n'est proposé qu'une fois acompte_livraison.sql exécuté
+// (sinon la base enregistrerait la commande comme un simple paiement à la livraison).
+// Une fois la réponse positive, elle est gardée en mémoire (plus aucune vérification ensuite).
+let depositReady = false;
+async function depositSupported() {
+  if (depositReady) return true;
+  const { error } = await supabase.rpc('order_deposit', { p_total: 0 });
+  if (error && error.code !== 'PGRST202') throw error; // base injoignable : erreur normale
+  depositReady = !error;
+  return depositReady;
+}
+
 // Route 1: Créer une demande de paiement (Checkout)
 // Le montant n'est JAMAIS pris chez le client : il est recalculé à partir des prix en base.
+// mode 'deposit' : paiement à la livraison, le client paie en ligne un acompte de 10 % ; sinon paiement complet.
 router.post('/create', async (req, res) => {
   try {
     const { orderDetails } = req.body || {};
     const items = orderDetails?.cartItems;
+    const isDeposit = orderDetails?.mode === 'deposit';
 
     if (!orderDetails?.merchant_id || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ success: false, error: 'Commande invalide' });
@@ -74,6 +89,10 @@ router.post('/create', async (req, res) => {
     const channel = orderDetails.channel ?? null;
     if (channel !== null && !Object.hasOwn(MOBILE_CHANNELS, channel)) {
       return res.status(400).json({ success: false, error: 'Moyen de paiement invalide' });
+    }
+    if (isDeposit && !(await depositSupported())) {
+      // Le site passe alors la commande à la livraison, sans acompte.
+      return res.status(409).json({ success: false, code: 'DEPOSIT_UNAVAILABLE', error: "L'acompte en ligne n'est pas encore disponible." });
     }
 
     const { data: merchant, error: merchantError } = await supabase
@@ -122,13 +141,16 @@ router.post('/create', async (req, res) => {
       merchant_id: merchant.id,
       customer_name: String(orderDetails.name).slice(0, 120),
       customer_phone: String(orderDetails.phone).slice(0, 40),
-      customer_address: String(orderDetails.address).slice(0, 500),
+      customer_address: String(orderDetails.address).slice(0, 600),
       delivery_zone: zone.name,
       total_amount_fcfa: totalAmount,
       cart_items: cartItems,
       delivery_pin: crypto.randomInt(1000, 10000).toString(),
-      payment_method: 'MOBILE_MONEY',
+      payment_method: isDeposit ? 'DEPOSIT' : 'MOBILE_MONEY',
       status: 'PENDING',
+      payment_status: 'PENDING',
+      // Recalculé par la base (acompte_livraison.sql) : même formule.
+      ...(isDeposit ? { payment_deposit_amount: depositFor(totalAmount) } : {}),
       ...(channel ? { payment_channel: channel } : {}),
     };
     let { data: order, error: orderError } = await supabase.from('orders').insert([orderRow]).select().single();
@@ -149,10 +171,13 @@ router.post('/create', async (req, res) => {
     const shopPath = `${frontendUrl}/boutique/${encodeURIComponent(merchant.shop_name)}`;
 
     // 2. Facture PayDunya : le montant est celui enregistré en base (recalculé par le trigger SQL si installé)
+    const amountDue = isDeposit ? Number(order.payment_deposit_amount) || depositFor(order.total_amount_fcfa) : order.total_amount_fcfa;
     const paydunyaPayload = {
       invoice: {
-        total_amount: order.total_amount_fcfa,
-        description: `Commande sur ${merchant.shop_name}`,
+        total_amount: amountDue,
+        description: isDeposit
+          ? `Acompte de 10 % · commande sur ${merchant.shop_name} (reste à payer à la livraison : ${order.total_amount_fcfa - amountDue} FCFA)`
+          : `Commande sur ${merchant.shop_name}`,
         // La page PayDunya s'ouvre directement sur l'opérateur choisi par le client
         ...(channel ? { channels: [MOBILE_CHANNELS[channel]] } : {}),
       },
@@ -161,7 +186,7 @@ router.post('/create', async (req, res) => {
         website_url: frontendUrl
       },
       custom_data: {
-        type: 'order',
+        type: isDeposit ? 'deposit' : 'order',
         order_id: order.id
       },
       actions: {
@@ -178,7 +203,8 @@ router.post('/create', async (req, res) => {
         success: true,
         paymentUrl: response.data.response_text,
         token: response.data.token,
-        orderId: order.id
+        orderId: order.id,
+        amount: amountDue,
       });
     } else {
       res.status(400).json({ success: false, error: "Échec de création de la facture PayDunya" });
@@ -190,8 +216,9 @@ router.post('/create', async (req, res) => {
   }
 });
 
-// Reversement automatique au marchand (95 %), appelé une seule fois par commande payée.
-async function payoutMerchant(order) {
+// Reversement automatique au marchand (95 % de la somme payée en ligne : commande complète ou acompte),
+// appelé une seule fois par paiement.
+async function payoutMerchant(order, paidAmount) {
   try {
     const { data: merchant, error: merchantError } = await supabase.from('merchants')
       .select('payout_phone_number, payout_provider')
@@ -205,8 +232,8 @@ async function payoutMerchant(order) {
       return;
     }
 
-    const commission = Math.floor(order.total_amount_fcfa * 0.05);
-    const payoutAmount = order.total_amount_fcfa - commission;
+    const commission = Math.floor(paidAmount * 0.05);
+    const payoutAmount = paidAmount - commission;
 
     console.log(`Lancement du transfert PayDunya de ${payoutAmount} FCFA vers le vendeur...`);
 
@@ -252,33 +279,42 @@ router.post('/webhook', async (req, res) => {
     const orderId = confirmed.custom_data?.order_id || payload.custom_data?.order_id;
     if (!orderId) return res.status(400).send('Commande inconnue');
 
+    // Toutes les colonnes : « payment_deposit_amount » n'existe qu'une fois acompte_livraison.sql exécuté.
     const { data: order, error: orderError } = await supabase.from('orders')
-      .select('id, merchant_id, total_amount_fcfa, status')
+      .select('*')
       .eq('id', orderId)
       .single();
     if (orderError || !order) return res.status(404).send('Commande introuvable');
 
-    if (Number(confirmed.invoice?.total_amount) !== Number(order.total_amount_fcfa)) {
-      reportWarning(`Montant payé (${confirmed.invoice?.total_amount}) différent du montant de la commande ${order.id} (${order.total_amount_fcfa}).`);
-      await supabase.from('orders').update({ payment_status: 'AMOUNT_MISMATCH' }).eq('id', order.id);
+    // Acompte : seuls les 10 % sont payés en ligne, le livreur encaisse le reste.
+    const isDeposit = order.payment_method === 'DEPOSIT';
+    const expected = isDeposit ? Number(order.payment_deposit_amount) : Number(order.total_amount_fcfa);
+    if (!expected || Number(confirmed.invoice?.total_amount) !== expected) {
+      reportWarning(`Montant payé (${confirmed.invoice?.total_amount}) différent du montant attendu pour la commande ${order.id} (${expected}).`);
+      let flag = supabase.from('orders').update({ payment_status: 'AMOUNT_MISMATCH' }).eq('id', order.id);
+      if (isDeposit) flag = flag.eq('payment_status', 'PENDING'); // un acompte déjà payé reste payé
+      await flag;
       return res.status(200).send('Montant incohérent');
     }
 
-    // Transition idempotente : seule une commande encore PENDING passe en préparation
+    // Transition idempotente : seule une commande encore en attente de paiement change d'état
     // (une notification rejouée ne déclenche donc jamais un second reversement).
-    const { data: updated, error: updateError } = await supabase.from('orders')
-      .update({ status: 'PREPARING', payment_status: 'PAID' })
+    // Acompte payé : la commande reste « à traiter » pour la boutique, qui la prépare comme d'habitude
+    // (d'où le filtre sur l'état du paiement, le statut ne changeant pas).
+    let transition = supabase.from('orders')
+      .update(isDeposit ? { payment_status: 'DEPOSIT_PAID' } : { status: 'PREPARING', payment_status: 'PAID' })
       .eq('id', order.id)
-      .eq('status', 'PENDING')
-      .select('id');
+      .eq('status', 'PENDING');
+    if (isDeposit) transition = transition.eq('payment_status', 'PENDING');
+    const { data: updated, error: updateError } = await transition.select('id');
     if (updateError) throw updateError;
 
     if (!updated?.length) {
       return res.status(200).send('Déjà traité');
     }
 
-    console.log(`Commande ${order.id} validée et payée !`);
-    await payoutMerchant(order);
+    console.log(isDeposit ? `Acompte de la commande ${order.id} payé !` : `Commande ${order.id} validée et payée !`);
+    await payoutMerchant(order, expected);
 
     res.status(200).send('Webhook reçu');
   } catch (error) {

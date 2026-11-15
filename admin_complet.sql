@@ -287,8 +287,14 @@ BEGIN
         SELECT
             count(*) FILTER (WHERE o.status::TEXT = 'DELIVERED') AS delivered,
             count(*) FILTER (WHERE o.status::TEXT = 'IN_TRANSIT') AS transit,
-            sum(o.total_amount_fcfa) FILTER (WHERE o.status::TEXT = 'DELIVERED'
-                AND coalesce(to_jsonb(o) ->> 'payment_method', 'ON_DELIVERY') <> 'MOBILE_MONEY') AS cash,
+            -- Espèces : total des courses payées à la livraison, acompte en ligne déduit (acompte_livraison.sql).
+            sum(o.total_amount_fcfa - CASE
+                    WHEN (to_jsonb(o) ->> 'payment_method') = 'DEPOSIT'
+                     AND (to_jsonb(o) ->> 'payment_status') IN ('DEPOSIT_PAID', 'PAID')
+                    THEN coalesce((to_jsonb(o) ->> 'payment_deposit_amount')::INTEGER, 0)
+                    ELSE 0 END)
+                FILTER (WHERE o.status::TEXT = 'DELIVERED'
+                    AND coalesce(to_jsonb(o) ->> 'payment_method', 'ON_DELIVERY') <> 'MOBILE_MONEY') AS cash,
             max((to_jsonb(o) ->> 'delivered_at')::TIMESTAMP WITH TIME ZONE) AS last_at
         FROM public.orders o
         WHERE o.merchant_id = d.merchant_id

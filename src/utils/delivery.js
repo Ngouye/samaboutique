@@ -1,5 +1,6 @@
 // Calculs de l'espace livreur : gain par course, espèces à encaisser, bilan de la journée.
 // Le gain du livreur est le prix de la livraison : total de la commande moins les articles.
+import { depositAmount, depositPaid } from './payments';
 
 const n = (v) => Number(v) || 0;
 
@@ -13,7 +14,12 @@ export const deliveryFee = (order) => Math.max(0, n(order?.total_amount_fcfa) - 
 // Payée en ligne (Wave, Orange Money…) : le livreur n'encaisse rien.
 export const isPrepaid = (order) => order?.payment_method === 'MOBILE_MONEY';
 
-export const cashToCollect = (order) => (isPrepaid(order) ? 0 : n(order?.total_amount_fcfa));
+// Espèces à encaisser : rien si tout est payé en ligne ; le total moins l'acompte s'il a été payé.
+export const cashToCollect = (order) => {
+  if (isPrepaid(order)) return 0;
+  const total = n(order?.total_amount_fcfa);
+  return depositPaid(order) ? Math.max(0, total - depositAmount(order)) : total;
+};
 
 export const itemsCount = (order) => {
   const items = order?.cart_items || [];

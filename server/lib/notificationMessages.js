@@ -3,6 +3,7 @@
 //  - template : nom du modèle Meta et ses variables {{1}}, {{2}}… dans l'ordre (GUIDE_NOUVELLES_FONCTIONNALITES.md).
 import { formatFcfa } from './catalog.js';
 import { frontendUrl, shopUrl } from './supabase.js';
+import { depositSplit } from './deposit.js';
 
 const PREFIX = process.env.WHATSAPP_TEMPLATE_PREFIX || 'samaboutik_';
 
@@ -16,7 +17,14 @@ function itemsSummary(items, max = 300) {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text || '-';
 }
 
-const paymentLabel = (p) => (p.payment_method === 'MOBILE_MONEY' ? 'déjà payé (Wave / Orange Money)' : 'à payer à la livraison');
+function paymentLabel(p) {
+  if (p.payment_method === 'MOBILE_MONEY') return 'déjà payé (Wave / Orange Money)';
+  if (p.payment_method === 'DEPOSIT') {
+    const { deposit, balance } = depositSplit(p);
+    return `acompte de ${formatFcfa(deposit)} payé, reste ${formatFcfa(balance)} à payer à la livraison`;
+  }
+  return 'à payer à la livraison';
+}
 const trackingLink = (p) => `${shopUrl(p.shop_name)}?suivi=${encodeURIComponent(p.customer_phone || '')}`;
 
 const BUILDERS = {
@@ -71,7 +79,8 @@ const BUILDERS = {
         '',
         `📍 Suivez-le en direct : ${trackingLink(p)}`,
         `🔐 Préparez votre code : *${p.delivery_pin}*`,
-      ].join('\n'),
+        p.payment_method === 'DEPOSIT' ? `💵 À remettre au livreur : *${formatFcfa(depositSplit(p).balance)}* (acompte déjà payé)` : null,
+      ].filter((line) => line !== null).join('\n'),
       template: {
         name: `${PREFIX}commande_en_route`,
         params: [p.order_ref, p.shop_name, driver, trackingLink(p), p.delivery_pin],

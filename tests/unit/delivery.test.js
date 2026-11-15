@@ -19,6 +19,17 @@ describe('Gains et espèces du livreur', () => {
     expect(cashToCollect(cod)).toBe(10500);
   });
 
+  it('acompte payé : le livreur encaisse seulement le reste', () => {
+    const deposit = { id: 'c1', total_amount_fcfa: 12730, payment_method: 'DEPOSIT', payment_status: 'DEPOSIT_PAID', payment_deposit_amount: 1275, cart_items: [{ price: 11730, quantity: 1 }] };
+    expect(isPrepaid(deposit)).toBe(false);
+    expect(cashToCollect(deposit)).toBe(11455);
+    // Montant absent (ancienne lecture) : même calcul que la base
+    expect(cashToCollect({ ...deposit, payment_deposit_amount: undefined })).toBe(11455);
+    // Acompte pas encore payé : tout reste à encaisser
+    expect(cashToCollect({ ...deposit, payment_status: 'PENDING' })).toBe(12730);
+    expect(daySummary([cod, deposit])).toEqual({ count: 2, cash: 10500 + 11455, fees: 2000, toReturn: 10500 + 11455 - 2000 });
+  });
+
   it('compte les articles du colis', () => {
     expect(itemsCount(cod)).toBe(2);
     expect(itemsCount({ cart_items: [{ quantity: 1 }, { quantity: 3 }] })).toBe(4);

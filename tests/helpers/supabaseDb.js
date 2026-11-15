@@ -63,14 +63,15 @@ const SEED = `
     ('${IDS.DRIVER_2}', '${IDS.MERCHANT}', 'Lamine', '770000002', 'CNI-2');
 `;
 
-export async function createDatabase() {
+// `extra` : scripts installés après INSTALL_ORDER (ex. acompte_livraison.sql).
+export async function createDatabase({ extra = [] } = {}) {
   const db = new PGlite({ extensions: { pgcrypto } });
   await db.exec(SUPABASE_ENV);
   for (const file of BASE_SCRIPTS) {
     try { await db.exec(read(file)); } catch { /* scripts historiques partiellement redondants */ }
   }
   const installErrors = [];
-  for (const file of INSTALL_ORDER) {
+  for (const file of [...INSTALL_ORDER, ...extra]) {
     try { await db.exec(read(file)); } catch (e) { installErrors.push(`${file} : ${e.message}`); }
   }
   await db.exec(SEED);

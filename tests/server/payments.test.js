@@ -173,6 +173,62 @@ describe('Notification de paiement PayDunya (webhook)', () => {
   });
 });
 
+describe('Paiement à la livraison avec acompte de 10 %', () => {
+  const deposit = (overrides = {}) => order({ mode: 'deposit', channel: 'wave', ...overrides });
+  const webhook = (token) => post('/api/payments/webhook', { data: { hash: GOOD_HASH, invoice: { token } } });
+
+  it('tant que acompte_livraison.sql n’est pas installé : répond DEPOSIT_UNAVAILABLE, sans commande ni facture', async () => {
+    const orders = supabase.db.orders.length;
+    const invoices = paydunya.state.invoices.length;
+    const res = await post('/api/payments/create', deposit(), { 'x-forwarded-for': '10.9.7.1' });
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe('DEPOSIT_UNAVAILABLE');
+    expect(supabase.db.orders).toHaveLength(orders);
+    expect(paydunya.state.invoices).toHaveLength(invoices);
+  });
+
+  it('facture uniquement l’acompte (10 % du total recalculé), sur l’opérateur choisi', async () => {
+    supabase.state.rpc.order_deposit = () => 0; // script installé
+    const res = await post('/api/payments/create', deposit(), { 'x-forwarded-for': '10.9.7.2' });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.amount).toBe(5100);
+
+    const saved = supabase.db.orders.at(-1);
+    expect(saved).toMatchObject({ payment_method: 'DEPOSIT', payment_deposit_amount: 5100, total_amount_fcfa: 51000, status: 'PENDING', payment_channel: 'wave' });
+    const invoice = paydunya.state.invoices.at(-1).body;
+    expect(invoice.invoice.total_amount).toBe(5100);
+    expect(invoice.invoice.description).toBe('Acompte de 10 % · commande sur Chez Awa (reste à payer à la livraison : 45900 FCFA)');
+    expect(invoice.invoice.channels).toEqual(['wave-senegal']);
+    expect(invoice.custom_data).toEqual({ type: 'deposit', order_id: saved.id });
+  });
+
+  it('acompte payé : la commande reste « à traiter », 95 % de l’acompte reversés une seule fois', async () => {
+    const res = await post('/api/payments/create', deposit(), { 'x-forwarded-for': '10.9.7.3' });
+    const { token, orderId } = await res.json();
+    const payouts = paydunya.state.payouts.length;
+    paydunya.state.confirm[token] = { response_code: '00', status: 'completed', invoice: { total_amount: 5100 }, custom_data: { order_id: orderId } };
+
+    expect((await webhook(token)).status).toBe(200);
+    const saved = supabase.db.orders.find((o) => o.id === orderId);
+    expect(saved).toMatchObject({ status: 'PENDING', payment_status: 'DEPOSIT_PAID' });
+    expect(paydunya.state.payouts.slice(payouts)).toEqual([{ account_alias: '771234567', amount: 5100 - Math.floor(5100 * 0.05) }]);
+
+    expect(await (await webhook(token)).text()).toBe('Déjà traité');
+    expect(paydunya.state.payouts).toHaveLength(payouts + 1);
+  });
+
+  it('signale un montant qui ne correspond pas à l’acompte, sans reversement', async () => {
+    const res = await post('/api/payments/create', deposit(), { 'x-forwarded-for': '10.9.7.4' });
+    const { token, orderId } = await res.json();
+    const payouts = paydunya.state.payouts.length;
+    paydunya.state.confirm[token] = { response_code: '00', status: 'completed', invoice: { total_amount: 100 }, custom_data: { order_id: orderId } };
+    await webhook(token);
+    expect(supabase.db.orders.find((o) => o.id === orderId)).toMatchObject({ status: 'PENDING', payment_status: 'AMOUNT_MISMATCH' });
+    expect(paydunya.state.payouts).toHaveLength(payouts);
+  });
+});
+
 describe('Robustesse du serveur', () => {
   it('répond sur /health avec les en-têtes de sécurité', async () => {
     const res = await fetch(`${api}/health`);
