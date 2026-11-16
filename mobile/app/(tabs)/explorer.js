@@ -10,7 +10,7 @@ import Skeleton from '../../src/components/Skeleton';
 import { fetchCatalog, fetchShops, filterProducts, filterShops } from '../../src/lib/shops';
 import { rememberProduct } from '../../src/lib/shop';
 import { categoryIcon } from '../../src/lib/categories';
-import { COLORS, RADIUS, sheet } from '../../src/theme';
+import { COLORS, RADIUS, sheet, TAB_SPACE } from '../../src/theme';
 
 const SIDE = 16;
 const GAP = 12;
@@ -44,8 +44,9 @@ export default function Explorer() {
   // Arrivée depuis l'accueil : catégorie choisie, ou recherche à taper tout de suite.
   useEffect(() => {
     if (params.categorie) { setCategory(String(params.categorie)); setTab('products'); }
+    if (params.vue === 'boutiques') setTab('shops');
     if (params.focus) setTimeout(() => input.current?.focus(), 250);
-  }, [params.categorie, params.focus]);
+  }, [params.categorie, params.focus, params.vue]);
 
   const categories = useMemo(() => {
     const counts = new Map();
@@ -64,7 +65,13 @@ export default function Explorer() {
 
   const header = (
     <View>
-      <Text style={styles.title}>Explorer</Text>
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>Explorer</Text>
+        <Pressable onPress={() => router.push('/carte')} style={styles.mapButton} accessibilityLabel="Carte des boutiques">
+          <Ionicons name="map" size={16} color="#fff" />
+          <Text style={styles.mapButtonText}>Carte</Text>
+        </Pressable>
+      </View>
       <View style={styles.search}>
         <Ionicons name="search" size={19} color={COLORS.muted} />
         <TextInput
@@ -124,7 +131,7 @@ export default function Explorer() {
       keyExtractor={(p) => String(p.id)}
       numColumns={2}
       columnWrapperStyle={{ justifyContent: 'space-between' }}
-      contentContainerStyle={{ paddingHorizontal: SIDE, paddingTop: insets.top + 10, paddingBottom: 24 }}
+      contentContainerStyle={{ paddingHorizontal: SIDE, paddingTop: insets.top + 10, paddingBottom: TAB_SPACE + insets.bottom }}
       ListHeaderComponent={header}
       ListEmptyComponent={empty}
       renderItem={({ item }) => <ProductCard product={item} width={cardWidth} shopName={item.shop?.shop_name} onPress={() => openProduct(item)} />}
@@ -138,7 +145,7 @@ export default function Explorer() {
       style={styles.screen}
       data={loading ? [] : shopResults}
       keyExtractor={(s) => s.shop_name}
-      contentContainerStyle={{ paddingHorizontal: SIDE, paddingTop: insets.top + 10, paddingBottom: 24 }}
+      contentContainerStyle={{ paddingHorizontal: SIDE, paddingTop: insets.top + 10, paddingBottom: TAB_SPACE + insets.bottom }}
       ListHeaderComponent={header}
       ListEmptyComponent={empty}
       renderItem={({ item }) => <ShopCard shop={item} onPress={() => openShop(item)} />}
@@ -151,7 +158,10 @@ export default function Explorer() {
 
 const styles = sheet({
   screen: { flex: 1, backgroundColor: COLORS.bg },
-  title: { color: COLORS.ink, fontSize: 28, fontWeight: '800', letterSpacing: -0.6, marginBottom: 14 },
+  title: { color: COLORS.ink, fontSize: 28, fontWeight: '800', letterSpacing: -0.6 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  mapButton: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.brand, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999 },
+  mapButtonText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   search: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 52, backgroundColor: COLORS.card, borderRadius: RADIUS.md, paddingHorizontal: 16, borderWidth: 1, borderColor: COLORS.line },
   searchInput: { flex: 1, color: COLORS.ink, fontSize: 15 },
   segment: { flexDirection: 'row', backgroundColor: '#ece9e2', borderRadius: 14, padding: 4, marginTop: 14 },

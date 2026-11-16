@@ -4,6 +4,7 @@ import {
   ActivityIndicator, Animated, FlatList, Pressable, ScrollView, Share, Text, View, useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { setStatusBarStyle } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -11,6 +12,12 @@ import { cachedProduct, fetchProduct, galleryOf, isLowStock, isSoldOut } from '.
 import { productOptions } from '../../src/lib/shared';
 import { useCart, variantLabel } from '../../src/lib/cart';
 import { buzzSuccess, buzzWarning } from '../../src/lib/feedback';
+import { useFavorites } from '../../src/lib/favorites';
+import HeartButton from '../../src/components/HeartButton';
+import ProductCard from '../../src/components/ProductCard';
+import { FadeIn, Glass, GradientButton, gradientOf } from '../../src/components/ui';
+import { fetchCatalog, fetchShops } from '../../src/lib/shops';
+import { rememberProduct } from '../../src/lib/shop';
 import { accentOf, fmt, initials, onColor, ratingLabel, thumbUrl } from '../../src/lib/format';
 import { COLORS, RADIUS, SHADOW, sheet, FONTS } from '../../src/theme';
 
@@ -56,6 +63,7 @@ export default function ProductScreen() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const cart = useCart();
+  const favorites = useFavorites();
 
   const cached = cachedProduct(productId);
   const [data, setData] = useState(cached ? { ...cached, reviews: null } : null);
@@ -63,7 +71,10 @@ export default function ProductScreen() {
   const [photo, setPhoto] = useState(0);
   const [size, setSize] = useState(null);
   const [color, setColor] = useState(null);
-  const [notice, setNotice] = useState(null); // { text, warn }
+  const [notice, setNotice] = useState(null); // { text, warn, cart }
+  const [quantity, setQuantity] = useState(1);
+  const [similar, setSimilar] = useState([]);
+  const scrollY = useRef(new Animated.Value(0)).current;
   const fade = useRef(new Animated.Value(0)).current;
   const noticeTimer = useRef(null);
 
@@ -80,6 +91,16 @@ export default function ProductScreen() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => () => clearTimeout(noticeTimer.current), []);
+  useEffect(() => { setStatusBarStyle('dark'); }, []);
+  useEffect(() => {
+    let alive = true;
+    const merchantId = data?.product?.merchant_id;
+    if (!merchantId) return undefined;
+    fetchShops().then((list) => fetchCatalog(list)).then((catalog) => {
+      if (alive) setSimilar(catalog.filter((p) => p.merchant_id === merchantId && String(p.id) !== productId).slice(0, 8));
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [data?.product?.merchant_id, productId]);
 
   const product = data?.product;
   const merchant = data?.merchant;
@@ -98,23 +119,30 @@ export default function ProductScreen() {
     Share.share({ message: `${product.name} · ${fmt(product.price_fcfa)} F chez ${shopName} : ${SITE_URL}/boutique/${encodeURIComponent(shopName)}?produit=${encodeURIComponent(product.id)}` });
   }, [product, shopName]);
 
-  const showNotice = useCallback((text, warn = false) => {
+  const showNotice = useCallback((text, warn = false, withCart = false) => {
     clearTimeout(noticeTimer.current);
-    setNotice({ text, warn });
+    setNotice({ text, warn, cart: withCart });
     Animated.timing(fade, { toValue: 1, duration: 180, useNativeDriver: true }).start();
     noticeTimer.current = setTimeout(() => {
       Animated.timing(fade, { toValue: 0, duration: 220, useNativeDriver: true }).start(() => setNotice(null));
-    }, 2600);
+    }, 3200);
   }, [fade]);
 
   const addToCart = useCallback(() => {
     if (options.sizes.length && !size) { buzzWarning(); return showNotice(options.legacyList ? 'Choisissez une option.' : 'Choisissez une taille.', true); }
     if (options.colors.length && !color) { buzzWarning(); return showNotice('Choisissez une couleur.', true); }
-    const result = cart.add(shopName, product, variantLabel(size, color), merchant);
-    if (!result.ok) { buzzWarning(); return showNotice(result.message, true); }
+    let added = 0;
+    let last = null;
+    for (let i = 0; i < quantity; i += 1) {
+      last = cart.add(shopName, product, variantLabel(size, color), merchant);
+      if (!last.ok) break;
+      added += 1;
+    }
+    if (!added) { buzzWarning(); return showNotice(last?.message || 'Ajout impossible.', true); }
     buzzSuccess();
-    return showNotice(`Ajouté au panier · ${result.count} article${result.count > 1 ? 's' : ''} de ${shopName}`);
-  }, [options, size, color, cart, shopName, product, showNotice]);
+    setQuantity(1);
+    return showNotice(added < quantity ? `${added} ajouté${added > 1 ? 's' : ''} · ${last.message}` : `${added} ajouté${added > 1 ? 's' : ''} au panier`, false, true);
+  }, [options, size, color, cart, shopName, product, showNotice, quantity, merchant]);
 
   if (status !== 'ready' || !product) {
     return (
@@ -138,11 +166,23 @@ export default function ProductScreen() {
     );
   }
 
+  const galleryHeight = Math.round(width * 1.05);
+  const galleryShift = scrollY.interpolate({ inputRange: [-200, 0, galleryHeight], outputRange: [-100, 0, galleryHeight * 0.45], extrapolate: 'clamp' });
+  const galleryZoom = scrollY.interpolate({ inputRange: [-200, 0], outputRange: [1.4, 1], extrapolate: 'clamp' });
+  const headerFade = scrollY.interpolate({ inputRange: [galleryHeight - 160, galleryHeight - 90], outputRange: [0, 1], extrapolate: 'clamp' });
+  const stock = typeof product.stock === 'number' ? product.stock : 99;
+  const gradient = gradientOf(accent);
+
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 + insets.bottom }} showsVerticalScrollIndicator={false}>
-        {/* Photos */}
-        <View style={{ width, height: width, backgroundColor: '#efece6' }}>
+      <Animated.ScrollView
+        contentContainerStyle={{ paddingBottom: 130 + insets.bottom }}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
+      >
+        {/* Photos (profondeur au défilement) */}
+        <Animated.View style={{ width, height: galleryHeight, backgroundColor: '#efece6', transform: [{ translateY: galleryShift }, { scale: galleryZoom }] }}>
           {images.length ? (
             <FlatList
               data={images}
@@ -151,7 +191,7 @@ export default function ProductScreen() {
               pagingEnabled
               showsHorizontalScrollIndicator={false}
               onMomentumScrollEnd={(e) => setPhoto(Math.round(e.nativeEvent.contentOffset.x / width))}
-              renderItem={({ item }) => <Image source={item} placeholder={thumbUrl(item)} style={{ width, height: width }} contentFit="cover" transition={200} />}
+              renderItem={({ item }) => <Image source={item} placeholder={thumbUrl(item)} style={{ width, height: galleryHeight }} contentFit="cover" transition={200} />}
             />
           ) : (
             <View style={styles.noPhoto}><Ionicons name="image-outline" size={48} color={COLORS.faint} /></View>
@@ -162,7 +202,7 @@ export default function ProductScreen() {
             </View>
           ) : null}
           {soldOut ? <View style={styles.soldOutBand}><Text style={styles.soldOutText}>Épuisé</Text></View> : null}
-        </View>
+        </Animated.View>
 
         <View style={styles.content}>
           {product.category ? <Text style={[styles.category, { color: accent === '#3b2fc9' ? COLORS.brand : COLORS.muted }]}>{product.category}</Text> : null}
@@ -183,6 +223,16 @@ export default function ProductScreen() {
               <Text style={styles.ratingText}>{ratingLabel(average)} · {reviews.length} avis</Text>
             </View>
           ) : null}
+
+          {/* Engagements de la plateforme */}
+          <View style={styles.trust}>
+            {[['shield-checkmark', 'Paiement sécurisé', '#e8f8f1', '#13895a'], ['wallet', 'Acompte 10 % à la livraison', '#eef0ff', COLORS.brand], ['bicycle', 'Livraison à domicile', '#fff1e6', '#d4671f']].map(([icon, label, bg, fg]) => (
+              <View key={label} style={styles.trustItem}>
+                <View style={[styles.trustIcon, { backgroundColor: bg }]}><Ionicons name={icon} size={16} color={fg} /></View>
+                <Text style={styles.trustText}>{label}</Text>
+              </View>
+            ))}
+          </View>
 
           {options.sizes.length ? (
             <Choice label={options.legacyList ? 'Option' : 'Taille'} options={options.sizes} value={size} onChange={setSize} accent={accent} accentText={accentText} />
@@ -253,8 +303,30 @@ export default function ProductScreen() {
               ))
             )}
           </View>
+
+          {similar.length ? (
+            <View style={styles.block}>
+              <Text style={styles.blockTitle}>Vous aimerez aussi</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 18 }} style={{ marginHorizontal: -18, paddingLeft: 18 }}>
+                {similar.map((p, i) => (
+                  <FadeIn key={p.id} delay={i * 60}>
+                    <ProductCard product={p} width={158} onPress={() => { rememberProduct(p, p.shop); router.push({ pathname: '/produit/[id]', params: { id: String(p.id), shop: shopName } }); }} />
+                  </FadeIn>
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
+
+      {/* En-tête en verre qui apparaît au défilement */}
+      <Animated.View style={[styles.glassHeader, { height: insets.top + 60, opacity: headerFade }]} pointerEvents="none">
+        <Glass style={{ flex: 1 }} intensity={70}>
+          <View style={{ flex: 1, justifyContent: 'flex-end', paddingBottom: 16, paddingLeft: 72, paddingRight: 164 }}>
+            <Text style={styles.glassTitle} numberOfLines={1}>{product.name}</Text>
+          </View>
+        </Glass>
+      </Animated.View>
 
       {/* Boutons sur la photo */}
       <View style={[styles.topBar, { top: insets.top + 8 }]} pointerEvents="box-none">
@@ -262,6 +334,7 @@ export default function ProductScreen() {
           <Ionicons name="chevron-back" size={22} color={COLORS.ink} />
         </Pressable>
         <View style={{ flexDirection: 'row', gap: 10 }}>
+          <HeartButton active={favorites.isProduct(product.id)} onToggle={() => favorites.toggleProduct(product, merchant)} size={42} />
           <Pressable onPress={share} style={styles.round} accessibilityLabel="Partager le produit" hitSlop={8}>
             <Ionicons name="share-social-outline" size={20} color={COLORS.ink} />
           </Pressable>
@@ -274,27 +347,40 @@ export default function ProductScreen() {
 
       {/* Message après l'ajout */}
       {notice ? (
-        <Animated.View style={[styles.notice, notice.warn && styles.noticeWarn, { bottom: 92 + insets.bottom, opacity: fade }]} pointerEvents="none">
-          <Ionicons name={notice.warn ? 'alert-circle' : 'checkmark-circle'} size={18} color={notice.warn ? COLORS.goldInk : '#fff'} />
+        <Animated.View style={[styles.notice, notice.warn && styles.noticeWarn, { bottom: 100 + insets.bottom, opacity: fade }]} pointerEvents={notice.cart ? 'auto' : 'none'}>
+          <Ionicons name={notice.warn ? 'alert-circle' : 'checkmark-circle'} size={18} color={notice.warn ? COLORS.goldInk : '#7ee2a8'} />
           <Text style={[styles.noticeText, notice.warn && { color: COLORS.goldInk }]}>{notice.text}</Text>
+          {notice.cart ? (
+            <Pressable onPress={() => router.push({ pathname: '/panier/[shop]', params: { shop: shopName } })} hitSlop={8} style={styles.noticeAction}>
+              <Text style={styles.noticeActionText}>Voir le panier</Text>
+            </Pressable>
+          ) : null}
         </Animated.View>
       ) : null}
 
       {/* Barre d'achat */}
-      <View style={[styles.buyBar, { paddingBottom: insets.bottom + 12 }]}>
-        <View>
-          <Text style={styles.buyLabel}>Prix</Text>
-          <Text style={styles.buyPrice}>{fmt(product.price_fcfa)} F</Text>
-        </View>
-        <Pressable
-          onPress={addToCart}
+      <Glass style={[styles.buyBar, { paddingBottom: insets.bottom + 12 }]} intensity={80}>
+        {!soldOut ? (
+          <View style={styles.qty}>
+            <Pressable onPress={() => setQuantity((q) => Math.max(1, q - 1))} style={styles.qtyButton} accessibilityLabel="Un de moins" hitSlop={6}>
+              <Ionicons name="remove" size={18} color={COLORS.ink} />
+            </Pressable>
+            <Text style={styles.qtyValue}>{quantity}</Text>
+            <Pressable onPress={() => setQuantity((q) => Math.min(stock, q + 1))} style={styles.qtyButton} accessibilityLabel="Un de plus" hitSlop={6}>
+              <Ionicons name="add" size={18} color={COLORS.ink} />
+            </Pressable>
+          </View>
+        ) : null}
+        <GradientButton
+          style={{ flex: 1 }}
+          title={soldOut ? 'Épuisé' : 'Ajouter'}
+          icon={soldOut ? 'close-circle-outline' : 'bag-add'}
+          right={soldOut ? null : `${fmt(product.price_fcfa * quantity)} F`}
+          colors={soldOut ? ['#d6d2c8', '#bdb8ad'] : gradient}
           disabled={soldOut}
-          style={({ pressed }) => [styles.buyButton, { backgroundColor: soldOut ? COLORS.line : accent }, pressed && { opacity: 0.88 }]}
-        >
-          <Ionicons name={soldOut ? 'close-circle-outline' : 'bag-add-outline'} size={20} color={soldOut ? COLORS.muted : accentText} />
-          <Text style={[styles.buyText, { color: soldOut ? COLORS.muted : accentText }]}>{soldOut ? 'Épuisé' : 'Ajouter au panier'}</Text>
-        </Pressable>
-      </View>
+          onPress={addToCart}
+        />
+      </Glass>
     </View>
   );
 }
@@ -307,7 +393,18 @@ const styles = sheet({
   retry: { marginTop: 18, backgroundColor: COLORS.ink, paddingHorizontal: 22, paddingVertical: 12, borderRadius: RADIUS.md },
   retryText: { color: '#fff', fontWeight: '800', fontSize: 15 },
   backFixed: { position: 'absolute', left: 16 },
-  topBar: { position: 'absolute', left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between' },
+  topBar: { position: 'absolute', left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between', zIndex: 2 },
+  glassHeader: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.06)' },
+  glassTitle: { color: COLORS.ink, fontSize: 16, fontWeight: '800' },
+  trust: { flexDirection: 'row', gap: 8, marginTop: 16 },
+  trustItem: { flex: 1, backgroundColor: COLORS.card, borderRadius: 16, padding: 10, gap: 6, borderWidth: 1, borderColor: COLORS.line },
+  trustIcon: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  trustText: { color: COLORS.ink, fontSize: 11.5, fontWeight: '700', lineHeight: 15 },
+  qty: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.bg, borderRadius: 18, padding: 4, borderWidth: 1, borderColor: COLORS.line },
+  qtyButton: { width: 38, height: 44, borderRadius: 14, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center' },
+  qtyValue: { minWidth: 30, textAlign: 'center', color: COLORS.ink, fontSize: 17, fontWeight: '800' },
+  noticeAction: { backgroundColor: 'rgba(255,255,255,0.16)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
+  noticeActionText: { color: '#fff', fontSize: 12.5, fontWeight: '800' },
   round: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.94)', alignItems: 'center', justifyContent: 'center', ...SHADOW },
   cartBadge: { position: 'absolute', top: -3, right: -3, minWidth: 19, height: 19, borderRadius: 10, paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center' },
   cartBadgeText: { fontSize: 11, fontWeight: '900' },

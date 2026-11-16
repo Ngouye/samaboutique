@@ -10,6 +10,7 @@ import {
 } from '@expo-google-fonts/plus-jakarta-sans';
 import { COLORS } from '../src/theme';
 import { CartProvider } from '../src/lib/cart';
+import { FavoritesProvider } from '../src/lib/favorites';
 
 // L'écran de démarrage reste affiché le temps de charger la police de SamaBoutik.
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -23,10 +24,12 @@ export default function RootLayout() {
 
   return (
     <CartProvider>
-      <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.bg }, animation: 'slide_from_right' }}>
-        <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
-      </Stack>
+      <FavoritesProvider>
+        <StatusBar style="dark" />
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.bg }, animation: 'slide_from_right' }}>
+          <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+        </Stack>
+      </FavoritesProvider>
     </CartProvider>
   );
 }

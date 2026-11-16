@@ -8,6 +8,7 @@ export default function TabsLayout() {
     <Tabs tabBar={(props) => <TabBar {...props} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: COLORS.bg } }}>
       <Tabs.Screen name="index" options={{ title: 'Accueil' }} />
       <Tabs.Screen name="explorer" options={{ title: 'Explorer' }} />
+      <Tabs.Screen name="favoris" options={{ title: 'Favoris' }} />
       <Tabs.Screen name="paniers" options={{ title: 'Panier' }} />
       <Tabs.Screen name="commandes" options={{ title: 'Commandes' }} />
     </Tabs>

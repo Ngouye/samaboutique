@@ -61,3 +61,26 @@ export function sheet(styles) {
   });
   return StyleSheet.create(out);
 }
+
+// Dégradés de la marque (en-têtes, boutons, bannières).
+export const GRADIENTS = {
+  brand: ['#5b4bf0', '#3b2fc9', '#2a2580'],
+  hero: ['#4c3de8', '#3b2fc9', '#221d73'],
+  gold: ['#f7cf7a', '#e8a33d'],
+  teal: ['#14b8a6', '#0e7c86'],
+  sunset: ['#f59e0b', '#ea580c'],
+  rose: ['#ec4899', '#9d174d'],
+};
+
+// Couleurs douces des catégories (une par position, dans cet ordre).
+export const SOFT = [
+  { bg: '#eef0ff', fg: '#3b2fc9' },
+  { bg: '#fff1e6', fg: '#d4671f' },
+  { bg: '#e8f8f1', fg: '#13895a' },
+  { bg: '#fdeef4', fg: '#c2357a' },
+  { bg: '#e9f6fd', fg: '#1479b8' },
+  { bg: '#fff8e1', fg: '#a57400' },
+];
+
+// Place laissée en bas des onglets pour la barre flottante.
+export const TAB_SPACE = 104;

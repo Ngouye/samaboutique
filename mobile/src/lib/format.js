@@ -32,3 +32,11 @@ export function onColor(hex) {
   const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
   return (1.05) / (luminance + 0.05) >= 3 ? '#ffffff' : '#12103a';
 }
+
+// Couleur assombrie (dégradés des boutons à la couleur d'une boutique) : 0.2 = 20 % plus sombre.
+export function shade(hex, amount = 0.2) {
+  let h = accentOf(hex).slice(1);
+  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+  const parts = [0, 2, 4].map((i) => Math.max(0, Math.round(parseInt(h.slice(i, i + 2), 16) * (1 - amount))));
+  return `#${parts.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+}

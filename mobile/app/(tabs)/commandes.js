@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { listOrders, removeOrder, sinceLabel, statusInfo, trackOrder } from '../../src/lib/myOrders';
 import { fmt } from '../../src/lib/format';
-import { COLORS, RADIUS, SHADOW, sheet } from '../../src/theme';
+import { COLORS, RADIUS, SHADOW, sheet, TAB_SPACE } from '../../src/theme';
 
 const TONES = {
   brand: { bg: COLORS.brandSoft, fg: COLORS.brand },
@@ -58,7 +58,7 @@ export default function MyOrdersScreen() {
       <FlatList
         data={orders}
         keyExtractor={(o) => o.id}
-        contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24, flexGrow: 1 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: TAB_SPACE + insets.bottom, flexGrow: 1 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[COLORS.brand]} tintColor={COLORS.brand} />}
         ListEmptyComponent={
           <View style={styles.empty}>

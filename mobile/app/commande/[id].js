@@ -11,6 +11,9 @@ import { saveOrder } from '../../src/lib/myOrders';
 import { MOBILE_CHANNELS, depositAmount, isDeposit, whatsappNumber } from '../../src/lib/shared';
 import { accentOf, fmt, onColor } from '../../src/lib/format';
 import { COLORS, RADIUS, SHADOW, sheet } from '../../src/theme';
+import SuccessBadge from '../../src/components/SuccessBadge';
+import { GradientButton, gradientOf } from '../../src/components/ui';
+import { buzzSuccess } from '../../src/lib/feedback';
 
 const POLL_MS = 4000;
 const POLL_LIMIT_MS = 10 * 60 * 1000; // au-delà, le client actualise lui-même
@@ -57,7 +60,7 @@ export default function OrderScreen() {
 
   // Paiement confirmé : le panier de cette boutique est vidé et la commande rangée dans « Mes commandes ».
   useEffect(() => {
-    if (paid && !cleared.current && shopName) { cleared.current = true; cart.clear(shopName); }
+    if (paid && !cleared.current && shopName) { cleared.current = true; cart.clear(shopName); buzzSuccess(); }
     if (paid && receipt) saveOrder(receipt, shopName);
   }, [paid, shopName, cart, receipt]);
 
@@ -102,7 +105,7 @@ export default function OrderScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={{ padding: 18, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 30 }}>
       {paid ? (
         <View style={styles.hero}>
-          <View style={[styles.heroIcon, { backgroundColor: accent }]}><Ionicons name="checkmark" size={40} color={accentText} /></View>
+          <SuccessBadge colors={gradientOf(accent)} />
           <Text style={styles.heroTitle}>Commande confirmée !</Text>
           <Text style={styles.heroText}>
             {isDeposit(receipt) ? 'Votre acompte est bien reçu. La boutique prépare votre commande.'
@@ -172,10 +175,7 @@ export default function OrderScreen() {
               <Text style={styles.whatsappText}>Prévenir la boutique sur WhatsApp</Text>
             </Pressable>
           ) : null}
-          <Pressable onPress={() => router.replace({ pathname: '/suivi/[id]', params: { id: orderId } })} style={[styles.primary, { backgroundColor: accent }]}>
-            <Ionicons name="navigate-outline" size={18} color={accentText} />
-            <Text style={[styles.primaryText, { color: accentText }]}>Suivre ma commande</Text>
-          </Pressable>
+          <GradientButton onPress={() => router.replace({ pathname: '/suivi/[id]', params: { id: orderId } })} colors={gradientOf(accent)} icon="navigate" title="Suivre ma commande" />
           <Pressable onPress={() => router.replace({ pathname: '/boutique/[shop]', params: { shop: shopName } })} style={styles.secondary}>
             <Text style={styles.secondaryText}>Retour à la boutique</Text>
           </Pressable>

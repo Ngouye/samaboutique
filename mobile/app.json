@@ -25,7 +25,13 @@
       "expo-web-browser",
       "expo-sqlite",
       "expo-font",
-      "expo-splash-screen"
+      "expo-splash-screen",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "SamaBoutik utilise votre position pour afficher les boutiques autour de vous."
+        }
+      ]
     ],
     "scheme": "samaboutik",
     "backgroundColor": "#f7f6f2"

@@ -7,7 +7,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useCart } from '../../src/lib/cart';
 import { cachedMerchant } from '../../src/lib/shop';
 import { accentOf, fmt, initials, onColor, thumbUrl } from '../../src/lib/format';
-import { COLORS, RADIUS, SHADOW, sheet } from '../../src/theme';
+import { COLORS, RADIUS, SHADOW, sheet, TAB_SPACE } from '../../src/theme';
 
 export default function Carts() {
   const router = useRouter();
@@ -22,7 +22,7 @@ export default function Carts() {
   ]);
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 10, paddingBottom: 24, flexGrow: 1 }}>
+    <ScrollView style={styles.screen} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 10, paddingBottom: TAB_SPACE + insets.bottom, flexGrow: 1 }}>
       <Text style={styles.title}>Mon panier</Text>
       <Text style={styles.subtitle}>
         {carts.length ? `${total} article${total > 1 ? 's' : ''} · ${carts.length} boutique${carts.length > 1 ? 's' : ''}` : 'Une commande par boutique'}

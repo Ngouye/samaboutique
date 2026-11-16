@@ -1,7 +1,7 @@
 // Page d'une boutique : bannière, logo, description, note, contact WhatsApp, livraison et produits.
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, FlatList, Linking, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, View, useWindowDimensions,
+  ActivityIndicator, Animated, FlatList, Linking, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, View, useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,9 +10,14 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import ProductCard from '../../src/components/ProductCard';
 import { fetchShop, productCategories, rememberShop, zonesOf } from '../../src/lib/shop';
 import { useCart } from '../../src/lib/cart';
+import { useFavorites } from '../../src/lib/favorites';
+import HeartButton from '../../src/components/HeartButton';
 import { whatsappNumber } from '../../src/lib/shared';
 import { accentOf, fmt, initials, onColor, ratingLabel, thumbUrl } from '../../src/lib/format';
 import { COLORS, RADIUS, SHADOW, sheet } from '../../src/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { setStatusBarStyle } from 'expo-status-bar';
+import { FadeIn, Glass, GradientButton, gradientOf } from '../../src/components/ui';
 
 const SITE_URL = process.env.EXPO_PUBLIC_SITE_URL || 'https://samaboutik-nine.vercel.app';
 const GAP = 12;
@@ -33,6 +38,8 @@ export default function ShopScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [category, setCategory] = useState(null);
   const [showFullDescription, setShowFullDescription] = useState(false);
+  const scrollY = useRef(new Animated.Value(0)).current;
+  useEffect(() => { setStatusBarStyle('light'); return () => setStatusBarStyle('dark'); }, []);
 
   const load = useCallback(async () => {
     try {
@@ -81,7 +88,17 @@ export default function ShopScreen() {
   }, [router, merchant, shopName]);
 
   const cart = useCart();
+  const favorites = useFavorites();
   const cartShop = merchant?.shop_name || shopName;
+  // Boutique mise en favori avec ses chiffres du moment (affichés dans l'onglet Favoris).
+  const toggleFavoriteShop = () => favorites.toggleShop({
+    ...merchant,
+    products_count: products.length,
+    rating: shop?.shopRating?.average ?? null,
+    reviews_count: shop?.shopRating?.count ?? 0,
+    min_price_fcfa: products.length ? Math.min(...products.map((p) => Number(p.price_fcfa) || 0)) : null,
+    cover_images: products.map((p) => p.image_url).filter(Boolean).slice(0, 3),
+  });
   const cartCount = cart.count(cartShop);
   const openCart = useCallback(() => router.push({ pathname: '/panier/[shop]', params: { shop: cartShop } }), [router, cartShop]);
 
@@ -92,6 +109,7 @@ export default function ShopScreen() {
       </Pressable>
       {merchant ? (
         <View style={{ flexDirection: 'row', gap: 10 }}>
+          <HeartButton active={favorites.isShop(merchant.shop_name)} onToggle={toggleFavoriteShop} size={42} label="Ajouter la boutique aux favoris" />
           <Pressable onPress={share} style={[styles.roundButton, light && styles.roundLight]} accessibilityLabel="Partager la boutique" hitSlop={8}>
             <Ionicons name="share-social-outline" size={20} color={COLORS.ink} />
           </Pressable>
@@ -132,12 +150,16 @@ export default function ShopScreen() {
   const cover = merchant.banner_url || products.find((p) => p.image_url)?.image_url || null;
   const rating = shop.shopRating;
 
+  const heroShift = scrollY.interpolate({ inputRange: [-200, 0, 260], outputRange: [-100, 0, 110], extrapolate: 'clamp' });
+  const heroZoom = scrollY.interpolate({ inputRange: [-200, 0], outputRange: [1.45, 1], extrapolate: 'clamp' });
+  const headerFade = scrollY.interpolate({ inputRange: [150, 210], outputRange: [0, 1], extrapolate: 'clamp' });
+
   const header = (
     <View>
-      <View style={[styles.hero, { backgroundColor: accent, height: 190 + insets.top }]}>
+      <Animated.View style={[styles.hero, { backgroundColor: accent, height: 230 + insets.top, transform: [{ translateY: heroShift }, { scale: heroZoom }] }]}>
         {cover ? <Image source={cover} style={StyleSheet.absoluteFill} contentFit="cover" transition={250} /> : null}
-        <View style={styles.heroShade} />
-      </View>
+        <LinearGradient colors={['rgba(11,10,38,0.45)', 'rgba(11,10,38,0.05)', 'rgba(11,10,38,0.55)']} style={StyleSheet.absoluteFill} />
+      </Animated.View>
 
       <View style={styles.infoCard}>
         <View style={styles.logoWrap}>
@@ -233,13 +255,17 @@ export default function ShopScreen() {
 
   return (
     <View style={styles.screen}>
-      <FlatList
+      <Animated.FlatList
         data={visible}
+        scrollEventThrottle={16}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
         keyExtractor={(p) => String(p.id)}
         numColumns={2}
         columnWrapperStyle={styles.row}
-        renderItem={({ item }) => (
-          <ProductCard product={item} rating={shop.ratings[item.id]} width={cardWidth} onPress={() => openProduct(item)} />
+        renderItem={({ item, index }) => (
+          <FadeIn delay={Math.min(index, 5) * 60}>
+            <ProductCard product={item} rating={shop.ratings[item.id]} width={cardWidth} shop={merchant} onPress={() => openProduct(item)} />
+          </FadeIn>
         )}
         ListHeaderComponent={header}
         ListEmptyComponent={
@@ -252,14 +278,23 @@ export default function ShopScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[COLORS.brand]} tintColor="#fff" progressViewOffset={insets.top} />}
         showsVerticalScrollIndicator={false}
       />
+      <Animated.View style={[styles.glassHeader, { height: insets.top + 62, opacity: headerFade }]} pointerEvents="none">
+        <Glass style={{ flex: 1 }} intensity={70}>
+          <View style={{ flex: 1, justifyContent: 'flex-end', paddingBottom: 17, paddingLeft: 72, paddingRight: 164 }}>
+            <Text style={styles.glassTitle} numberOfLines={1}>{merchant.shop_name}</Text>
+          </View>
+        </Glass>
+      </Animated.View>
       {topButtons(false)}
       {cartCount ? (
         <View style={[styles.cartBar, { paddingBottom: insets.bottom + 12 }]}>
-          <Pressable onPress={openCart} style={({ pressed }) => [styles.cartBarButton, { backgroundColor: accent }, pressed && { opacity: 0.88 }]}>
-            <Ionicons name="bag-handle" size={20} color={accentText} />
-            <Text style={[styles.cartBarText, { color: accentText }]}>Voir le panier · {cartCount} article{cartCount > 1 ? 's' : ''}</Text>
-            <Text style={[styles.cartBarAmount, { color: accentText }]}>{fmt(cart.subtotal(cartShop))} F</Text>
-          </Pressable>
+          <GradientButton
+            onPress={openCart}
+            colors={gradientOf(accent)}
+            icon="bag-handle"
+            title={`Voir le panier · ${cartCount} article${cartCount > 1 ? 's' : ''}`}
+            right={`${fmt(cart.subtotal(cartShop))} F`}
+          />
         </View>
       ) : null}
     </View>
@@ -272,6 +307,8 @@ const styles = sheet({
   roundButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.94)', alignItems: 'center', justifyContent: 'center', ...SHADOW },
   roundLight: { backgroundColor: COLORS.card },
   cartBar: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 10, backgroundColor: 'rgba(247,246,242,0.96)' },
+  glassHeader: { position: 'absolute', top: 0, left: 0, right: 0, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.06)' },
+  glassTitle: { color: COLORS.ink, fontSize: 16, fontWeight: '800' },
   cartBarButton: { height: 54, borderRadius: RADIUS.md, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, ...SHADOW },
   cartBarText: { flex: 1, fontSize: 15.5, fontWeight: '900' },
   cartBarAmount: { fontSize: 16, fontWeight: '900' },

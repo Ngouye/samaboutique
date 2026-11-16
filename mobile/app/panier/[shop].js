@@ -14,6 +14,7 @@ import { DEPOSIT_PERCENT, MOBILE_CHANNELS, depositFor, isMobileChannel } from '.
 import { accentOf, fmt, onColor, thumbUrl } from '../../src/lib/format';
 import { COLORS, RADIUS, SHADOW, sheet, FONTS } from '../../src/theme';
 import { store } from '../../src/lib/storage';
+import { GradientButton, gradientOf } from '../../src/components/ui';
 
 // Logos des opérateurs (mêmes images que le site) ; les autres ont une pastille de couleur.
 const LOGOS = {
@@ -132,9 +133,33 @@ export default function CartScreen() {
         <Ionicons name="chevron-back" size={22} color={COLORS.ink} />
       </Pressable>
       <View style={{ flex: 1 }}>
-        <Text style={styles.title}>Mon panier</Text>
+        <Text style={styles.title}>Ma commande</Text>
         <Text style={styles.subtitle} numberOfLines={1}>{shopName}</Text>
       </View>
+    </View>
+  );
+
+  // Étapes de la commande : articles, livraison (coordonnées remplies), paiement.
+  const contactDone = form.name.trim().length >= 2 && form.phone.replace(/\D/g, '').length >= 7 && form.address.trim().length >= 2 && Boolean(form.zone);
+  const steps = [
+    { label: 'Articles', icon: 'bag-handle', done: true },
+    { label: 'Livraison', icon: 'location', done: contactDone },
+    { label: 'Paiement', icon: 'card', done: false },
+  ];
+  const stepper = (
+    <View style={styles.steps}>
+      {steps.map((st, i) => {
+        const active = st.done || (i > 0 && steps[i - 1].done);
+        return (
+          <View key={st.label} style={styles.step}>
+            <View style={[styles.stepDot, active && { backgroundColor: COLORS.brand, borderColor: COLORS.brand }]}>
+              <Ionicons name={st.done ? 'checkmark' : st.icon} size={14} color={active ? '#fff' : COLORS.faint} />
+            </View>
+            <Text style={[styles.stepLabel, active && { color: COLORS.ink }]}>{st.label}</Text>
+            {i < steps.length - 1 ? <View style={[styles.stepLine, st.done && { backgroundColor: COLORS.brand }]} /> : null}
+          </View>
+        );
+      })}
     </View>
   );
 
@@ -161,6 +186,7 @@ export default function CartScreen() {
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {header}
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 140 + insets.bottom }} keyboardShouldPersistTaps="handled">
+        {stepper}
         {/* Articles */}
         <Text style={styles.section}>Articles</Text>
         <View style={styles.card}>
@@ -280,11 +306,16 @@ export default function CartScreen() {
 
       <View style={[styles.bottom, { paddingBottom: insets.bottom + 12 }]}>
         {message ? <Text style={styles.message}>{message}</Text> : null}
-        <Pressable onPress={submit} disabled={submitting || !merchant} style={({ pressed }) => [styles.submit, { backgroundColor: accent }, (pressed || submitting) && { opacity: 0.85 }]}>
-          {submitting ? <ActivityIndicator color={accentText} /> : <Ionicons name="lock-closed" size={18} color={accentText} />}
-          <Text style={[styles.submitText, { color: accentText }]}>{submitting ? 'Envoi…' : buttonLabel}</Text>
-          <Text style={[styles.submitAmount, { color: accentText }]}>{fmt(buttonAmount)} F</Text>
-        </Pressable>
+        <GradientButton
+          onPress={submit}
+          disabled={!merchant}
+          loading={submitting}
+          colors={gradientOf(accent)}
+          icon="lock-closed"
+          title={submitting ? 'Envoi…' : buttonLabel}
+          right={`${fmt(buttonAmount)} F`}
+        />
+        <Text style={styles.secure}><Ionicons name="shield-checkmark" size={11} color={COLORS.green} /> Paiement sécurisé par PayDunya</Text>
       </View>
     </KeyboardAvoidingView>
   );
@@ -296,6 +327,12 @@ const styles = sheet({
   round: { width: 42, height: 42, borderRadius: 21, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center', ...SHADOW },
   title: { color: COLORS.ink, fontSize: 22, fontWeight: '900', letterSpacing: -0.4 },
   subtitle: { color: COLORS.muted, fontSize: 13, fontWeight: '600' },
+  steps: { flexDirection: 'row', backgroundColor: COLORS.card, borderRadius: RADIUS.lg, paddingVertical: 14, paddingHorizontal: 10, marginBottom: 6, ...SHADOW, shadowOpacity: 0.05 },
+  step: { flex: 1, alignItems: 'center', gap: 6 },
+  stepDot: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: COLORS.line, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
+  stepLabel: { color: COLORS.faint, fontSize: 12, fontWeight: '700' },
+  stepLine: { position: 'absolute', top: 14, left: '62%', width: '76%', height: 2, backgroundColor: COLORS.line },
+  secure: { color: COLORS.muted, fontSize: 11.5, textAlign: 'center', marginTop: 8 },
   section: { color: COLORS.ink, fontSize: 16.5, fontWeight: '900', marginTop: 8, marginBottom: 10 },
   card: { backgroundColor: COLORS.card, borderRadius: RADIUS.lg, padding: 14, marginBottom: 8, ...SHADOW, shadowOpacity: 0.05 },
   line: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },

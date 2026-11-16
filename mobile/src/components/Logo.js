@@ -32,13 +32,14 @@ export function LogoMark({ size = 40 }) {
 }
 
 // Symbole + nom « SamaBoutik » (Sama en bleu nuit, Boutik en indigo), comme sur le site.
-export default function Logo({ size = 40, textSize = 24 }) {
+// light : version pour fond sombre ou dégradé (Sama en blanc, Boutik en lavande), avec une pastille blanche.
+export default function Logo({ size = 40, textSize = 24, light = false }) {
   return (
     <View style={styles.row}>
-      <LogoMark size={size} />
+      {light ? <View style={[styles.markBox, { width: size + 8, height: size + 8, borderRadius: (size + 8) / 3 }]}><LogoMark size={size} /></View> : <LogoMark size={size} />}
       <Text style={[styles.text, { fontSize: textSize }]}>
-        <Text style={{ color: COLORS.ink }}>Sama</Text>
-        <Text style={{ color: COLORS.brand }}>Boutik</Text>
+        <Text style={{ color: light ? '#ffffff' : COLORS.ink }}>Sama</Text>
+        <Text style={{ color: light ? '#cfcbfb' : COLORS.brand }}>Boutik</Text>
       </Text>
     </View>
   );
@@ -46,5 +47,6 @@ export default function Logo({ size = 40, textSize = 24 }) {
 
 const styles = sheet({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  markBox: { backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },
   text: { fontWeight: '900', letterSpacing: -0.8 },
 });
