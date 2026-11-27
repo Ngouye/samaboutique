@@ -712,6 +712,34 @@
   .shop-pin.is-selected::after { animation: none; }
 }
 
+/* ===================== Annuaire « Boutiques près de moi » ===================== */
+/* Reflet qui balaie une fiche de boutique au survol (sans transition sur transform, laissée à l'inclinaison 3D) */
+.dir-sheen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.1) 50%, transparent 65%);
+  transform: translateX(-120%);
+}
+/* Faisceau du radar : bord lumineux à l'avant, traîne qui s'efface derrière */
+.radar-sweep {
+  border-radius: 9999px;
+  background: conic-gradient(from 0deg, transparent 0deg, rgba(246, 199, 104, 0) 250deg, rgba(246, 199, 104, 0.3) 357deg, rgba(249, 215, 132, 0.75) 359.5deg, transparent 360deg);
+}
+@keyframes radar-sweep { to { transform: rotate(360deg); } }
+@keyframes radar-ping { 0% { transform: scale(0.8); opacity: 0.85; } 100% { transform: scale(3.2); opacity: 0; } }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .dir-sheen::after { transition: transform 0.9s cubic-bezier(0.16, 1, 0.3, 1); }
+  .dir-sheen:hover::after { transform: translateX(120%); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .radar-sweep { animation: radar-sweep 6s linear infinite; }
+  .radar-ping { animation: radar-ping 2.4s ease-out infinite; }
+}
+
 /* ===================== Cartes : annuaire et suivi en direct ===================== */
 .logo-pin {
   position: relative;

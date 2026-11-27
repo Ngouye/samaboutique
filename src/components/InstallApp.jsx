@@ -10,7 +10,8 @@ import { canPromptInstall, promptInstall, subscribeInstall, isStandalone, instal
 
 const VARIANTS = {
   // Barre de navigation sombre de la page d'accueil
-  nav: 'inline-flex items-center gap-2 rounded-full bg-white/[0.07] px-3.5 py-2.5 text-[14px] font-semibold text-white/85 ring-1 ring-white/15 transition-colors hover:bg-white/15 hover:text-white',
+  // (l'affichage, « hidden md:inline-flex » par exemple, est donné par la page)
+  nav: 'items-center gap-2 rounded-full bg-white/[0.07] px-3.5 py-2.5 text-[14px] font-semibold text-white/85 ring-1 ring-white/15 transition-colors hover:bg-white/15 hover:text-white',
   // Bouton pleine largeur sur fond sombre (barre latérale, menus)
   glass: 'flex w-full items-center justify-center gap-2 rounded-xl bg-white/[0.06] px-3 py-2.5 text-xs font-bold text-white/85 ring-1 ring-white/10 transition-colors hover:bg-white/10 hover:text-white',
   // Bouton pleine largeur sur fond clair

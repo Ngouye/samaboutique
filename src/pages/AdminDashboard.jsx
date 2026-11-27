@@ -7,7 +7,7 @@ import {
   Phone, Mail, MessageCircle, ShieldCheck, ShieldAlert, Crown, Wallet, ShoppingBag,
   Users, CalendarDays, Clock, TriangleAlert, CircleCheck, Eye, Copy, ChevronRight, Sparkles, Globe, Navigation,
   TrendingUp, ArrowUpRight, ArrowDownRight, Minus, LoaderCircle, Camera, Music2,
-  UserRound, Package, Bike, Star, Activity, Receipt, Banknote, Truck, PackageX,
+  UserRound, Package, Bike, Star, Activity, Receipt, Banknote, Truck, PackageX, PanelLeft, LogOut,
 } from 'lucide-react';
 import ShopsMap, { PLAN_META } from '../components/admin/ShopsMap';
 import { nearestCity } from '../components/admin/geo';
@@ -18,8 +18,8 @@ import { fmt, compact } from '../components/dashboard/analytics';
 import { BRAND } from '../utils/brand';
 import LogoutDialog from '../components/LogoutDialog';
 import { showFarewell, markLoggedOut } from '../utils/farewell';
-import Logo from '../components/brand/Logo';
-import { SetupNotice, StatGrid, StatTile, DataTable } from '../components/admin/AdminKit';
+import Logo, { LogoMark } from '../components/brand/Logo';
+import { SetupNotice, StatGrid, StatTile, DataTable, NightFx } from '../components/admin/AdminKit';
 import OrdersSection, { OrderDrawer, StatusChip } from '../components/admin/sections/OrdersSection';
 import CustomersSection, { CustomerDrawer } from '../components/admin/sections/CustomersSection';
 import ProductsSection from '../components/admin/sections/ProductsSection';
@@ -50,6 +50,16 @@ const PLAN_PRICES = { debutant: 0, pro: 5000, premium: 15000 };
 const PERIODS = [{ id: 7, label: '7 jours' }, { id: 30, label: '30 jours' }, { id: 90, label: '90 jours' }];
 const DAY = 86400000;
 
+// Menu de gauche. Grand écran (≥ 1280 px) : menu complet qui pousse la page, ou rail d'icônes
+// (choix mémorisé). Tablette : rail d'icônes, le menu complet s'ouvre par-dessus la page.
+// Téléphone : menu en tiroir.
+const WIDE_QUERY = '(min-width: 1280px)';
+const SIDEBAR_KEY = 'samaboutik_admin_sidebar';
+const isWideScreen = () => typeof window !== 'undefined' && Boolean(window.matchMedia?.(WIDE_QUERY).matches);
+const fullMenuWanted = () => {
+  try { return localStorage.getItem(SIDEBAR_KEY) !== 'rail'; } catch { return true; }
+};
+
 const planOf = (m) => (PLAN_META[m.subscription_plan] ? m.subscription_plan : 'debutant');
 const isPaidActive = (m) => planOf(m) !== 'debutant' && m.subscription_status === 'active' && !m.is_suspended
   && (!m.subscription_end_date || new Date(m.subscription_end_date) > new Date());
@@ -67,6 +77,17 @@ const relDays = (d) => {
 /* ------------------------------------------------------------------ */
 /* Petits composants                                                   */
 /* ------------------------------------------------------------------ */
+
+// Lueurs du menu de gauche (indigo en haut, or en bas) et grain photo
+function SidebarGlow() {
+  return (
+    <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
+      <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-[#6a58e8]/30 blur-[80px]" />
+      <div className="absolute -bottom-28 -right-24 h-64 w-64 rounded-full bg-[#f6c768]/10 blur-[80px]" />
+      <div className="hero-grain absolute inset-0 opacity-[0.06] mix-blend-overlay" />
+    </div>
+  );
+}
 
 function PlanBadge({ plan }) {
   const meta = PLAN_META[plan] || PLAN_META.debutant;
@@ -186,8 +207,8 @@ function MerchantDrawer({ merchant, onClose, onToggleSuspension, onShowOnMap, bu
             transition={{ type: 'spring', stiffness: 300, damping: 34 }}
             className="relative flex h-full w-full max-w-xl flex-col overflow-hidden bg-[#f7f6f2] shadow-2xl"
           >
-            <div className="relative overflow-hidden bg-ink p-6 text-white">
-              <div className="pointer-events-none absolute -left-24 -top-28 h-80 w-80 rounded-full bg-brand-500/20 blur-3xl" aria-hidden="true" />
+            <div className="relative isolate overflow-hidden bg-[#0c0a24] p-6 text-white">
+              <NightFx />
               <div className="relative flex items-start gap-4">
                 <ShopAvatar merchant={merchant} size="h-16 w-16 text-2xl" />
                 <div className="min-w-0 flex-1">
@@ -207,9 +228,9 @@ function MerchantDrawer({ merchant, onClose, onToggleSuspension, onShowOnMap, bu
                   { label: 'Livrées', value: merchant.delivered_count },
                   { label: 'Livreurs', value: merchant.drivers_count },
                 ].map((s) => (
-                  <div key={s.label} className="rounded-2xl bg-white/[0.07] p-3 text-center">
-                    <p className="text-xl font-extrabold">{fmt(Number(s.value))}</p>
-                    <p className="text-[11px] text-white/60">{s.label}</p>
+                  <div key={s.label} className="min-w-0 rounded-2xl bg-white/[0.06] p-3 text-center ring-1 ring-white/10">
+                    <p className="font-editorial text-2xl leading-none">{fmt(Number(s.value))}</p>
+                    <p className="mt-1 truncate text-[11px] text-white/55">{s.label}</p>
                   </div>
                 ))}
               </div>
@@ -290,7 +311,7 @@ function MerchantDrawer({ merchant, onClose, onToggleSuspension, onShowOnMap, bu
                 <InfoRow icon={CalendarDays} label="Fin de l'abonnement">{merchant.subscription_end_date ? `${dateFr(merchant.subscription_end_date)}` : null}</InfoRow>
                 <InfoRow icon={Wallet} label="Reversements (comptes et numéro)">{merchant.payout_phone_number ? `${formatPayoutProviders(merchant.payout_provider) || '—'} · ${merchant.payout_phone_number}` : null}</InfoRow>
                 {onChangePlan && (
-                  <button onClick={() => onChangePlan(merchant)} className="mb-2 mt-1 flex w-full items-center justify-center gap-2 rounded-full bg-ink py-2.5 text-sm font-bold text-white hover:bg-brand-800">
+                  <button onClick={() => onChangePlan(merchant)} className="btn-gold mb-2 mt-1 flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-extrabold">
                     <Crown className="h-4 w-4" /> Changer l'offre
                   </button>
                 )}
@@ -373,6 +394,29 @@ export default function AdminDashboard() {
   const [mapSelectedId, setMapSelectedId] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [mobileNav, setMobileNav] = useState(false);
+  const [wide, setWide] = useState(isWideScreen);
+  const [menuOpen, setMenuOpen] = useState(() => isWideScreen() && fullMenuWanted());
+  useEffect(() => {
+    const mq = window.matchMedia?.(WIDE_QUERY);
+    if (!mq) return undefined;
+    // Rotation de la tablette, fenêtre agrandie ou réduite
+    const onChange = (e) => { setWide(e.matches); setMenuOpen(e.matches && fullMenuWanted()); };
+    mq.addEventListener?.('change', onChange);
+    return () => mq.removeEventListener?.('change', onChange);
+  }, []);
+  useEffect(() => {
+    if (wide || !menuOpen) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setMenuOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [wide, menuOpen]);
+  const toggleMenu = () => {
+    const next = !menuOpen;
+    setMenuOpen(next);
+    if (wide) {
+      try { localStorage.setItem(SIDEBAR_KEY, next ? 'full' : 'rail'); } catch { /* mémoire du navigateur indisponible */ }
+    }
+  };
   // Filtres de la liste des marchands
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState('all');
@@ -669,18 +713,20 @@ export default function AdminDashboard() {
   const showOnMap = (m) => { setDetailsId(null); setTab('map'); setMapSelectedId(m.id); };
 
   const NAV = [
-    { id: 'overview', label: "Vue d'ensemble", icon: LayoutDashboard, group: 'Pilotage' },
-    { id: 'orders', label: 'Commandes', icon: ShoppingBag, badge: ov.os.inProgress || null, group: 'Pilotage' },
-    { id: 'customers', label: 'Clients', icon: UserRound, badge: scoped.customers.length || null, group: 'Pilotage' },
-    { id: 'merchants', label: 'Boutiques', icon: Store, badge: merchants.length, group: 'Réseau' },
-    { id: 'products', label: 'Produits', icon: Package, badge: scoped.products.length || null, group: 'Réseau' },
-    { id: 'drivers', label: 'Livreurs', icon: Bike, badge: scoped.drivers.length || null, group: 'Réseau' },
-    { id: 'map', label: 'Carte des boutiques', icon: MapIcon, badge: a.located.length, group: 'Réseau' },
-    { id: 'billing', label: 'Abonnements et offres', icon: CreditCard, badge: a.expiringSoon.length || null, group: 'Plateforme' },
-    { id: 'reviews', label: 'Avis clients', icon: Star, badge: ov.negative.length || null, group: 'Plateforme' },
-    { id: 'system', label: 'Système et journal', icon: Activity, badge: ov.waFailed || null, group: 'Plateforme' },
+    { id: 'overview', label: "Vue d'ensemble", short: 'Accueil', icon: LayoutDashboard, group: 'Pilotage' },
+    { id: 'orders', label: 'Commandes', short: 'Commandes', icon: ShoppingBag, badge: ov.os.inProgress || null, group: 'Pilotage' },
+    { id: 'customers', label: 'Clients', short: 'Clients', icon: UserRound, badge: scoped.customers.length || null, group: 'Pilotage' },
+    { id: 'merchants', label: 'Boutiques', short: 'Boutiques', icon: Store, badge: merchants.length, group: 'Réseau' },
+    { id: 'products', label: 'Produits', short: 'Produits', icon: Package, badge: scoped.products.length || null, group: 'Réseau' },
+    { id: 'drivers', label: 'Livreurs', short: 'Livreurs', icon: Bike, badge: scoped.drivers.length || null, group: 'Réseau' },
+    { id: 'map', label: 'Carte des boutiques', short: 'Carte', icon: MapIcon, badge: a.located.length, group: 'Réseau' },
+    { id: 'billing', label: 'Abonnements et offres', short: 'Offres', icon: CreditCard, badge: a.expiringSoon.length || null, alert: true, group: 'Plateforme' },
+    { id: 'reviews', label: 'Avis clients', short: 'Avis', icon: Star, badge: ov.negative.length || null, alert: true, group: 'Plateforme' },
+    { id: 'system', label: 'Système et journal', short: 'Système', icon: Activity, badge: ov.waFailed || null, alert: true, group: 'Plateforme' },
   ];
   const current = NAV.find((n) => n.id === tab);
+  // Choix d'un onglet : sur tablette, le menu complet ouvert par-dessus la page se referme
+  const pick = (id) => { setTab(id); setMobileNav(false); if (!wide) setMenuOpen(false); };
 
   // Déconnexion : confirmation, puis écran d'au revoir pendant le retour à la page de connexion.
   const [logoutOpen, setLogoutOpen] = useState(false);
@@ -691,48 +737,111 @@ export default function AdminDashboard() {
     markLoggedOut({ everywhere, partial: Boolean(error && everywhere) });
   };
 
+  const onLogoutClick = () => { setMenuOpen(false); onLogout(); };
+
+  // Menu complet : téléphone (tiroir), tablette (par-dessus la page), grand écran
   const sidebar = (prefix) => (
-    <div className="relative flex h-full flex-col overflow-hidden bg-night text-slate-300">
+    <div className="relative isolate flex h-full flex-col overflow-hidden bg-[#0b0a26] text-white/65">
+      <SidebarGlow />
       <div className="relative flex items-center justify-between px-5 pt-6">
         <Logo variant="dark" markClassName="h-9 w-9" textClassName="text-lg" />
-        {prefix === 'mobile' && <button onClick={() => setMobileNav(false)} className="rounded-xl p-2 text-slate-400 hover:bg-white/5" aria-label="Fermer le menu"><X className="h-5 w-5" /></button>}
+        {prefix === 'mobile' && <button onClick={() => setMobileNav(false)} className="rounded-xl p-2 text-white/50 hover:bg-white/5 hover:text-white" aria-label="Fermer le menu"><X className="h-5 w-5" /></button>}
+        {prefix === 'overlay' && <button onClick={() => setMenuOpen(false)} className="rounded-xl p-2 text-white/50 hover:bg-white/5 hover:text-white" aria-label="Fermer le menu"><X className="h-5 w-5" /></button>}
       </div>
-      <div className="relative mx-4 mt-6 rounded-2xl border border-amber-300/20 bg-gradient-to-br from-amber-300/15 to-transparent p-4">
+      <div className="relative mx-4 mt-6 overflow-hidden rounded-2xl bg-gradient-to-br from-[#f6c768]/[0.16] via-[#f6c768]/[0.05] to-transparent p-4 ring-1 ring-[#f6c768]/25">
         <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-300/15 text-amber-300 ring-1 ring-inset ring-amber-300/25"><ShieldCheck className="h-[18px] w-[18px]" /></span>
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#f9d784] to-[#ef8f5b] text-[#1a1033] shadow-[0_10px_24px_-10px_rgba(243,169,83,0.8)]"><ShieldCheck className="h-5 w-5" /></span>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-white">Espace administrateur</p>
-            <p className="truncate text-xs text-slate-400">{user?.email}</p>
+            <p className="text-sm font-extrabold text-white">Espace administrateur</p>
+            <p className="truncate text-xs text-white/50">{user?.email}</p>
           </div>
         </div>
       </div>
-      <nav className="relative mt-5 flex-1 space-y-1 overflow-y-auto px-3 pb-3">
-        {NAV.map(({ id, label, icon: Icon, badge, group }, i) => {
+      <nav className="relative mt-5 flex-1 space-y-0.5 overflow-y-auto px-3 pb-3 scrollbar-hide">
+        {NAV.map(({ id, label, icon: Icon, badge, alert, group }, i) => {
           const active = tab === id;
           return (
             <div key={id}>
-            {group !== NAV[i - 1]?.group && <p className={`px-3 pb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 ${i === 0 ? 'pt-0' : 'pt-4'}`}>{group}</p>}
-            <button onClick={() => { setTab(id); setMobileNav(false); }} className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${active ? 'text-white' : 'text-slate-400 hover:text-white'}`}>
-              {active && <motion.span layoutId={`${prefix}-admin-nav`} className="absolute inset-0 rounded-xl border border-brand-400/20 bg-gradient-to-r from-brand-400/15 to-brand-400/[0.03]" transition={{ type: 'spring', stiffness: 400, damping: 34 }} />}
-              {active && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-brand-400 shadow-[0_0_12px_color-mix(in_srgb,_var(--color-brand-400)_90%,_transparent)]" />}
-              <Icon className={`relative h-[18px] w-[18px] transition-transform group-hover:scale-110 ${active ? 'text-brand-300' : ''}`} />
-              <span className="relative flex-1 text-left">{label}</span>
-              {badge > 0 && <span className="relative rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-bold text-white">{badge}</span>}
-            </button>
+              {group !== NAV[i - 1]?.group && <p className={`px-3 pb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/30 ${i === 0 ? 'pt-0' : 'pt-4'}`}>{group}</p>}
+              <button onClick={() => pick(id)} aria-current={active ? 'page' : undefined} className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${active ? 'text-white' : 'text-white/55 hover:bg-white/[0.04] hover:text-white'}`}>
+                {active && <motion.span layoutId={`${prefix}-admin-nav`} className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/[0.1] to-white/[0.02] ring-1 ring-white/10" transition={{ type: 'spring', stiffness: 400, damping: 34 }} />}
+                {active && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-[#f6c768] shadow-[0_0_14px_rgba(246,199,104,0.9)]" />}
+                <Icon className={`relative h-[18px] w-[18px] transition-transform group-hover:scale-110 ${active ? 'text-[#f6c768]' : ''}`} />
+                <span className="relative flex-1 text-left">{label}</span>
+                {badge > 0 && <span className={`relative rounded-full px-2 py-0.5 text-[11px] font-bold ${alert ? 'bg-[#f6c768] text-[#1a1033]' : 'bg-white/10 text-white'}`}>{badge}</span>}
+              </button>
             </div>
           );
         })}
       </nav>
-      <div className="relative border-t border-white/5 p-3">
-        <LogoutButton onClick={onLogout} detail={user?.email} tone="dark" />
+      <div className="relative border-t border-white/[0.06] p-3">
+        <LogoutButton onClick={onLogoutClick} detail={user?.email} tone="dark" />
       </div>
     </div>
   );
 
+  // Rail d'icônes (tablette, ou grand écran quand le menu est replié) : icône, nom court, pastille
+  const rail = (
+    <div className="relative isolate flex h-full flex-col items-center overflow-hidden bg-[#0b0a26] text-white/55">
+      <SidebarGlow />
+      <button type="button" onClick={() => pick('overview')} className="relative mt-5 rounded-2xl p-1.5 transition hover:bg-white/5" aria-label="SamaBoutik, vue d'ensemble" title="Vue d'ensemble">
+        <LogoMark className="h-9 w-9" onDark />
+      </button>
+      <span className="relative mt-3 flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-[#f9d784] to-[#ef8f5b] text-[#1a1033]" title="Espace administrateur"><ShieldCheck className="h-4 w-4" /></span>
+      <nav className="relative mt-3 flex w-full flex-1 flex-col items-center gap-0.5 overflow-y-auto px-2 pb-2 scrollbar-hide" aria-label="Navigation de l'administration">
+        {NAV.map(({ id, label, short, icon: Icon, badge, alert, group }, i) => {
+          const active = tab === id;
+          return (
+            <React.Fragment key={id}>
+              {i > 0 && group !== NAV[i - 1].group && <span className="my-1.5 h-px w-8 shrink-0 bg-white/10" aria-hidden="true" />}
+              <button
+                type="button"
+                onClick={() => pick(id)}
+                title={label}
+                aria-label={label}
+                aria-current={active ? 'page' : undefined}
+                className={`group relative flex w-full shrink-0 flex-col items-center gap-1 rounded-2xl px-1 py-1.5 text-[10px] font-bold transition-colors ${active ? 'text-white' : 'hover:bg-white/[0.05] hover:text-white'}`}
+              >
+                {active && <motion.span layoutId="rail-admin-nav" className="absolute inset-0 rounded-2xl bg-white/[0.08] ring-1 ring-white/10" transition={{ type: 'spring', stiffness: 400, damping: 34 }} />}
+                <span className={`relative flex h-8 w-8 items-center justify-center rounded-xl transition ${active ? 'bg-gradient-to-br from-[#f9d784] to-[#ef8f5b] text-[#1a1033] shadow-[0_10px_22px_-10px_rgba(243,169,83,0.9)]' : ''}`}>
+                  <Icon className="h-[18px] w-[18px]" />
+                  {badge > 0 && (
+                    <span className={`absolute -right-2 -top-1.5 min-w-[18px] rounded-full px-1 text-center text-[9.5px] font-extrabold leading-[16px] ring-2 ring-[#0b0a26] ${alert ? 'bg-[#f6c768] text-[#1a1033]' : 'bg-[#6a58e8] text-white'}`}>
+                      {badge > 99 ? '99+' : badge}
+                    </span>
+                  )}
+                </span>
+                <span className="relative max-w-full truncate leading-none">{short}</span>
+              </button>
+            </React.Fragment>
+          );
+        })}
+      </nav>
+      <button type="button" onClick={onLogoutClick} title="Se déconnecter" aria-label="Se déconnecter" className="relative mb-4 mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white/50 ring-1 ring-white/10 transition hover:bg-red-500/15 hover:text-red-300">
+        <LogOut className="h-[18px] w-[18px]" />
+      </button>
+    </div>
+  );
+
+  const pushFull = wide && menuOpen; // grand écran, menu complet : la page se décale
+
   return (
     <MotionConfig reducedMotion="user">
     <div className="min-h-screen bg-[#f7f6f2] font-sans text-slate-900">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[268px] md:block">{sidebar('desktop')}</aside>
+      {/* Tablette et ordinateur : rail d'icônes ou menu complet */}
+      <aside className={`fixed inset-y-0 left-0 z-30 hidden transition-[width] duration-300 ease-out md:block ${pushFull ? 'w-[272px]' : 'w-[88px]'}`}>
+        {pushFull ? sidebar('desktop') : rail}
+      </aside>
+      <AnimatePresence>
+        {menuOpen && !wide && (
+          <>
+            <motion.div key="admin-menu-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMenuOpen(false)} className="fixed inset-0 z-40 hidden bg-[#0c0a24]/45 backdrop-blur-[3px] md:block" aria-hidden="true" />
+            <motion.aside key="admin-menu" initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ type: 'spring', stiffness: 320, damping: 34 }} className="fixed inset-y-0 left-0 z-50 hidden w-[288px] shadow-2xl md:block">
+              {sidebar('overlay')}
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
       <AnimatePresence>
         {logoutOpen && (
           <LogoutDialog
@@ -755,24 +864,41 @@ export default function AdminDashboard() {
         )}
       </AnimatePresence>
 
-      <div className="md:pl-[268px]">
-        <header className="sticky top-0 z-20 border-b border-slate-200/60 bg-[#f7f6f2]/80 backdrop-blur-xl">
-          <div className="mx-auto flex max-w-[1400px] items-center gap-3 px-4 py-3 md:px-8">
-            <button onClick={() => setMobileNav(true)} className="rounded-xl p-2 text-slate-600 hover:bg-white md:hidden" aria-label="Ouvrir le menu"><Menu className="h-5 w-5" /></button>
+      <div className={`transition-[padding] duration-300 ease-out ${pushFull ? 'md:pl-[272px]' : 'md:pl-[88px]'}`}>
+        <header className="sticky top-0 z-20 border-b border-[#e8e5dc]/80 bg-[#f7f6f2]/85 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-[1400px] items-center gap-2.5 px-4 py-3 md:gap-3 md:px-6 lg:px-8">
+            <button onClick={() => setMobileNav(true)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#e8e5dc] bg-white text-slate-600 md:hidden" aria-label="Ouvrir le menu"><Menu className="h-5 w-5" /></button>
+            <button
+              type="button"
+              onClick={toggleMenu}
+              className={`hidden h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-colors md:flex ${menuOpen ? 'border-[#e8e5dc] bg-white text-stone-500 hover:text-ink' : 'border-[#d9d4fb] bg-[#6a58e8]/[0.08] text-[#3b2fc9] hover:bg-[#6a58e8]/15'}`}
+              aria-label={menuOpen ? 'Replier le menu' : 'Afficher le menu'}
+              aria-expanded={menuOpen}
+              title={menuOpen ? 'Replier le menu' : 'Afficher le menu complet'}
+            >
+              <PanelLeft className="h-[18px] w-[18px]" />
+            </button>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-slate-500">Administration SamaBoutik</p>
-              <h1 className="truncate text-lg font-bold">{current?.label}</h1>
+              <p className="truncate text-[11px] font-bold uppercase tracking-[0.14em] text-stone-400">Administration · {current?.group}</p>
+              <h1 className="truncate text-lg font-extrabold tracking-[-0.01em] text-ink">{current?.label}</h1>
             </div>
-            <motion.button whileTap={{ scale: 0.95 }} onClick={fetchAdminData} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50" aria-label="Actualiser">
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> <span className="hidden lg:inline">Actualiser</span>
+            {scopeMerchant && (
+              <button onClick={() => setScope('all')} className="hidden max-w-[220px] items-center gap-2 rounded-full bg-[#0c0a24] py-1.5 pl-1.5 pr-3 text-xs font-bold text-white lg:inline-flex" title="Revenir à toute la plateforme">
+                <ShopAvatar merchant={scopeMerchant} size="h-7 w-7 text-[11px]" />
+                <span className="truncate">{scopeMerchant.shop_name}</span>
+                <X className="h-3.5 w-3.5 shrink-0 text-white/60" />
+              </button>
+            )}
+            <motion.button whileTap={{ scale: 0.95 }} onClick={fetchAdminData} className="flex h-10 items-center gap-2 rounded-full border border-[#e8e5dc] bg-white px-3 text-sm font-semibold text-slate-600 hover:text-ink" aria-label="Actualiser" title="Actualiser">
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> <span className="hidden xl:inline">Actualiser</span>
             </motion.button>
-            <motion.button whileTap={{ scale: 0.95 }} onClick={exportCsv} disabled={!merchants.length || tab === 'system'} className="flex items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
-              <Download className="h-4 w-4" /> <span className="hidden sm:inline">Exporter (CSV)</span>
+            <motion.button whileTap={{ scale: 0.95 }} onClick={exportCsv} disabled={!merchants.length || tab === 'system'} className="flex h-10 items-center gap-2 rounded-full bg-[#0c0a24] px-3.5 text-sm font-bold text-white shadow-[0_12px_26px_-14px_rgba(12,10,36,0.8)] transition hover:bg-[#1b1745] disabled:opacity-40" aria-label="Exporter (CSV)" title="Exporter l'onglet ouvert (CSV)">
+              <Download className="h-4 w-4 text-[#f6c768]" /> <span className="hidden sm:inline">Exporter</span>
             </motion.button>
           </div>
         </header>
 
-        <main className="px-4 py-6 md:px-8 md:py-8">
+        <main className="px-4 py-6 md:px-6 md:py-7 lg:px-8 lg:py-8">
           <div className="mx-auto max-w-[1400px]">
             {loadError && (
               <div className="mb-6 flex items-start gap-3 rounded-2xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 ring-1 ring-amber-200">
@@ -781,25 +907,25 @@ export default function AdminDashboard() {
             )}
 
             {!loading && (
-              <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center">
-                <label htmlFor="admin-scope" className="shrink-0 text-sm font-semibold text-slate-600">Afficher :</label>
+              <div className="mb-6 flex flex-col gap-2.5 sm:flex-row sm:items-center">
+                <label htmlFor="admin-scope" className="shrink-0 text-[11px] font-bold uppercase tracking-[0.14em] text-stone-400">Afficher</label>
                 <div className="relative sm:w-80">
-                  <Store className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Store className={`pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 ${scopeMerchant ? 'text-[#f6c768]' : 'text-slate-400'}`} />
                   <select
                     id="admin-scope"
                     value={scope}
                     onChange={(e) => setScope(e.target.value)}
-                    className={`w-full cursor-pointer appearance-none rounded-xl border py-2.5 pl-9 pr-9 text-sm font-semibold outline-none focus:ring-4 focus:ring-brand-500/10 ${scopeMerchant ? 'border-brand-300 bg-brand-50 text-brand-900' : 'border-slate-200 bg-white text-slate-700'}`}
+                    className={`w-full cursor-pointer appearance-none truncate rounded-full py-2.5 pl-10 pr-9 text-base font-semibold outline-none transition focus:ring-4 focus:ring-[#6a58e8]/15 md:text-sm ${scopeMerchant ? 'bg-[#0c0a24] text-white ring-1 ring-[#f6c768]/40 [color-scheme:dark]' : 'bg-white text-slate-700 ring-1 ring-[#e8e5dc]'}`}
                   >
                     <option value="all">Toute la plateforme ({merchants.length} boutiques)</option>
                     {shopOptions.map((m) => <option key={m.id} value={m.id}>{m.shop_name || 'Sans nom'}</option>)}
                   </select>
-                  <ChevronRight className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-slate-400" />
+                  <ChevronRight className={`pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 ${scopeMerchant ? 'text-white/60' : 'text-slate-400'}`} />
                 </div>
                 {scopeMerchant && (
-                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-brand-900">
-                    <span>Uniquement les données de <strong>{scopeMerchant.shop_name}</strong>.</span>
-                    <button onClick={() => setScope('all')} className="font-bold underline underline-offset-2">Revenir à toute la plateforme</button>
+                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-600">
+                    <span>Uniquement les données de <strong className="text-ink">{scopeMerchant.shop_name}</strong>.</span>
+                    <button onClick={() => setScope('all')} className="font-bold text-[#3b2fc9] underline underline-offset-2">Revenir à toute la plateforme</button>
                   </p>
                 )}
               </div>
@@ -814,19 +940,19 @@ export default function AdminDashboard() {
                   {tab === 'overview' && (
                     <>
                       {scopeMerchant && (
-                        <motion.section variants={rise} className="relative overflow-hidden rounded-[2rem] bg-ink p-6 text-white md:p-8">
-                          <div className="pointer-events-none absolute -left-24 -top-32 h-96 w-96 rounded-full bg-brand-500/25 blur-3xl" aria-hidden="true" />
-                          <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                        <motion.section variants={rise} className="relative isolate overflow-hidden rounded-[2rem] bg-[#0c0a24] p-6 text-white shadow-[0_30px_70px_-40px_rgba(12,10,36,0.9)] md:p-8">
+                          <NightFx />
+                          <div className="relative flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
                             <div className="flex min-w-0 items-center gap-4">
                               <ShopAvatar merchant={scopeMerchant} size="h-16 w-16 text-2xl" />
                               <div className="min-w-0">
-                                <p className="text-sm text-brand-200/80">Boutique sélectionnée</p>
-                                <h2 className="truncate text-3xl font-extrabold tracking-tight">{scopeMerchant.shop_name}</h2>
+                                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#f9d784]/80">Boutique sélectionnée</p>
+                                <h2 className="truncate text-3xl font-extrabold tracking-[-0.03em] md:text-4xl">{scopeMerchant.shop_name}</h2>
                                 <div className="mt-2 flex flex-wrap gap-2"><PlanBadge plan={planOf(scopeMerchant)} /><StatusBadge merchant={scopeMerchant} /></div>
                               </div>
                             </div>
                             <div className="flex flex-wrap gap-2">
-                              <button onClick={() => setDetailsId(scopeMerchant.id)} className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-ink"><Eye className="h-4 w-4" /> Fiche complète</button>
+                              <button onClick={() => setDetailsId(scopeMerchant.id)} className="btn-gold inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-extrabold"><Eye className="h-4 w-4" /> Fiche complète</button>
                               <a href={shopUrl(scopeMerchant)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold hover:bg-white/10"><Globe className="h-4 w-4" /> Vitrine</a>
                               <button onClick={() => setScope('all')} className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold hover:bg-white/10"><LayoutDashboard className="h-4 w-4" /> Toute la plateforme</button>
                             </div>
@@ -838,38 +964,58 @@ export default function AdminDashboard() {
                               { l: 'Livrées', v: fmt(Number(scopeMerchant.delivered_count)) },
                               { l: "Chiffre d'affaires livré", v: `${compact(Number(scopeMerchant.revenue_fcfa))} F` },
                             ].map((x) => (
-                              <div key={x.l} className="rounded-2xl bg-white/[0.07] p-3"><p className="font-figures text-xl font-bold">{x.v}</p><p className="text-xs text-white/60">{x.l}</p></div>
+                              <div key={x.l} className="min-w-0 rounded-2xl bg-white/[0.06] p-3.5 ring-1 ring-white/10 backdrop-blur"><p className="font-editorial truncate text-[1.7rem] leading-none">{x.v}</p><p className="mt-1.5 truncate text-[11px] font-bold uppercase tracking-[0.1em] text-white/50">{x.l}</p></div>
                             ))}
                           </div>
                         </motion.section>
                       )}
                       {!scopeMerchant && (
-                      <motion.section variants={rise} className="relative overflow-hidden rounded-[2rem] bg-ink p-6 text-white md:p-8">
-                        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-                          <div className="absolute -left-24 -top-32 h-96 w-96 rounded-full bg-brand-500/25 blur-3xl" />
-                          <div className="absolute inset-0 bg-[radial-gradient(color-mix(in_srgb,_var(--color-brand-300)_12%,_transparent)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]" />
-                        </div>
+                      <motion.section variants={rise} className="relative isolate overflow-hidden rounded-[2rem] bg-[#0c0a24] p-6 text-white shadow-[0_30px_70px_-40px_rgba(12,10,36,0.9)] md:p-8 lg:p-9">
+                        <NightFx />
+                        <div className="hero-halo pointer-events-none absolute right-[-6%] top-[-30%] -z-10 hidden h-[340px] w-[340px] rounded-full bg-[conic-gradient(from_90deg,#6a58e8,#f6c768,#ef8f5b,#8a7cf1,#6a58e8)] opacity-25 blur-[80px] md:block" aria-hidden="true" />
                         <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-                          <div>
-                            <p className="mb-2 flex items-center gap-2 text-sm font-medium capitalize text-brand-200/80"><CalendarDays className="h-4 w-4" /> {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                            <h2 className="text-3xl font-extrabold tracking-tight md:text-4xl">Plateforme <span className="text-brand-300">SamaBoutik</span></h2>
-                            <p className="mt-3 max-w-xl text-brand-50/80">
+                          <div className="min-w-0">
+                            <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/[0.07] px-3 py-1 text-xs font-semibold capitalize text-white/75 ring-1 ring-white/10">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_2px_rgba(52,211,153,0.7)]" />
+                              {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                            </p>
+                            <h2 className="text-[2.1rem] font-extrabold leading-[1.05] tracking-[-0.035em] md:text-[2.75rem]">
+                              Plateforme <span className="font-editorial text-sunrise pr-1">SamaBoutik</span>
+                            </h2>
+                            <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-white/65">
                               <strong className="text-white">{merchants.length} boutique{merchants.length > 1 ? 's' : ''}</strong> inscrite{merchants.length > 1 ? 's' : ''}, dont <strong className="text-white">{a.located.length}</strong> localisée{a.located.length > 1 ? 's' : ''} et <strong className="text-white">{a.paid.length}</strong> sur un forfait payant.
                             </p>
                           </div>
-                          <div className="flex flex-wrap gap-3">
-                            <button onClick={() => setTab('map')} className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-ink transition-transform hover:-translate-y-0.5"><MapIcon className="h-4 w-4" /> Voir la carte</button>
-                            <button onClick={() => setTab('merchants')} className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold hover:bg-white/10"><Store className="h-4 w-4" /> Tous les marchands</button>
+                          <div className="flex flex-wrap gap-2.5">
+                            <button onClick={() => setTab('map')} className="btn-gold inline-flex min-h-11 items-center gap-2 rounded-full px-5 text-sm font-extrabold"><MapIcon className="h-4 w-4" /> Voir la carte</button>
+                            <button onClick={() => setTab('merchants')} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-white/[0.07] px-5 text-sm font-semibold ring-1 ring-white/15 transition hover:bg-white/[0.12]"><Store className="h-4 w-4" /> Tous les marchands</button>
                           </div>
                         </div>
+                        <dl className="relative mt-7 grid grid-cols-2 gap-2.5 md:grid-cols-4">
+                          {[
+                            { l: 'Boutiques', s: 'Boutiques', v: fmt(merchants.length), icon: Store },
+                            { l: 'Localisées', s: 'Localisées', v: fmt(a.located.length), icon: MapPin },
+                            { l: 'Forfaits payants', s: 'Abonnées', v: fmt(a.paid.length), icon: Crown },
+                            { l: 'Revenu mensuel', s: 'Revenu/mois', v: `${compact(a.mrr)} F`, icon: Banknote },
+                          ].map((x) => (
+                            <div key={x.l} className="min-w-0 rounded-2xl bg-white/[0.06] p-3.5 ring-1 ring-white/10 backdrop-blur">
+                              <dt className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-[0.1em] text-white/50" title={x.l}>
+                                <x.icon className="h-3.5 w-3.5 shrink-0 text-[#f6c768]" />
+                                <span className="truncate xl:hidden">{x.s}</span>
+                                <span className="hidden truncate xl:inline">{x.l}</span>
+                              </dt>
+                              <dd className="font-editorial mt-1.5 truncate text-[1.75rem] leading-none">{x.v}</dd>
+                            </div>
+                          ))}
+                        </dl>
                       </motion.section>
                       )}
 
                       <motion.div variants={rise} className="flex flex-wrap items-center gap-3">
-                        <div className="relative flex rounded-2xl border border-slate-200/70 bg-white p-1 shadow-sm" role="group" aria-label="Période">
+                        <div className="relative flex rounded-full border border-[#e8e5dc] bg-white p-1 shadow-sm" role="group" aria-label="Période">
                           {PERIODS.map((p) => (
-                            <button key={p.id} onClick={() => setPeriod(p.id)} aria-pressed={period === p.id} className={`relative rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${period === p.id ? 'text-white' : 'text-slate-500 hover:text-slate-800'}`}>
-                              {period === p.id && <motion.span layoutId="admin-period" className="absolute inset-0 rounded-xl bg-slate-900" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+                            <button key={p.id} onClick={() => setPeriod(p.id)} aria-pressed={period === p.id} className={`relative min-h-9 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${period === p.id ? 'text-white' : 'text-slate-500 hover:text-slate-800'}`}>
+                              {period === p.id && <motion.span layoutId="admin-period" className="absolute inset-0 rounded-full bg-[#0c0a24]" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
                               <span className="relative">{p.label}</span>
                             </button>
                           ))}
@@ -878,7 +1024,7 @@ export default function AdminDashboard() {
                       </motion.div>
 
                       {!scopeMerchant && (
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                         <Kpi label="Chiffre d'affaires livré" value={compact(a.revenue)} unit="FCFA" icon={Wallet} gradient="emerald" deltaValue={a.revenueDelta} deltaLabel={`vs ${period} j préc.`} spark={a.buckets.slice(-12).map((b) => b.revenue)} accent={BRAND.signature} />
                         <Kpi label="Commandes" value={fmt(a.orders)} icon={ShoppingBag} gradient="sky" deltaValue={a.ordersDelta} deltaLabel={`vs ${period} j préc.`} spark={a.buckets.slice(-12).map((b) => b.orders)} accent="#2a78d6" />
                         <Kpi label="Nouvelles boutiques" value={fmt(a.newMerchants)} icon={Store} gradient="violet" deltaValue={a.newMerchantsDelta} deltaLabel={`vs ${period} j préc.`} spark={a.buckets.slice(-12).map((b) => b.newMerchants)} accent="#4a3aa7" />
@@ -890,14 +1036,14 @@ export default function AdminDashboard() {
 
                       {!missing.includes('orders') && (
                         <>
-                          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                             <Kpi label="Clients" value={fmt(ov.cs.total)} icon={UserRound} gradient="sky" hint={`${ov.cs.repeat} fidèle${ov.cs.repeat > 1 ? 's' : ''} · ${ov.cs.newLast30} nouveau${ov.cs.newLast30 > 1 ? 'x' : ''} en 30 j`} />
                             <Kpi label="Panier moyen" value={fmt(ov.os.avgBasket)} unit="FCFA" icon={Receipt} gradient="violet" hint={`sur ${ov.os.delivered} commande${ov.os.delivered > 1 ? 's' : ''} livrée${ov.os.delivered > 1 ? 's' : ''} (${period} j)`} />
                             <Kpi label="Taux de livraison" value={ov.os.deliveryRate == null ? '—' : `${Math.round(ov.os.deliveryRate * 100)} %`} icon={Truck} gradient="emerald" hint={`livrées sur (livrées + annulées) · ${Math.round(ov.os.onlineShare * 100)} % payées en ligne`} />
                             <Kpi label="Abonnements encaissés" value={compact(ov.pay.last30)} unit="FCFA" icon={Banknote} gradient="amber" hint={`30 derniers jours · ${compact(ov.pay.total)} F depuis le début`} />
                           </div>
 
-                          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+                          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 xl:gap-6">
                             <motion.div variants={rise}>
                               <ChartCard className="h-full" title="Commandes par statut" subtitle={`${period} derniers jours · ${ov.os.count} commande${ov.os.count > 1 ? 's' : ''}`} table={{ columns: [{ key: 'label', label: 'Statut' }, { key: 'value', label: 'Commandes', align: 'right' }], rows: ov.statusBars }}>
                                 <BarList items={ov.statusBars} color="#2a78d6" formatValue={(v) => `${v}`} detail={(b) => `${Math.round((b.value / Math.max(1, ov.os.count)) * 100)} % des commandes`} emptyText="Aucune commande sur la période." animationKey={`status-${period}`} />
@@ -908,7 +1054,7 @@ export default function AdminDashboard() {
                                 {ov.paySegments.length ? <DonutChart segments={ov.paySegments} centerLabel="Commandes" animationKey={`pay-${period}`} /> : <p className="py-10 text-center text-sm text-slate-500">Aucune commande sur la période.</p>}
                               </ChartCard>
                             </motion.div>
-                            <motion.section variants={rise} className={`${CARD} h-full p-5 md:p-6`}>
+                            <motion.section variants={rise} className={`${CARD} h-full p-5 md:col-span-2 md:p-6 xl:col-span-1`}>
                               <h3 className="text-base font-bold">À surveiller</h3>
                               <p className="mb-3 text-sm text-slate-500">Ce qui demande votre attention</p>
                               {(() => {
@@ -943,8 +1089,8 @@ export default function AdminDashboard() {
 
                       {!scopeMerchant && (
                       <>
-                      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-                        <motion.div variants={rise} className="xl:col-span-2">
+                      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 xl:gap-6">
+                        <motion.div variants={rise} className="lg:col-span-2">
                           <ChartCard
                             className="h-full"
                             title="Chiffre d'affaires livré sur la plateforme"
@@ -961,7 +1107,7 @@ export default function AdminDashboard() {
                         </motion.div>
                       </div>
 
-                      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+                      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 xl:gap-6">
                         <motion.div variants={rise}>
                           <ChartCard className="h-full" title="Nouvelles boutiques" subtitle={period > 31 ? 'Par semaine' : 'Par jour'} table={{ columns: [{ key: 'longLabel', label: 'Période' }, { key: 'newMerchants', label: 'Inscriptions', align: 'right' }], rows: a.buckets }}>
                             <ColumnChart data={a.buckets} valueKey="newMerchants" color="#4a3aa7" seriesLabel="inscription(s)" formatValue={(v) => fmt(v)} height={430} animationKey={period} />
@@ -972,7 +1118,7 @@ export default function AdminDashboard() {
                             <BarList items={a.cities} color="#2a78d6" formatValue={(v) => `${v}`} detail={(c) => `${Math.round((c.value / Math.max(1, a.located.length)) * 100)} % des boutiques localisées`} emptyText="Aucune boutique localisée pour le moment." animationKey="cities" />
                           </ChartCard>
                         </motion.div>
-                        <motion.div variants={rise}>
+                        <motion.div variants={rise} className="md:col-span-2 xl:col-span-1">
                           <ChartCard className="h-full" title="Meilleures boutiques" subtitle="Chiffre d'affaires livré (depuis l'inscription)" table={{ columns: [{ key: 'label', label: 'Boutique' }, { key: 'orders', label: 'Livrées', align: 'right' }, { key: 'value', label: 'CA', align: 'right', format: (v) => `${fmt(v)} F` }], rows: a.top }}>
                             <BarList items={a.top} color={BRAND.signature} formatValue={(v) => `${compact(v)} F`} detail={(t) => `${t.orders} livraison${t.orders > 1 ? 's' : ''}`} emptyText="Aucune vente livrée pour le moment." animationKey="top" />
                           </ChartCard>
@@ -995,8 +1141,8 @@ export default function AdminDashboard() {
                   )}
 
                   {tab === 'map' && (
-                    <motion.div variants={rise} className="grid grid-cols-1 gap-5 lg:grid-cols-[340px_1fr]">
-                      <div className={`${CARD} flex max-h-[72vh] flex-col overflow-hidden`}>
+                    <motion.div variants={rise} className="grid grid-cols-1 gap-5 lg:grid-cols-[320px_1fr] xl:grid-cols-[340px_1fr]">
+                      <div className={`${CARD} flex max-h-[38vh] flex-col overflow-hidden lg:max-h-[72vh]`}>
                         <div className="border-b border-slate-100 p-4">
                           <div className="mb-3 flex items-center gap-3">
                             <MagicIcon icon={MapPin} gradient="rose" size="sm" />
@@ -1007,12 +1153,12 @@ export default function AdminDashboard() {
                           </div>
                           <div className="relative">
                             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                            <input value={mapSearch} onChange={(e) => setMapSearch(e.target.value)} placeholder="Boutique, ville, téléphone…" className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-brand-400 focus:bg-white focus:ring-4 focus:ring-brand-500/10" />
+                            <input value={mapSearch} onChange={(e) => setMapSearch(e.target.value)} placeholder="Boutique, ville, téléphone…" aria-label="Rechercher une boutique sur la carte" className="w-full rounded-xl border border-[#e8e5dc] bg-[#f7f6f2] py-2.5 pl-9 pr-3 text-base outline-none transition focus:border-[#8a7cf1] focus:bg-white focus:ring-4 focus:ring-[#6a58e8]/10 md:text-sm" />
                           </div>
                         </div>
                         <div className="flex-1 overflow-y-auto p-2">
                           {mapList.map((m) => (
-                            <button key={m.id} onClick={() => setMapSelectedId(m.id)} className={`flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-colors ${mapSelectedId === m.id ? 'bg-brand-50 ring-1 ring-brand-200' : 'hover:bg-slate-50'}`}>
+                            <button key={m.id} onClick={() => setMapSelectedId(m.id)} className={`flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-colors ${mapSelectedId === m.id ? 'bg-[#6a58e8]/[0.07] ring-1 ring-[#8a7cf1]/40' : 'hover:bg-slate-50'}`}>
                               <ShopAvatar merchant={m} size="h-10 w-10 text-sm" />
                               <span className="min-w-0 flex-1">
                                 <span className="block truncate text-sm font-bold">{m.shop_name}</span>
@@ -1028,7 +1174,7 @@ export default function AdminDashboard() {
                           <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-slate-400" />Suspendue</span>
                         </div>
                       </div>
-                      <ShopsMap merchants={merchants} selectedId={mapSelectedId} onSelect={(m) => setMapSelectedId(m.id)} onOpenDetails={(m) => setDetailsId(m.id)} height="72vh" />
+                      <ShopsMap merchants={merchants} selectedId={mapSelectedId} onSelect={(m) => setMapSelectedId(m.id)} onOpenDetails={(m) => setDetailsId(m.id)} height="min(72vh, 760px)" />
                     </motion.div>
                   )}
 
@@ -1048,19 +1194,19 @@ export default function AdminDashboard() {
                         ))}
                       </motion.div>
 
-                      <motion.div variants={rise} className={`${CARD} flex flex-col gap-3 p-4 lg:flex-row lg:items-center`}>
-                        <div className="relative flex-1">
+                      <motion.div variants={rise} className={`${CARD} flex flex-col gap-3 p-3.5 sm:p-4 xl:flex-row xl:items-center`}>
+                        <div className="relative min-w-0 flex-1">
                           <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nom, téléphone, email, adresse, ville…" className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-12 pr-4 text-sm font-medium outline-none focus:border-brand-400 focus:bg-white focus:ring-4 focus:ring-brand-500/10" />
+                          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nom, téléphone, email, adresse, ville…" aria-label="Rechercher une boutique" className="w-full rounded-xl border border-[#e8e5dc] bg-[#f7f6f2] py-3 pl-12 pr-4 text-base font-medium outline-none transition focus:border-[#8a7cf1] focus:bg-white focus:ring-4 focus:ring-[#6a58e8]/10 md:text-sm" />
                         </div>
-                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
                           {[
                             [planFilter, setPlanFilter, [['all', 'Tous les forfaits'], ['debutant', 'Débutant'], ['pro', 'Pro'], ['premium', 'Premium']]],
                             [statusFilter, setStatusFilter, [['all', 'Tous les statuts'], ['active', 'Actives'], ['expired', 'Expirées'], ['suspended', 'Suspendues']]],
                             [locFilter, setLocFilter, [['all', 'Toutes positions'], ['located', 'Localisées'], ['missing', 'Non localisées']]],
                             [sortBy, setSortBy, [['recent', 'Plus récentes'], ['revenue', 'Meilleur CA'], ['orders', 'Plus de commandes'], ['name', 'Nom (A→Z)']]],
                           ].map(([value, setter, options], i) => (
-                            <select key={i} value={value} onChange={(e) => setter(e.target.value)} className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-500/10">
+                            <select key={i} value={value} onChange={(e) => setter(e.target.value)} aria-label={['Forfait', 'Statut', 'Position', 'Trier'][i]} className="min-w-0 cursor-pointer truncate rounded-xl border border-[#e8e5dc] bg-white px-3 py-3 text-base font-semibold text-slate-700 outline-none transition focus:border-[#8a7cf1] focus:ring-4 focus:ring-[#6a58e8]/10 md:text-sm">
                               {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                             </select>
                           ))}
@@ -1123,7 +1269,7 @@ export default function AdminDashboard() {
                               <p className="text-xs text-slate-400">Payé par cette boutique : {fmt(paymentsSummary(scoped.payments, loadedAt).total)} FCFA</p>
                             </div>
                           </div>
-                          <button onClick={() => setSubscriptionFor(scopeMerchant)} className="inline-flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-800"><Crown className="h-4 w-4" /> Changer l'offre</button>
+                          <button onClick={() => setSubscriptionFor(scopeMerchant)} className="btn-gold inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-extrabold"><Crown className="h-4 w-4" /> Changer l'offre</button>
                         </motion.section>
                       )}
                       {!scopeMerchant && (
@@ -1134,9 +1280,9 @@ export default function AdminDashboard() {
                           const active = merchants.filter((m) => planOf(m) === id && isPaidActive(m)).length;
                           return (
                             <motion.div key={id} variants={rise} className={`${CARD} relative overflow-hidden p-6`}>
-                              <div className="relative mb-4 flex items-center justify-between">
+                              <div className="relative mb-4 flex items-start justify-between gap-2">
                                 <MagicIcon icon={id === 'premium' ? Sparkles : id === 'pro' ? TrendingUp : Store} gradient={id === 'premium' ? 'amber' : id === 'pro' ? 'violet' : 'sky'} />
-                                <span className="text-sm font-semibold text-slate-500">{fmt(PLAN_PRICES[id])} FCFA / mois</span>
+                                <span className="pt-1 text-right text-xs font-semibold leading-tight text-slate-500 lg:text-sm">{fmt(PLAN_PRICES[id])} FCFA<br className="lg:hidden" /><span className="hidden lg:inline"> </span>/ mois</span>
                               </div>
                               <p className="relative flex items-center gap-2 text-lg font-bold"><span className="h-2.5 w-2.5 rounded-full" style={{ background: meta.color }} aria-hidden="true" />{meta.label}</p>
                               <p className="relative mt-1 text-4xl font-extrabold">{count}</p>

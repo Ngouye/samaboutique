@@ -182,15 +182,15 @@ function Navbar() {
   const solid = scrolled || open;
   return (
     <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-5 sm:pt-4">
-      <div className={`mx-auto max-w-6xl rounded-[1.6rem] transition-[background-color,box-shadow] duration-500 ${solid ? 'bg-[#0c0a26]/80 shadow-[0_24px_60px_-28px_rgba(8,6,30,0.9)] ring-1 ring-white/10 backdrop-blur-xl' : 'bg-white/[0.04] ring-1 ring-white/[0.09] backdrop-blur-md'}`}>
+      <div className={`mx-auto max-w-[1240px] rounded-[1.6rem] transition-[background-color,box-shadow] duration-500 ${solid ? 'bg-[#0c0a26]/80 shadow-[0_24px_60px_-28px_rgba(8,6,30,0.9)] ring-1 ring-white/10 backdrop-blur-xl' : 'bg-white/[0.04] ring-1 ring-white/[0.09] backdrop-blur-md'}`}>
         <nav className="flex h-14 items-center justify-between pl-4 pr-2 sm:h-[60px] sm:pl-5" aria-label="Navigation principale">
           <div className="flex items-center gap-5">
             <Link to="/" className="flex items-center" aria-label="SamaBoutik, accueil">
               <Logo variant="dark" markClassName="h-8 w-8 sm:h-9 sm:w-9" textClassName="text-lg sm:text-xl" />
             </Link>
             <div className="hidden items-center xl:flex">
-              {links.map((l) => <a key={l.href} href={l.href} onClick={(e) => goTo(e, l.href)} className="whitespace-nowrap rounded-full px-3 py-2 text-[14.5px] font-semibold text-white/65 transition-colors hover:text-white">{l.label}</a>)}
-              <Link to="/boutiques" className="whitespace-nowrap rounded-full px-3 py-2 text-[14.5px] font-semibold text-white/65 transition-colors hover:text-white">Boutiques près de moi</Link>
+              {links.map((l) => <a key={l.href} href={l.href} onClick={(e) => goTo(e, l.href)} className="whitespace-nowrap rounded-full px-2.5 py-2 text-[14.5px] font-semibold text-white/65 transition-colors hover:text-white">{l.label}</a>)}
+              <Link to="/boutiques" className="whitespace-nowrap rounded-full px-2.5 py-2 text-[14.5px] font-semibold text-white/65 transition-colors hover:text-white">Boutiques près de moi</Link>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
@@ -481,9 +481,9 @@ function Hero({ themeId, setThemeId }) {
                 Créer ma boutique gratuitement <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Link>
             </Magnetic>
-            <a href="#produit" onClick={(e) => goTo(e, '#produit')} className="group inline-flex items-center justify-center gap-3 whitespace-nowrap rounded-full bg-white/[0.06] py-2 pl-2 pr-6 text-[15px] font-bold text-white ring-1 ring-white/15 backdrop-blur transition-colors hover:bg-white/10">
+            <a href="#video" onClick={(e) => { goTo(e, '#video'); window.setTimeout(() => window.dispatchEvent(new Event(PLAY_VIDEO)), 700); }} className="group inline-flex items-center justify-center gap-3 whitespace-nowrap rounded-full bg-white/[0.06] py-2 pl-2 pr-6 text-[15px] font-bold text-white ring-1 ring-white/15 backdrop-blur transition-colors hover:bg-white/10">
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink transition-transform group-hover:scale-105"><Play className="h-4 w-4 translate-x-px fill-current" /></span>
-              Voir le produit
+              Voir la vidéo
             </a>
           </motion.div>
           <motion.ul {...rise3d(0.55)} className="mt-7 flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-white/70">
@@ -741,6 +741,77 @@ function Commerces() {
           })}
         </div>
       </Reveal>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* La plateforme en vidéo                                               */
+/* ------------------------------------------------------------------ */
+
+// Vidéo de présentation (motion design, voix off, sous-titres incrustés). Elle ne se charge qu'au clic.
+const VIDEO_SRC = '/videos/samaboutik-presentation.mp4?v=1';
+const VIDEO_POSTER = '/videos/samaboutik-presentation.jpg?v=3';
+const PLAY_VIDEO = 'landing:lire-video';
+
+function VideoShowcase() {
+  const videoRef = useRef(null);
+  const [playing, setPlaying] = useState(false);
+  const play = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    setPlaying(true);
+    v.play().catch(() => { /* lecture refusée : les commandes de la vidéo restent disponibles */ });
+  };
+  // Bouton « Voir la vidéo » du haut de page : la section défile, puis la vidéo démarre
+  const playRef = useRef(play);
+  useEffect(() => { playRef.current = play; });
+  useEffect(() => {
+    const onPlay = () => playRef.current();
+    window.addEventListener(PLAY_VIDEO, onPlay);
+    return () => window.removeEventListener(PLAY_VIDEO, onPlay);
+  }, []);
+  return (
+    <section id="video" className="relative isolate overflow-hidden bg-[#f7f6f2] pb-20 lg:pb-28" aria-labelledby="video-titre">
+      <div className="mx-auto max-w-6xl px-5 lg:px-8">
+        <Reveal>
+          <div className="mx-auto max-w-3xl text-center">
+            <p className="mb-3 text-sm font-bold uppercase tracking-[0.14em] text-brand-700">La plateforme en vidéo</p>
+            <h2 id="video-titre" className="text-balance text-[2.1rem] font-extrabold leading-[1.05] tracking-tight text-ink sm:text-5xl">
+              Tout SamaBoutik en <Em>moins de 2 minutes</Em>.
+            </h2>
+            <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-slate-600">De la vitrine à l’argent encaissé : voyez comment vos clients commandent, comment vous êtes prévenu et comment vos livreurs livrent.</p>
+          </div>
+        </Reveal>
+        <Reveal delay={0.1}>
+          <div className="relative mt-12">
+            <div className="pointer-events-none absolute -inset-6 -z-10 rounded-[3rem] bg-[conic-gradient(from_120deg,#6a58e8,#f6c768,#ef8f5b,#8a7cf1,#6a58e8)] opacity-35 blur-3xl" aria-hidden="true" />
+            <div className="relative aspect-video overflow-hidden rounded-[1.75rem] bg-[#0a0820] shadow-[0_60px_120px_-50px_rgba(18,16,58,0.7)] ring-1 ring-black/10 sm:rounded-[2.25rem]">
+              <video
+                ref={videoRef}
+                className="absolute inset-0 h-full w-full object-cover"
+                src={VIDEO_SRC}
+                poster={VIDEO_POSTER}
+                preload="none"
+                playsInline
+                controls={playing}
+                onEnded={() => setPlaying(false)}
+              />
+              {!playing && (
+                <button type="button" onClick={play} className="group absolute inset-0 flex items-center justify-center bg-gradient-to-t from-[#0a0820]/55 via-transparent to-transparent sm:items-end sm:pb-[8%]" aria-label="Lire la vidéo de présentation de SamaBoutik (1 minute 47, avec le son)">
+                  <span className="relative flex h-14 w-14 items-center justify-center sm:h-24 sm:w-24">
+                    <span className="absolute inset-0 rounded-full bg-[#f6c768]/40 motion-safe:animate-ping" aria-hidden="true" />
+                    <span className="btn-gold relative flex h-full w-full items-center justify-center rounded-full transition-transform duration-300 group-hover:scale-110">
+                      <Play className="h-6 w-6 translate-x-0.5 fill-current sm:h-9 sm:w-9" />
+                    </span>
+                  </span>
+                  <span className="absolute left-3 top-3 rounded-full bg-black/55 px-3 py-1 text-[11px] font-bold text-white backdrop-blur sm:bottom-6 sm:left-6 sm:top-auto sm:px-4 sm:py-2 sm:text-sm">1 min 47 · avec le son et les sous-titres</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </Reveal>
+      </div>
     </section>
   );
 }
@@ -2074,6 +2145,15 @@ function Footer() {
 
 export default function Landing() {
   const [themeId, setThemeId] = useState('emeraude');
+  useEffect(() => {
+    const { hash } = window.location;
+    if (!hash || hash.length < 2) return undefined;
+    window.dispatchEvent(new Event(SHOW_ALL));
+    const timer = window.setTimeout(() => {
+      try { document.querySelector(hash)?.scrollIntoView({ block: 'start' }); } catch { /* ancre invalide */ }
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, []);
   return (
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen overflow-x-clip bg-white font-sans text-ink">
@@ -2082,6 +2162,7 @@ export default function Landing() {
         <main>
           <div className="bg-[#f7f6f2]"><Hero themeId={themeId} setThemeId={setThemeId} /></div>
           <Commerces />
+          <VideoShowcase />
           <Deferred id="produit" minHeight={1300}><ProductShowcase /></Deferred>
           <Deferred id="parcours" minHeight={1150}><HowItWorks /></Deferred>
           <Deferred id="themes" minHeight={900}><Themes themeId={themeId} onPick={setThemeId} /></Deferred>

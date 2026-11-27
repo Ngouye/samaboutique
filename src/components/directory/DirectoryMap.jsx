@@ -100,7 +100,7 @@ function Focus({ focus, markers }) {
   return null;
 }
 
-const CONTROL = 'flex h-10 w-10 items-center justify-center bg-white text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500';
+const CONTROL = 'flex h-10 w-10 items-center justify-center bg-[#0c0a24]/90 text-white/80 backdrop-blur transition-colors hover:bg-[#1b1745] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#f6c768]';
 
 function MapControls({ me, points }) {
   const map = useMap();
@@ -111,7 +111,7 @@ function MapControls({ me, points }) {
   };
   return (
     <div className="absolute right-3 top-3 z-[400] flex flex-col gap-2">
-      <div className="flex flex-col divide-y divide-slate-200 overflow-hidden rounded-xl shadow-lg ring-1 ring-black/5">
+      <div className="flex flex-col divide-y divide-white/10 overflow-hidden rounded-xl shadow-[0_14px_30px_-12px_rgba(12,10,36,0.7)] ring-1 ring-white/10">
         <button type="button" onClick={() => map.zoomIn()} aria-label="Zoomer" title="Zoomer" className={CONTROL}>
           <Plus className="h-4 w-4" />
         </button>
@@ -119,14 +119,14 @@ function MapControls({ me, points }) {
           <Minus className="h-4 w-4" />
         </button>
       </div>
-      <button type="button" onClick={showAll} aria-label="Voir toutes les boutiques" title="Voir toutes les boutiques" className={`${CONTROL} rounded-xl shadow-lg ring-1 ring-black/5`}>
+      <button type="button" onClick={showAll} aria-label="Voir toutes les boutiques" title="Voir toutes les boutiques" className={`${CONTROL} rounded-xl shadow-[0_14px_30px_-12px_rgba(12,10,36,0.7)] ring-1 ring-white/10`}>
         <Maximize2 className="h-4 w-4" />
       </button>
-      <button type="button" onClick={() => map.flyTo(DAKAR_CENTER, 12, { duration: 0.8 })} aria-label="Centrer sur Dakar" title="Centrer sur Dakar" className={`${CONTROL} rounded-xl shadow-lg ring-1 ring-black/5`}>
+      <button type="button" onClick={() => map.flyTo(DAKAR_CENTER, 12, { duration: 0.8 })} aria-label="Centrer sur Dakar" title="Centrer sur Dakar" className={`${CONTROL} rounded-xl shadow-[0_14px_30px_-12px_rgba(12,10,36,0.7)] ring-1 ring-white/10`}>
         <Compass className="h-4 w-4" />
       </button>
       {me && (
-        <button type="button" onClick={() => map.flyTo(me, 15, { duration: 0.8 })} aria-label="Ma position" title="Ma position" className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg transition-colors hover:bg-blue-500">
+        <button type="button" onClick={() => map.flyTo(me, 15, { duration: 0.8 })} aria-label="Ma position" title="Ma position" className="btn-gold flex h-10 w-10 items-center justify-center rounded-xl">
           <Navigation className="h-4 w-4" />
         </button>
       )}
@@ -219,7 +219,7 @@ export default function DirectoryMap({ shops, me, selected, focus, onSelect, cla
   }, []);
 
   return (
-    <div id="annuaire-carte" className={`directory-map relative isolate overflow-hidden rounded-[2rem] border border-[#e8e5dc] shadow-sm ${className}`} style={{ background: MAP_BG }}>
+    <div id="annuaire-carte" className={`directory-map relative isolate overflow-hidden rounded-[2rem] shadow-[0_40px_90px_-45px_rgba(106,88,232,0.8)] ring-1 ring-white/15 ${className}`} style={{ background: MAP_BG }}>
       <MapContainer
         center={DAKAR_CENTER}
         zoom={12}
@@ -263,15 +263,15 @@ export default function DirectoryMap({ shops, me, selected, focus, onSelect, cla
       {/* Chargement du fond de carte */}
       {!ready && (
         <div className="pointer-events-none absolute inset-0 z-[300] flex items-center justify-center" style={{ background: MAP_BG }}>
-          <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-bold text-slate-600 shadow-md">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-brand-500" /> Chargement de la carte…
+          <span className="inline-flex items-center gap-2 rounded-full bg-[#0c0a24]/90 px-4 py-2 text-xs font-bold text-white/80 shadow-md ring-1 ring-white/10">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-[#f6c768]" /> Chargement de la carte…
           </span>
         </div>
       )}
 
       {/* Nombre de boutiques visibles */}
-      <div className="pointer-events-none absolute left-3 top-3 z-[400] flex items-center gap-2 rounded-xl bg-white/95 px-3 py-2 text-xs font-bold text-slate-800 shadow-lg ring-1 ring-black/5 backdrop-blur">
-        <span className="h-2 w-2 rounded-full bg-brand-500" />
+      <div className="pointer-events-none absolute left-3 top-3 z-[400] flex items-center gap-2 rounded-xl bg-[#0c0a24]/90 px-3 py-2 text-xs font-bold text-white shadow-[0_14px_30px_-12px_rgba(12,10,36,0.7)] ring-1 ring-white/10 backdrop-blur">
+        <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_2px_rgba(52,211,153,0.6)]" />
         <span>{located.length} boutique{located.length > 1 ? 's' : ''} sur la carte</span>
       </div>
     </div>
