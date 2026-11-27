@@ -609,20 +609,37 @@ function Ribbon() {
 /* Pour chaque commerce                                                 */
 /* ------------------------------------------------------------------ */
 
+// Galerie accordéon : le commerce actif s'ouvre en grand, les autres restent en fines bandes.
 const COMMERCES = [
-  { photo: 'couturier', tag: 'Couture', label: 'Ateliers de couture', text: 'Les commandes arrivent avec la taille et le modèle choisis.' },
-  { photo: 'boutique-mode', tag: 'Mode', label: 'Boutiques de mode', text: 'Vos nouveautés en vitrine, partagées sur WhatsApp en un geste.' },
-  { photo: 'epicerie', tag: 'Épicerie', label: 'Épiceries de quartier', text: 'Vos clients commandent, votre livreur apporte.' },
-  { photo: 'marche-fruits', tag: 'Marché', label: 'Fruits et légumes', text: 'Paiement par Wave ou à la livraison, au choix du client.' },
-  { photo: 'artisanat', tag: 'Artisanat', label: 'Artisans et créateurs', text: 'Une belle vitrine pour vos pièces uniques.' },
-  { photo: 'cliente-sacs', tag: 'Prêt-à-porter', label: 'Prêt-à-porter', text: 'Votre stock suivi, avec une alerte avant la rupture.' },
-  { photo: 'commercante-marche', tag: 'Commerce', label: 'Commerçantes', text: 'Toutes vos ventes du jour dans votre téléphone.' },
-  { photo: 'livreur-moto', tag: 'Livraison', label: 'Et vos livreurs', text: 'Suivis en direct, chaque colis validé par le code du client.' },
+  { photo: 'couturier', pos: '50% 30%', tag: 'Couture', label: 'Ateliers de couture', text: 'Vos clients choisissent la taille et le modèle : la commande arrive complète, prête à coudre.', chips: ['Tailles et options', 'Paiement Wave'] },
+  { photo: 'boutique-mode', pos: '50% 22%', tag: 'Mode', label: 'Boutiques de mode', text: 'Vos nouveautés en vitrine, partagées en statut WhatsApp avec leur affiche et leur QR code.', chips: ['Affiche WhatsApp', '6 thèmes'] },
+  { photo: 'epicerie', pos: '60% 40%', tag: 'Épicerie', label: 'Épiceries de quartier', text: 'Le client commande depuis chez lui, votre livreur apporte, son code valide la livraison.', chips: ['Livreurs', 'Code de livraison'] },
+  { photo: 'marche-fruits', pos: '40% 30%', tag: 'Marché', label: 'Fruits et légumes', text: 'Paiement par Wave, Orange Money ou à la livraison : le client choisit, vous encaissez.', chips: ['Wave · Orange Money', 'À la livraison'] },
+  { photo: 'artisanat', pos: '50% 25%', tag: 'Artisanat', label: 'Artisans et créateurs', text: 'Une vitrine soignée pour vos pièces uniques, visible dans « Boutiques près de moi ».', chips: ['Annuaire', 'Avis vérifiés'] },
+  { photo: 'livreur-moto', pos: '55% 50%', tag: 'Livraison', label: 'Et vos livreurs', text: 'Ils acceptent les courses, partagent leur position et le client les suit en direct.', chips: ['Suivi en direct', 'Bilan du jour'] },
 ];
+const COMMERCE_MS = 5200;
 
 function Commerces() {
+  const galleryRef = useRef(null);
+  const inView = useInView(galleryRef, { amount: 0.35 });
+  const reduce = useReducedMotion();
+  const fine = useFinePointer();
+  const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const running = inView && !reduce && !paused;
+
+  // Passe tout seul au commerce suivant tant que le visiteur ne choisit pas lui-même.
+  useEffect(() => {
+    if (!running) return undefined;
+    const timer = setTimeout(() => setActive((i) => (i + 1) % COMMERCES.length), COMMERCE_MS);
+    return () => clearTimeout(timer);
+  }, [active, running]);
+
+  const choose = (i) => { setActive(i); setPaused(true); };
+
   return (
-    <section className="relative bg-[#f7f6f2] pb-20 pt-4 lg:pb-28" aria-labelledby="commerces-titre">
+    <section className="relative bg-[#f7f6f2] pb-20 pt-6 lg:pb-28" aria-labelledby="commerces-titre">
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 lg:flex-row lg:items-end lg:justify-between lg:px-8">
         <Reveal>
           <div className="max-w-2xl">
@@ -636,25 +653,81 @@ function Commerces() {
           <p className="max-w-sm text-lg leading-relaxed text-slate-600">Au marché, en atelier ou depuis chez vous : votre vitrine se crée en quelques minutes et se partage partout.</p>
         </Reveal>
       </div>
-      <div className="mt-12 [mask-image:linear-gradient(90deg,transparent,black_5%,black_95%,transparent)]">
-        <div className="marquee-track" style={{ animationDuration: '70s' }}>
-          {[0, 1].map((copy) => (
-            <ul key={copy} className="flex shrink-0 gap-4 pr-4" aria-hidden={copy === 1 ? true : undefined}>
-              {COMMERCES.map((c) => (
-                <li key={c.photo} className="group relative aspect-[3/4] w-[228px] shrink-0 overflow-hidden rounded-[1.75rem] bg-ink sm:w-[270px]">
-                  <img src={`/images/landing/${c.photo}-640.webp`} alt={copy === 1 ? '' : c.label} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.07]" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0a0820]/90 via-[#0a0820]/15 to-transparent" />
-                  <div className="absolute inset-x-0 bottom-0 p-4 text-white sm:p-5">
-                    <span className="inline-flex rounded-full bg-white/15 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.12em] ring-1 ring-white/20 backdrop-blur">{c.tag}</span>
-                    <p className="mt-2.5 text-lg font-extrabold leading-tight sm:text-xl">{c.label}</p>
-                    <p className="mt-1 text-[13px] leading-snug text-white/70">{c.text}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ))}
+
+      <Reveal delay={0.1}>
+        <div
+          ref={galleryRef}
+          onMouseLeave={() => setPaused(false)}
+          className="mx-auto mt-12 flex h-[680px] max-w-7xl flex-col gap-2.5 px-5 sm:h-[620px] lg:h-[540px] lg:flex-row lg:gap-3 lg:px-8"
+        >
+          {COMMERCES.map((c, i) => {
+            const on = i === active;
+            const num = String(i + 1).padStart(2, '0');
+            return (
+              <button
+                key={c.photo}
+                type="button"
+                onClick={() => choose(i)}
+                onMouseEnter={() => { if (fine) choose(i); }}
+                onFocus={() => choose(i)}
+                aria-expanded={on}
+                style={{ flexGrow: on ? 6 : 1 }}
+                className="group relative min-h-0 min-w-0 basis-0 overflow-hidden rounded-[1.6rem] bg-ink text-left outline-none transition-[flex-grow] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] focus-visible:ring-4 focus-visible:ring-brand-400/60"
+              >
+                <img
+                  src={`/images/landing/${c.photo}-1024.webp`}
+                  srcSet={photoSet(c.photo)}
+                  sizes="(min-width: 1024px) 720px, 100vw"
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  style={{ objectPosition: c.pos }}
+                  className={`absolute inset-0 h-full w-full object-cover transition-[transform,filter] duration-700 ease-out ${on ? 'scale-100' : 'scale-110 brightness-[0.5] saturate-[0.4] group-hover:brightness-[0.65]'}`}
+                />
+                <span className={`absolute inset-0 bg-gradient-to-t from-[#0a0820]/90 via-[#0a0820]/25 to-transparent transition-opacity duration-700 ${on ? 'opacity-100' : 'opacity-40'}`} aria-hidden="true" />
+
+                {/* Bande repliée : numéro et nom (à la verticale sur ordinateur) */}
+                <span className={`absolute inset-0 flex items-center gap-3 px-5 text-white transition-opacity duration-300 lg:flex-col-reverse lg:justify-start lg:gap-4 lg:px-0 lg:py-6 ${on ? 'pointer-events-none opacity-0' : 'opacity-100'}`}>
+                  <span className="text-xs font-extrabold text-[#f6c768]">{num}</span>
+                  <span className="whitespace-nowrap text-base font-extrabold tracking-tight lg:rotate-180 lg:text-lg lg:[writing-mode:vertical-rl]">{c.tag}</span>
+                </span>
+
+                {/* Commerce ouvert */}
+                <AnimatePresence>
+                  {on && (
+                    <motion.span
+                      key="contenu"
+                      initial={{ opacity: 0, y: 18 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, transition: { duration: 0.15 } }}
+                      transition={{ duration: 0.55, ease: EASE, delay: 0.25 }}
+                      className="absolute inset-x-0 bottom-0 block p-5 text-white sm:p-7 lg:p-9"
+                    >
+                      <span className="block text-xs font-extrabold uppercase tracking-[0.16em] text-[#f6c768]">{num} · {c.tag}</span>
+                      <span className="mt-2 block text-2xl font-extrabold leading-[1.05] tracking-tight sm:text-3xl lg:text-[2.6rem]">{c.label}</span>
+                      <span className="mt-3 block max-w-md text-sm leading-relaxed text-white/75 sm:text-base">{c.text}</span>
+                      <span className="mt-5 flex flex-wrap gap-2">
+                        {c.chips.map((chip) => (
+                          <span key={chip} className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.12] px-3 py-1.5 text-xs font-bold ring-1 ring-white/20 backdrop-blur">
+                            <Check className="h-3 w-3 text-[#f6c768]" strokeWidth={3} /> {chip}
+                          </span>
+                        ))}
+                      </span>
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+
+                {/* Temps restant avant le commerce suivant */}
+                {on && running && (
+                  <span className="absolute inset-x-5 top-5 h-[3px] overflow-hidden rounded-full bg-white/20 sm:inset-x-7 sm:top-6 lg:inset-x-9" aria-hidden="true">
+                    <motion.span key={active} className="block h-full origin-left rounded-full bg-[#f6c768]" initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: COMMERCE_MS / 1000, ease: 'linear' }} />
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
-      </div>
+      </Reveal>
     </section>
   );
 }
