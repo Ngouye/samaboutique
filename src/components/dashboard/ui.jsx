@@ -18,7 +18,7 @@ export const rise = {
   animate: { opacity: 1, y: 0, transition: { duration: 0.45, ease: EASE } },
 };
 
-export const CARD = 'rounded-2xl border border-[#e8e5dc] bg-white shadow-[0_1px_2px_color-mix(in_srgb,_var(--color-ink)_4%,_transparent)]';
+export const CARD = 'rounded-[1.35rem] border border-[#e8e5dc] bg-white shadow-[0_1px_2px_rgba(18,16,58,0.04),0_18px_40px_-32px_rgba(18,16,58,0.28)]';
 export const INPUT = 'w-full rounded-xl border border-[#dcd8cd] bg-white px-4 py-3 text-base text-slate-900 md:text-[15px] placeholder:text-stone-400 outline-none transition duration-200 focus:border-brand-600 focus:ring-4 focus:ring-brand-600/15 disabled:cursor-not-allowed disabled:opacity-60';
 export const LABEL = 'mb-1.5 block text-sm font-semibold text-slate-800';
 
@@ -71,25 +71,51 @@ export function MagicIcon({ icon: Icon, gradient = 'emerald', size = 'md', class
 }
 export const IconBadge = MagicIcon;
 
-// En-tête de page : grand titre à empattements, sous-titre discret, actions à droite.
+// En-tête de page : bannière « nuit de Dakar » (titre à empattements, sous-titre, actions à droite).
+// Les actions posées dedans utilisent les variantes sombres (PrimaryButton tone="gold", HeaderMeter…).
 export function PageHeader({ title, subtitle, children }) {
   return (
-    <motion.div variants={rise} className="mb-6 flex flex-col gap-4 md:mb-8 sm:flex-row sm:items-end sm:justify-between">
-      <div className="min-w-0">
-        <h1 className="font-ledger text-[2.1rem] leading-[1.05] tracking-[-0.01em] text-ink md:text-[2.75rem]">{title}</h1>
-        {subtitle && <p className="mt-2 text-[15px] text-stone-500">{subtitle}</p>}
+    <motion.div variants={rise} className="relative isolate mb-6 overflow-hidden rounded-[1.75rem] bg-[#0c0a24] px-6 py-6 text-white shadow-[0_30px_60px_-36px_rgba(12,10,36,0.9)] md:mb-8 md:px-8 md:py-7">
+      <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
+        <div className="absolute inset-0 bg-[radial-gradient(55%_120%_at_95%_0%,rgba(106,88,232,0.55),transparent_70%),radial-gradient(40%_90%_at_0%_100%,rgba(246,199,104,0.13),transparent_70%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(174,166,247,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(174,166,247,0.07)_1px,transparent_1px)] bg-[size:44px_44px] [mask-image:linear-gradient(to_left,black,transparent_70%)]" />
+        <div className="hero-grain absolute inset-0 opacity-[0.07] mix-blend-overlay" />
       </div>
-      {children && <div className="flex flex-wrap items-center gap-2.5">{children}</div>}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="font-ledger text-[2rem] leading-[1.05] tracking-[-0.01em] md:text-[2.6rem]">{title}</h1>
+          {subtitle && <p className="mt-2 text-[15px] text-white/60">{subtitle}</p>}
+        </div>
+        {children && <div className="flex flex-wrap items-center gap-2.5">{children}</div>}
+      </div>
     </motion.div>
   );
 }
 
-// Bouton principal : pilule encre.
-export function PrimaryButton({ children, className = '', ...props }) {
+// Jauge d'un forfait dans l'en-tête de page (ex. « 6 / 10 produits »).
+export function HeaderMeter({ label, value, ratio }) {
+  const pct = Math.min(100, Math.max(0, ratio * 100));
+  const bar = ratio >= 1 ? 'bg-red-400' : ratio >= 0.8 ? 'bg-amber-400' : 'bg-gradient-to-r from-brand-300 to-[#f6c768]';
+  return (
+    <div className="min-w-[190px] rounded-2xl bg-white/[0.07] px-4 py-2.5 ring-1 ring-white/15 backdrop-blur">
+      <div className="mb-1.5 flex justify-between gap-3 text-xs font-semibold text-white/60">
+        <span>{label}</span>
+        <span className="font-figures tabular-nums text-white">{value}</span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+        <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8, ease: EASE }} className={`h-full rounded-full ${bar}`} />
+      </div>
+    </div>
+  );
+}
+
+// Bouton principal : pilule encre (tone="gold" : pilule dorée, sur fond sombre).
+export function PrimaryButton({ children, className = '', tone = 'ink', ...props }) {
+  const look = tone === 'gold' ? 'btn-gold font-extrabold' : 'bg-ink font-bold text-white hover:bg-brand-800';
   return (
     <motion.button
       whileTap={{ scale: 0.97 }}
-      className={`inline-flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${look} ${className}`}
       {...props}
     >
       {children}
@@ -113,13 +139,13 @@ export function SecondaryButton({ children, className = '', ...props }) {
 // Tuile de statistique compacte (et filtre cliquable si onClick est fourni).
 export function StatPill({ icon: Icon, label, value, tone = 'slate', active = false, onClick }) {
   const tones = {
-    slate: 'text-stone-500',
-    emerald: 'text-brand-600',
-    amber: 'text-amber-600',
-    red: 'text-red-600',
-    sky: 'text-sky-600',
-    violet: 'text-brand-600',
-    success: 'text-emerald-600',
+    slate: 'bg-stone-100 text-stone-600',
+    emerald: 'bg-brand-50 text-brand-700',
+    amber: 'bg-amber-50 text-amber-700',
+    red: 'bg-red-50 text-red-600',
+    sky: 'bg-sky-50 text-sky-700',
+    violet: 'bg-brand-50 text-brand-700',
+    success: 'bg-emerald-50 text-emerald-700',
   };
   const Tag = onClick ? motion.button : motion.div;
   return (
@@ -127,13 +153,14 @@ export function StatPill({ icon: Icon, label, value, tone = 'slate', active = fa
       variants={rise}
       onClick={onClick}
       aria-pressed={onClick ? active : undefined}
-      className={`${CARD} flex flex-col items-start gap-3 p-4 text-left transition-[border-color,box-shadow,background-color] duration-200 ${onClick ? 'hover:border-stone-300' : ''} ${active ? '!border-ink ring-1 ring-ink' : ''}`}
+      className={`${CARD} group relative flex flex-col items-start gap-3 overflow-hidden p-4 text-left transition-[border-color,box-shadow,transform] duration-200 ${onClick ? 'hover:-translate-y-0.5 hover:border-stone-300' : ''} ${active ? '!border-transparent ring-2 ring-brand-500' : ''}`}
     >
-      <span className="flex w-full items-center justify-between gap-2">
-        <span className="text-xs font-semibold leading-snug text-stone-500">{label}</span>
-        <Icon className={`h-4 w-4 shrink-0 ${tones[tone] || tones.slate}`} />
+      {active && <span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-500 via-[#f6c768] to-[#ef8f5b]" aria-hidden="true" />}
+      <span className={`flex h-9 w-9 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 ${tones[tone] || tones.slate}`}>
+        <Icon className="h-[18px] w-[18px]" />
       </span>
-      <span className="whitespace-nowrap font-figures text-2xl font-semibold leading-none tracking-tight text-ink tabular-nums">{value}</span>
+      <span className="whitespace-nowrap font-figures text-[1.65rem] font-semibold leading-none tracking-tight text-ink tabular-nums">{value}</span>
+      <span className="-mt-1 text-xs font-semibold leading-snug text-stone-500">{label}</span>
     </Tag>
   );
 }

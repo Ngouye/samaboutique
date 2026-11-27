@@ -29,6 +29,7 @@ import SystemSection from '../components/admin/sections/SystemSection';
 import SubscriptionDialog from '../components/admin/SubscriptionDialog';
 import { ORDER_STATUSES } from '../components/dashboard/status';
 import { paymentLabel } from '../utils/payments';
+import { formatPayoutProviders } from '../utils/payout';
 import { filterOrders, ordersSummary, customersSummary, productsSummary, paymentsSummary, toCsv, shortRef, scopeData } from '../utils/adminData';
 
 // Données complémentaires (admin_complet.sql) : clé d'état, fonction, paramètres.
@@ -287,7 +288,7 @@ function MerchantDrawer({ merchant, onClose, onToggleSuspension, onShowOnMap, bu
                 <p className="py-2 text-sm font-bold text-slate-900">Abonnement et paiements</p>
                 <InfoRow icon={Crown} label="Forfait">{PLAN_META[planOf(merchant)].label} · {fmt(PLAN_PRICES[planOf(merchant)])} FCFA / mois</InfoRow>
                 <InfoRow icon={CalendarDays} label="Fin de l'abonnement">{merchant.subscription_end_date ? `${dateFr(merchant.subscription_end_date)}` : null}</InfoRow>
-                <InfoRow icon={Wallet} label="Reversements (moyen et numéro)">{merchant.payout_phone_number ? `${merchant.payout_provider || '—'} · ${merchant.payout_phone_number}` : null}</InfoRow>
+                <InfoRow icon={Wallet} label="Reversements (comptes et numéro)">{merchant.payout_phone_number ? `${formatPayoutProviders(merchant.payout_provider) || '—'} · ${merchant.payout_phone_number}` : null}</InfoRow>
                 {onChangePlan && (
                   <button onClick={() => onChangePlan(merchant)} className="mb-2 mt-1 flex w-full items-center justify-center gap-2 rounded-full bg-ink py-2.5 text-sm font-bold text-white hover:bg-brand-800">
                     <Crown className="h-4 w-4" /> Changer l'offre
@@ -494,7 +495,7 @@ export default function AdminDashboard() {
       ['Email de contact', (m) => m.contact_email], ['Adresse', (m) => m.address], ['Ville (GPS)', (m) => m.city || ''],
       ['Latitude', (m) => m.latitude ?? ''], ['Longitude', (m) => m.longitude ?? ''], ['Précision (m)', (m) => m.location_accuracy_m ?? ''],
       ['Forfait', (m) => PLAN_META[planOf(m)].label], ['Statut abonnement', (m) => m.subscription_status], ['Fin abonnement', (m) => m.subscription_end_date || ''],
-      ['Suspendue', (m) => (m.is_suspended ? 'oui' : 'non')], ['Reversement', (m) => m.payout_provider || ''], ['Numéro de reversement', (m) => m.payout_phone_number || ''],
+      ['Suspendue', (m) => (m.is_suspended ? 'oui' : 'non')], ['Reversement', (m) => formatPayoutProviders(m.payout_provider)], ['Numéro de reversement', (m) => m.payout_phone_number || ''],
       ['Produits', (m) => m.products_count], ['Livreurs', (m) => m.drivers_count], ['Commandes', (m) => m.orders_count],
       ['Livrées', (m) => m.delivered_count], ['CA livré (FCFA)', (m) => m.revenue_fcfa], ['Inscription', (m) => m.created_at],
       ['Dernière connexion', (m) => m.last_sign_in_at || ''], ['Vitrine', (m) => shopUrl(m)],

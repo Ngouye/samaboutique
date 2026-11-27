@@ -332,13 +332,14 @@
 .font-editorial { font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: lining-nums; }
 
 /* Bouton doré (appel principal sur fond sombre) */
-.btn-gold {
+/* Utilitaire Tailwind : s'emploie aussi avec un préfixe d'écran (sm:btn-gold, max-sm:btn-gold). */
+@utility btn-gold {
   background-image: linear-gradient(100deg, #f9d784 0%, #f3a953 55%, #ec8a5a 100%);
   color: #1a1033;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 16px 36px -14px rgba(243, 169, 83, 0.75);
   transition: filter 0.25s, transform 0.25s, box-shadow 0.25s;
+  &:hover { filter: brightness(1.06) saturate(1.05); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 20px 44px -14px rgba(243, 169, 83, 0.9); }
 }
-.btn-gold:hover { filter: brightness(1.06) saturate(1.05); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 20px 44px -14px rgba(243, 169, 83, 0.9); }
 
 /* Texte en dégradé indigo → or → corail */
 .text-sunrise {
@@ -389,6 +390,37 @@
   .hero-halo { animation: hero-spin 30s linear infinite; }
   .twinkle { animation: twinkle 3.4s ease-in-out infinite; }
 }
+
+/* Curseur doré (simulateur de revenus) : la partie remplie suit la variable --fill */
+.range-gold {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #8a7cf1 0%, #f6c768 var(--fill, 50%), rgba(255, 255, 255, 0.12) var(--fill, 50%), rgba(255, 255, 255, 0.12) 100%);
+  outline: none;
+  cursor: pointer;
+}
+.range-gold::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 6px solid #f6c768;
+  box-shadow: 0 0 0 6px rgba(246, 199, 104, 0.18), 0 8px 18px rgba(0, 0, 0, 0.45);
+  transition: transform 0.2s;
+}
+.range-gold::-webkit-slider-thumb:hover { transform: scale(1.12); }
+.range-gold::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 6px solid #f6c768;
+  box-shadow: 0 0 0 6px rgba(246, 199, 104, 0.18), 0 8px 18px rgba(0, 0, 0, 0.45);
+}
+.range-gold:focus-visible { box-shadow: 0 0 0 4px rgba(138, 124, 241, 0.55); }
 
 /* ===================== Vitrine : thèmes ===================== */
 /* Polices des thèmes : téléchargées seulement si la vitrine affichée les utilise (licence OFL). */
@@ -575,6 +607,33 @@
   .shop-root[data-shop-tone="light"] .sh-hero-overlay { background: linear-gradient(90deg, var(--shop-bg) 0%, color-mix(in srgb, var(--shop-bg) 88%, transparent) 40%, color-mix(in srgb, var(--shop-bg) 10%, transparent) 75%); }
 }
 .sh-hero-photo { opacity: var(--hero-photo-opacity); }
+/* Lueur à la couleur de la boutique, qui dérive lentement au-dessus de la photo */
+.sh-hero-fx {
+  pointer-events: none;
+  background:
+    radial-gradient(42% 55% at 82% 18%, color-mix(in srgb, var(--shop) 55%, transparent), transparent 70%),
+    radial-gradient(34% 48% at 8% 92%, color-mix(in srgb, var(--shop-panel-accent, var(--shop)) 35%, transparent), transparent 70%);
+  mix-blend-mode: screen;
+  opacity: 0.75;
+}
+.shop-root[data-shop-tone="light"] .sh-hero-fx { mix-blend-mode: multiply; opacity: 0.3; }
+@keyframes sh-hero-drift { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(-3%, 2%, 0) scale(1.08); } }
+@media (prefers-reduced-motion: no-preference) { .sh-hero-fx { animation: sh-hero-drift 16s ease-in-out infinite alternate; } }
+/* Reflet qui balaie une carte de la vitrine au survol */
+.sh-card-hover { position: relative; overflow: hidden; }
+.sh-card-hover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.26) 50%, transparent 65%);
+  transform: translateX(-120%);
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .sh-card-hover::after { transition: transform 0.9s cubic-bezier(0.16, 1, 0.3, 1); }
+  .sh-card-hover:hover::after { transform: translateX(120%); }
+}
 .sh-hero-muted { color: var(--hero-muted); }
 .sh-hero-chip { background-color: var(--hero-chip); border: 1px solid var(--hero-chip-line); }
 .sh-hero-cta { background-color: var(--shop-hero-cta-bg); color: var(--shop-hero-cta-ink); }

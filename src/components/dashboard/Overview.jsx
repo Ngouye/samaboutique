@@ -135,7 +135,7 @@ function StartChecklist({ merchant, products, driverCount, ordersCount, inDirect
         </button>
       </div>
       <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-[#f1efe8]" role="progressbar" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={done} aria-label="Progression">
-        <motion.div initial={{ width: 0 }} animate={{ width: `${(done / steps.length) * 100}%` }} transition={{ duration: 0.8, ease: EASE }} className="h-full rounded-full bg-brand-600" />
+        <motion.div initial={{ width: 0 }} animate={{ width: `${(done / steps.length) * 100}%` }} transition={{ duration: 0.8, ease: EASE }} className="h-full rounded-full bg-gradient-to-r from-brand-500 via-[#f6c768] to-[#ef8f5b]" />
       </div>
       <ol className="mt-4 divide-y divide-[#efece4]">
         {steps.map((s) => (
@@ -238,19 +238,52 @@ export default function Overview({
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="mx-auto flex max-w-[1240px] flex-col gap-8 md:gap-10">
-      {/* Accueil : salutation et actions rapides */}
-      <motion.section variants={item}>
-        <p className="text-sm font-medium text-stone-500 first-letter:uppercase">
-          {now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-        </p>
-        <h1 className="mt-1.5 text-balance font-ledger text-[2.35rem] leading-[1.02] tracking-[-0.01em] text-ink md:text-[3.4rem]">
-          <BlurWords text={`${greeting},`} />{' '}
-          <span className="text-brand-700"><BlurWords text={merchant?.shop_name || 'Marchand'} delay={0.18} /></span>
-        </h1>
-        <div className="mt-4 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-        <p className="text-[15px] text-stone-600 md:text-base">{summary}</p>
+      {/* Accueil : bannière « nuit de Dakar » avec la journée en un coup d'œil */}
+      <motion.section variants={item} className="relative isolate overflow-hidden rounded-[2rem] bg-[#0c0a24] p-6 text-white shadow-[0_40px_80px_-40px_rgba(12,10,36,0.9)] md:p-9">
+        <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
+          <div className="absolute inset-0 bg-[radial-gradient(60%_90%_at_92%_0%,rgba(106,88,232,0.6),transparent_70%),radial-gradient(45%_70%_at_0%_100%,rgba(246,199,104,0.16),transparent_70%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(174,166,247,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(174,166,247,0.07)_1px,transparent_1px)] bg-[size:48px_48px] [mask-image:linear-gradient(to_left,black,transparent_75%)]" />
+          <div className="hero-grain absolute inset-0 opacity-[0.07] mix-blend-overlay" />
+        </div>
 
-        <div className="grid grid-cols-4 gap-2 sm:flex sm:flex-wrap sm:gap-2.5 lg:justify-end">
+        <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-white/55 first-letter:uppercase">
+              {now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </p>
+            <h1 className="mt-2 text-balance font-ledger text-[2.3rem] leading-[1.02] tracking-[-0.01em] md:text-[3.3rem]">
+              <BlurWords text={`${greeting},`} />{' '}
+              <span className="text-[#f6c768]"><BlurWords text={merchant?.shop_name || 'Marchand'} delay={0.18} /></span>
+            </h1>
+            <p className="mt-3 text-[15px] text-white/65 md:text-base">{summary}</p>
+          </div>
+
+          {/* La journée en trois chiffres */}
+          <div className="grid grid-cols-3 gap-2.5 lg:w-[470px] lg:shrink-0">
+            {[
+              { label: 'À traiter', value: pending, icon: Clock, go: () => onNavigate('orders', { status: 'PENDING' }), hot: pending > 0 },
+              { label: 'En livraison', value: inTransit, icon: Truck, go: () => onNavigate('orders', { status: 'IN_TRANSIT' }) },
+              { label: 'Caisse du jour', value: today.totalEnbaisse, unit: 'F', icon: Wallet, go: () => onNavigate('deliveries') },
+            ].map((s) => (
+              <button
+                key={s.label}
+                type="button"
+                onClick={s.go}
+                className={`group relative flex min-w-0 flex-col rounded-2xl p-3.5 text-left ring-1 backdrop-blur transition-all hover:-translate-y-0.5 md:p-4 ${s.hot ? 'bg-[linear-gradient(140deg,rgba(246,199,104,0.22),rgba(246,199,104,0.06))] ring-[#f6c768]/40' : 'bg-white/[0.06] ring-white/10 hover:bg-white/10'}`}
+              >
+                <s.icon className={`h-[18px] w-[18px] ${s.hot ? 'text-[#f6c768]' : 'text-white/45'}`} />
+                <span className="mt-3 whitespace-nowrap font-figures text-[1.3rem] font-semibold leading-none tabular-nums min-[400px]:text-2xl md:text-[1.75rem]">
+                  <RollingNumber value={s.value} />{s.unit && <span className="ml-1 text-sm font-medium text-white/45">{s.unit}</span>}
+                </span>
+                <span className="mt-1.5 text-xs font-semibold leading-tight text-white/60">{s.label}</span>
+                {s.hot && <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-[#f6c768] motion-safe:animate-ping" aria-hidden="true" />}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Actions rapides */}
+        <div className="mt-7 grid grid-cols-4 gap-2 border-t border-white/10 pt-6 sm:flex sm:flex-wrap sm:gap-2.5">
           {quickActions.map((q) => {
             const Tag = q.href ? 'a' : 'button';
             const linkProps = q.href ? { href: q.href, target: '_blank', rel: 'noreferrer' } : { type: 'button', onClick: q.onClick };
@@ -258,19 +291,18 @@ export default function Overview({
               <Tag
                 key={q.label}
                 {...linkProps}
-                className={`group flex flex-col items-center gap-1.5 text-center sm:flex-row sm:gap-2 sm:rounded-full sm:px-4 sm:py-2.5 sm:text-sm sm:font-bold sm:transition-colors ${q.primary ? 'sm:bg-ink sm:text-white sm:hover:bg-brand-800' : 'sm:border sm:border-[#dcd8cd] sm:bg-white sm:text-slate-800 sm:hover:border-stone-400'}`}
+                className={`group flex flex-col items-center gap-1.5 text-center sm:flex-row sm:gap-2 sm:rounded-full sm:px-4 sm:py-2.5 sm:text-sm sm:font-bold sm:transition-all ${q.primary ? 'sm:btn-gold' : 'sm:bg-white/[0.07] sm:text-white sm:ring-1 sm:ring-white/15 sm:hover:bg-white/15'}`}
               >
-                <span className={`flex h-14 w-14 items-center justify-center rounded-2xl transition-transform group-active:scale-95 sm:h-auto sm:w-auto sm:rounded-none sm:bg-transparent sm:shadow-none sm:ring-0 ${q.primary ? 'bg-ink text-white shadow-[0_10px_24px_-12px_color-mix(in_srgb,_var(--color-ink)_70%,_transparent)]' : 'bg-white text-ink ring-1 ring-[#e8e5dc]'}`}>
+                <span className={`flex h-14 w-14 items-center justify-center rounded-2xl transition-transform group-active:scale-95 sm:h-auto sm:w-auto sm:rounded-none sm:bg-transparent sm:shadow-none sm:ring-0 ${q.primary ? 'max-sm:btn-gold' : 'bg-white/[0.08] text-white ring-1 ring-white/15 sm:bg-transparent'}`}>
                   <q.icon className="h-5 w-5 sm:h-4 sm:w-4" />
                 </span>
-                <span className="text-[11px] font-semibold leading-tight text-stone-600 sm:text-sm sm:font-bold sm:text-inherit">
+                <span className="text-[11px] font-semibold leading-tight text-white/70 sm:text-sm sm:font-bold sm:text-inherit">
                   <span className="sm:hidden">{q.short || q.label}</span>
                   <span className="hidden sm:inline">{q.label}</span>
                 </span>
               </Tag>
             );
           })}
-        </div>
         </div>
       </motion.section>
 

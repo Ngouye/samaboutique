@@ -54,18 +54,25 @@ function Chip({ children, tone = 'muted' }) {
 export function TodayStrip({ summary }) {
   const owed = summary.toReturn < 0;
   const tiles = [
-    { label: 'Livrées', value: summary.count, icon: CircleCheck, tone: 'bg-emerald-50 text-emerald-700' },
-    { label: 'Mes gains', value: `${fmt(summary.fees)} F`, icon: HandCoins, tone: 'bg-brand-50 text-brand-700' },
-    { label: owed ? 'On vous doit' : 'À reverser', value: `${fmt(Math.abs(summary.toReturn))} F`, icon: Banknote, tone: 'bg-amber-50 text-amber-700' },
+    { label: 'Livrées', value: summary.count, icon: CircleCheck },
+    { label: 'Mes gains', value: `${fmt(summary.fees)} F`, icon: HandCoins, gold: true },
+    { label: owed ? 'On vous doit' : 'À reverser', value: `${fmt(Math.abs(summary.toReturn))} F`, icon: Banknote },
   ];
   return (
-    <section aria-label="Ma journée" className={CARD}>
-      <div className="grid grid-cols-3 divide-x divide-[#efece4]">
+    <section aria-label="Ma journée" className="relative isolate overflow-hidden rounded-[1.6rem] bg-[#0c0a24] p-4 text-white shadow-[0_30px_60px_-30px_rgba(12,10,36,0.85)]">
+      <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
+        <div className="absolute inset-0 bg-[radial-gradient(70%_90%_at_100%_0%,rgba(106,88,232,0.55),transparent_70%),radial-gradient(50%_70%_at_0%_100%,rgba(246,199,104,0.14),transparent_70%)]" />
+        <div className="hero-grain absolute inset-0 opacity-[0.07] mix-blend-overlay" />
+      </div>
+      <p className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-white/50">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.9)]" /> Ma journée
+      </p>
+      <div className="grid grid-cols-3 gap-2">
         {tiles.map((t) => (
-          <div key={t.label} className="min-w-0 px-3 py-3">
-            <span className={`mb-2 flex h-7 w-7 items-center justify-center rounded-lg ${t.tone}`}><t.icon className="h-4 w-4" /></span>
-            <p className="whitespace-nowrap font-figures text-[15px] font-bold leading-tight text-ink min-[360px]:text-base">{t.value}</p>
-            <p className="mt-0.5 text-[11px] font-medium text-stone-500">{t.label}</p>
+          <div key={t.label} className={`min-w-0 rounded-2xl p-3 ring-1 ${t.gold ? 'bg-[linear-gradient(140deg,rgba(246,199,104,0.22),rgba(246,199,104,0.05))] ring-[#f6c768]/35' : 'bg-white/[0.06] ring-white/10'}`}>
+            <t.icon className={`h-[18px] w-[18px] ${t.gold ? 'text-[#f6c768]' : 'text-white/50'}`} />
+            <p className="mt-2.5 whitespace-nowrap font-figures text-[15px] font-bold leading-tight min-[360px]:text-base">{t.value}</p>
+            <p className="mt-0.5 text-[11px] font-medium text-white/55">{t.label}</p>
           </div>
         ))}
       </div>

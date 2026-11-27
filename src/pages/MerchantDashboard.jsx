@@ -23,7 +23,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { SHOP_CATEGORIES, CATEGORY_FEATURES } from '../utils/categories';
 import { motion, AnimatePresence } from 'framer-motion';
 import Overview from '../components/dashboard/Overview';
-import { PageHeader, PrimaryButton, StatPill, EmptyState, Modal, FilePreview, Toggle, SectionCard, LogoutButton, rise, CARD, INPUT, LABEL, EASE } from '../components/dashboard/ui';
+import { PageHeader, HeaderMeter, PrimaryButton, StatPill, EmptyState, Modal, FilePreview, Toggle, SectionCard, LogoutButton, rise, CARD, INPUT, LABEL, EASE } from '../components/dashboard/ui';
 import { ORDER_STATUSES, statusMeta, timeAgo, dayLabel } from '../components/dashboard/status';
 import { fmt } from '../components/dashboard/analytics';
 import { TagsInput } from '../components/dashboard/TagsInput';
@@ -35,6 +35,7 @@ import { paymentLabel, isDeposit, depositAmount, awaitingPayment } from '../util
 import { cashToCollect } from '../utils/delivery';
 import OrderTimeline from '../components/dashboard/OrderTimeline';
 import { whatsappNumber } from '../utils/phone';
+import { PAYOUT_PROVIDERS, parsePayoutProviders, serializePayoutProviders } from '../utils/payout';
 import AiProductAssistant, { AiTeaser } from '../components/dashboard/AiProductAssistant';
 import ProductPoster from '../components/dashboard/ProductPoster';
 import PublishDialog, { VisibilityPicker, VisibilityBadge } from '../components/dashboard/PublishDialog';
@@ -232,7 +233,7 @@ const DEFAULT_DELIVERY_ZONES = [
     social_facebook: '',
     social_instagram: '',
     social_tiktok: '',
-    payout_provider: 'WAVE',
+    payout_providers: ['WAVE'],
     payout_phone_number: '',
     delivery_zones: [],
     isSaving: false
@@ -256,7 +257,7 @@ const DEFAULT_DELIVERY_ZONES = [
         social_facebook: merchant.social_links?.facebook || '',
         social_instagram: merchant.social_links?.instagram || '',
         social_tiktok: merchant.social_links?.tiktok || '',
-        payout_provider: merchant.payout_provider || 'WAVE',
+        payout_providers: parsePayoutProviders(merchant.payout_provider).length ? parsePayoutProviders(merchant.payout_provider) : ['WAVE'],
         payout_phone_number: merchant.payout_phone_number || '',
         delivery_zones: merchant.delivery_zones || DEFAULT_DELIVERY_ZONES,
         isSaving: false
@@ -482,7 +483,7 @@ const DEFAULT_DELIVERY_ZONES = [
         logo_url: finalLogoUrl,
         banner_url: finalBannerUrl,
         layout_style: settingsForm.layout_style,
-        payout_provider: settingsForm.payout_provider,
+        payout_provider: serializePayoutProviders(settingsForm.payout_providers),
         payout_phone_number: settingsForm.payout_phone_number,
         social_links: {
           facebook: settingsForm.social_facebook,
@@ -1071,17 +1072,24 @@ Merci de votre confiance ! 🙏`;
   );
   const toggleSound = soundEnabled ? () => setSoundEnabled(false) : enableSound;
 
-  // Barre latérale (ordinateur et tablette). Tout défile d'un bloc si l'écran est petit :
-  // le menu n'est jamais écrasé dans une petite zone.
+  // Barre latérale (ordinateur et tablette), style « nuit de Dakar ». Tout défile d'un bloc si l'écran
+  // est petit : le menu n'est jamais écrasé dans une petite zone.
   const sidebar = (
-    <div className="flex h-full flex-col overflow-y-auto overscroll-contain border-r border-[#e8e5dc] bg-white [scrollbar-width:thin]">
+    <div className="relative isolate flex h-full flex-col overflow-y-auto overscroll-contain bg-[#0c0a24] text-white [scrollbar-width:thin]">
+      {/* Lumières et grain */}
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
+        <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-brand-600/35 blur-[80px]" />
+        <div className="absolute -bottom-28 -right-20 h-64 w-64 rounded-full bg-amber-400/10 blur-[80px]" />
+        <div className="hero-grain absolute inset-0 opacity-[0.06] mix-blend-overlay" />
+      </div>
+
       {/* Marque */}
       <div className="flex items-center gap-2.5 pb-4 pl-5 pr-3 pt-5">
-        <Logo markClassName="h-9 w-9" textClassName="text-lg" />
+        <Logo variant="dark" markClassName="h-9 w-9" textClassName="text-lg" />
         <button
           type="button"
           onClick={toggleSidebar}
-          className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-stone-500 transition-colors hover:bg-[#f3f1eb] hover:text-ink"
+          className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white/50 transition-colors hover:bg-white/10 hover:text-white"
           aria-label="Masquer le menu"
           title="Masquer le menu"
         >
@@ -1090,11 +1098,11 @@ Merci de votre confiance ! 🙏`;
       </div>
 
       {/* Boutique */}
-      <div className="mx-3 flex items-center gap-3 rounded-2xl bg-[#f8f7f3] p-2.5 ring-1 ring-[#ebe8e0]">
+      <div className="mx-3 flex items-center gap-3 rounded-2xl bg-white/[0.06] p-2.5 ring-1 ring-white/10 backdrop-blur">
         {shopAvatar('h-10 w-10 text-base')}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold leading-tight text-ink">{merchant.shop_name}</p>
-          <p className={`mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold ${planId === 'debutant' ? 'text-stone-500' : 'text-amber-700'}`}>
+          <p className="truncate text-sm font-bold leading-tight text-white">{merchant.shop_name}</p>
+          <p className={`mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold ${planId === 'debutant' ? 'text-white/50' : 'text-[#f6c768]'}`}>
             {planId !== 'debutant' && <Crown className="h-3 w-3" />} Forfait {PLAN_LABELS[planId] || planId}
           </p>
         </div>
@@ -1104,17 +1112,17 @@ Merci de votre confiance ! 🙏`;
           rel="noreferrer"
           title="Voir ma vitrine"
           aria-label="Voir ma vitrine"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-stone-600 ring-1 ring-[#e3dfd5] transition-colors hover:text-brand-700 hover:ring-brand-200"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/80 ring-1 ring-white/15 transition-colors hover:bg-white hover:text-ink"
         >
           <ArrowUpRight className="h-4 w-4" />
         </a>
       </div>
 
       {/* Menu */}
-      <nav className="mt-5 space-y-5 px-3" aria-label="Navigation du tableau de bord">
+      <nav className="mt-6 space-y-6 px-3" aria-label="Navigation du tableau de bord">
         {NAV_SECTIONS.map((section) => (
           <div key={section.title}>
-            <p className="mb-1 px-3 text-[10.5px] font-bold uppercase tracking-[0.16em] text-stone-400">{section.title}</p>
+            <p className="mb-1.5 px-3 text-[10.5px] font-bold uppercase tracking-[0.18em] text-white/35">{section.title}</p>
             <div className="space-y-0.5">
               {section.items.map(({ id, label, icon, iconOn, badge }) => {
                 const active = activeTab === id;
@@ -1124,21 +1132,21 @@ Merci de votre confiance ! 🙏`;
                     key={id}
                     onClick={() => openTab(id)}
                     aria-current={active ? 'page' : undefined}
-                    className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-[14.5px] font-semibold transition-colors ${active ? 'text-brand-800' : 'text-stone-600 hover:bg-[#f8f7f3] hover:text-ink'}`}
+                    className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[14.5px] font-semibold transition-colors ${active ? 'text-white' : 'text-white/60 hover:bg-white/[0.05] hover:text-white'}`}
                   >
                     {active && (
                       <motion.span
                         layoutId="nav-active"
-                        className="absolute inset-0 rounded-xl bg-brand-50"
+                        className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/[0.14] to-white/[0.04] ring-1 ring-white/15"
                         transition={{ type: 'spring', stiffness: 420, damping: 36 }}
                       >
-                        <span className="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-brand-600" />
+                        <span className="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-gradient-to-b from-[#f9d784] to-[#ef8f5b] shadow-[0_0_12px_rgba(246,199,104,0.7)]" />
                       </motion.span>
                     )}
-                    <Icon className={`relative h-[18px] w-[18px] shrink-0 ${active ? 'text-brand-700' : 'text-stone-400 group-hover:text-stone-600'}`} />
+                    <Icon className={`relative h-[18px] w-[18px] shrink-0 ${active ? 'text-[#f6c768]' : 'text-white/40 group-hover:text-white/70'}`} />
                     <span className="relative flex-1 text-left">{label}</span>
                     {badge > 0 && (
-                      <span className="relative min-w-[22px] rounded-full bg-brand-600 px-1.5 py-0.5 text-center text-[11px] font-bold text-white">{badge}</span>
+                      <span className="btn-gold relative min-w-[22px] rounded-full px-1.5 py-0.5 text-center text-[11px] font-extrabold">{badge}</span>
                     )}
                   </button>
                 );
@@ -1153,25 +1161,25 @@ Merci de votre confiance ! 🙏`;
         {planId === 'debutant' && (
           <button
             onClick={() => openTab('billing')}
-            className="flex w-full items-center gap-3 rounded-xl bg-gradient-to-r from-amber-50 to-brand-50 px-3 py-2.5 text-left ring-1 ring-amber-200/70 transition-shadow hover:ring-amber-300"
+            className="relative flex w-full items-center gap-3 overflow-hidden rounded-xl bg-[linear-gradient(120deg,rgba(246,199,104,0.18),rgba(106,88,232,0.2))] px-3 py-2.5 text-left ring-1 ring-[#f6c768]/30 transition-shadow hover:ring-[#f6c768]/60"
           >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-amber-600 ring-1 ring-amber-200"><Sparkles className="h-4 w-4" /></span>
+            <span className="btn-gold flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"><Sparkles className="h-4 w-4" /></span>
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-bold text-ink">Passer au Pro</span>
-              <span className="block truncate text-xs text-stone-500">Produits illimités, 5 livreurs</span>
+              <span className="block text-sm font-bold text-white">Passer au Pro</span>
+              <span className="block truncate text-xs text-white/55">Produits illimités, 5 livreurs</span>
             </span>
-            <ArrowUpRight className="h-4 w-4 shrink-0 text-stone-400" />
+            <ArrowUpRight className="h-4 w-4 shrink-0 text-white/50" />
           </button>
         )}
-        <div className="grid grid-cols-2 gap-2 border-t border-[#ebe8e0] pt-3">
-          <button onClick={() => setShowQRModal(true)} className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-[#f7f6f2] px-2 py-2.5 text-xs font-bold text-stone-700 ring-1 ring-black/[0.04] transition-all hover:bg-white hover:text-ink hover:shadow-sm">
-            <QrCode className="h-4 w-4 text-brand-700" /> QR code
+        <div className="grid grid-cols-2 gap-2 border-t border-white/10 pt-3">
+          <button onClick={() => setShowQRModal(true)} className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-white/[0.06] px-2 py-2.5 text-xs font-bold text-white/80 ring-1 ring-white/10 transition-all hover:bg-white/10 hover:text-white">
+            <QrCode className="h-4 w-4 text-[#f6c768]" /> QR code
           </button>
-          <button onClick={handleDriverLinkCopy} className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-[#f7f6f2] px-2 py-2.5 text-xs font-bold text-stone-700 ring-1 ring-black/[0.04] transition-all hover:bg-white hover:text-ink hover:shadow-sm">
-            <Truck className="h-4 w-4 text-brand-700" /> Lien livreur
+          <button onClick={handleDriverLinkCopy} className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-white/[0.06] px-2 py-2.5 text-xs font-bold text-white/80 ring-1 ring-white/10 transition-all hover:bg-white/10 hover:text-white">
+            <Truck className="h-4 w-4 text-[#f6c768]" /> Lien livreur
           </button>
         </div>
-        <LogoutButton onClick={handleLogout} detail={user?.email} />
+        <LogoutButton tone="dark" onClick={handleLogout} detail={user?.email} />
       </div>
     </div>
   );
@@ -1219,7 +1227,7 @@ Merci de votre confiance ! 🙏`;
       </aside>
 
       {/* Téléphone : barre d'onglets en bas de l'écran */}
-      <nav aria-label="Navigation principale" className="fixed inset-x-0 bottom-0 z-40 border-t border-[#e8e5dc] bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
+      <nav aria-label="Navigation principale" className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0c0a24]/95 pb-[env(safe-area-inset-bottom)] text-white backdrop-blur-xl md:hidden">
         <div className="grid grid-cols-5">
           {MOBILE_TABS.map(({ id, label, icon, iconOn, badge }) => {
             const active = id === 'more' ? (isMobileMenuOpen || inMoreTabs) : (activeTab === id && !isMobileMenuOpen);
@@ -1228,13 +1236,13 @@ Merci de votre confiance ! 🙏`;
             return (
               <button key={id} type="button" onClick={onClick} aria-current={active ? 'page' : undefined} className="flex flex-col items-center gap-0.5 pb-2 pt-2 text-[11px] font-semibold">
                 <span className="relative flex h-8 w-14 items-center justify-center">
-                  {active && <motion.span layoutId="tab-pill" className="absolute inset-0 rounded-full bg-brand-100" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />}
-                  <Icon className={`relative h-5 w-5 ${active ? 'text-brand-800' : 'text-stone-500'}`} />
+                  {active && <motion.span layoutId="tab-pill" className="absolute inset-0 rounded-full bg-white/[0.12] ring-1 ring-white/15" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />}
+                  <Icon className={`relative h-5 w-5 ${active ? 'text-[#f6c768]' : 'text-white/45'}`} />
                   {badge > 0 && (
-                    <span className="absolute -top-0.5 right-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white ring-2 ring-white">{badge}</span>
+                    <span className="btn-gold absolute -top-0.5 right-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-extrabold ring-2 ring-[#0c0a24]">{badge}</span>
                   )}
                 </span>
-                <span className={active ? 'text-ink' : 'text-stone-500'}>{label}</span>
+                <span className={active ? 'text-white' : 'text-white/50'}>{label}</span>
               </button>
             );
           })}
@@ -1392,23 +1400,8 @@ Merci de votre confiance ! 🙏`;
         ) : activeTab === 'products' ? (
           <div className="mx-auto max-w-7xl">
             <PageHeader title="Produits" subtitle="Vos articles, leurs prix et leur stock.">
-              {planId === 'debutant' && (
-                <div className="min-w-[190px] rounded-2xl border border-[#e8e5dc] bg-white px-4 py-2.5">
-                  <div className="mb-1.5 flex justify-between gap-3 text-xs font-semibold text-stone-500">
-                    <span>Forfait Débutant</span>
-                    <span className="font-figures text-ink tabular-nums">{products.length} / 10 produits</span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-brand-100">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(100, products.length * 10)}%` }}
-                      transition={{ duration: 0.8, ease: EASE }}
-                      className={`h-full rounded-full ${products.length >= 10 ? 'bg-red-500' : products.length >= 8 ? 'bg-amber-500' : 'bg-brand-500'}`}
-                    />
-                  </div>
-                </div>
-              )}
-              <PrimaryButton onClick={openNewProduct}>
+              {planId === 'debutant' && <HeaderMeter label="Forfait Débutant" value={`${products.length} / 10 produits`} ratio={products.length / 10} />}
+              <PrimaryButton tone="gold" onClick={openNewProduct}>
                 <Plus className="h-5 w-5" /> Ajouter un produit
               </PrimaryButton>
             </PageHeader>
@@ -1621,10 +1614,10 @@ Merci de votre confiance ! 🙏`;
                     aria-pressed={active}
                     className={`relative flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${active ? 'text-white' : 'bg-white text-stone-600 ring-1 ring-[#e8e5dc] hover:text-ink hover:ring-stone-300'}`}
                   >
-                    {active && <motion.span layoutId="order-filter" className="absolute inset-0 rounded-full bg-ink" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+                    {active && <motion.span layoutId="order-filter" className="absolute inset-0 rounded-full bg-[#0c0a24] shadow-[0_10px_24px_-12px_rgba(12,10,36,0.8)]" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
                     <Icon className="relative h-4 w-4" />
                     <span className="relative">{s.label}</span>
-                    <span className={`relative font-figures text-xs font-semibold tabular-nums ${active ? 'text-white/70' : 'text-stone-400'}`}>{count}</span>
+                    <span className={`relative rounded-full px-1.5 font-figures text-xs font-semibold tabular-nums ${active ? 'bg-[#f6c768] text-[#1a1033]' : 'text-stone-400'}`}>{count}</span>
                   </button>
                 );
               })}
@@ -1936,22 +1929,9 @@ Merci de votre confiance ! 🙏`;
           <div className="mx-auto max-w-7xl">
             <PageHeader title="Équipe" subtitle="Vos livreurs, leurs courses et leur solde du jour.">
               {(planId === 'debutant' || planId === 'pro') && (
-                <div className="min-w-[180px] rounded-2xl border border-[#e8e5dc] bg-white px-4 py-2.5">
-                  <div className="mb-1.5 flex justify-between gap-3 text-xs font-semibold text-stone-500">
-                    <span>Forfait {PLAN_LABELS[planId]}</span>
-                    <span className="text-slate-900">{team.length} / {planId === 'debutant' ? 1 : 5} livreur{planId === 'pro' ? 's' : ''}</span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-amber-100">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(100, (team.length / (planId === 'debutant' ? 1 : 5)) * 100)}%` }}
-                      transition={{ duration: 0.8, ease: EASE }}
-                      className="h-full rounded-full bg-amber-500"
-                    />
-                  </div>
-                </div>
+                <HeaderMeter label={`Forfait ${PLAN_LABELS[planId]}`} value={`${team.length} / ${planId === 'debutant' ? 1 : 5} livreur${planId === 'pro' ? 's' : ''}`} ratio={team.length / (planId === 'debutant' ? 1 : 5)} />
               )}
-              <PrimaryButton onClick={() => setShowDriverModal(true)}>
+              <PrimaryButton tone="gold" onClick={() => setShowDriverModal(true)}>
                 <UserPlus className="h-5 w-5" /> Ajouter un livreur
               </PrimaryButton>
             </PageHeader>
@@ -2048,8 +2028,8 @@ Merci de votre confiance ! 🙏`;
         ) : activeTab === 'settings' ? (
           <div className="mx-auto max-w-4xl">
             <PageHeader title="Paramètres" subtitle="Les informations et l’apparence de votre vitrine.">
-              <a href={getShopUrl()} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-[#dcd8cd] bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:border-stone-400">
-                <Eye className="h-4 w-4" /> Voir la vitrine
+              <a href={getShopUrl()} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full bg-white/[0.08] px-4 py-2.5 text-sm font-bold text-white ring-1 ring-white/15 transition-colors hover:bg-white/15">
+                <Eye className="h-4 w-4 text-[#f6c768]" /> Voir la vitrine
               </a>
             </PageHeader>
 
@@ -2196,33 +2176,56 @@ Merci de votre confiance ! 🙏`;
 
               <WhatsAppSettingsCard merchant={merchant} userId={user?.id} showToast={showToast} />
 
-              <SectionCard icon={Wallet} gradient="amber" title="Réception des paiements" subtitle="Le compte qui reçoit l'argent de vos ventes">
-                <label className={LABEL}>Méthode de réception</label>
-                <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  {[
-                    { id: 'WAVE', label: 'Wave', color: 'bg-sky-400' },
-                    { id: 'ORANGE_MONEY', label: 'Orange Money', color: 'bg-orange-500' },
-                    { id: 'FREE_MONEY', label: 'Free Money', color: 'bg-red-500' },
-                  ].map((p) => {
-                    const active = settingsForm.payout_provider === p.id;
-                    return (
-                      <motion.button
-                        type="button"
-                        key={p.id}
-                        whileTap={{ scale: 0.97 }}
-                        onClick={() => setSettingsForm({ ...settingsForm, payout_provider: p.id })}
-                        className={`flex items-center gap-3 rounded-2xl border-2 px-4 py-3.5 text-left font-bold transition-colors ${active ? 'border-amber-500 bg-amber-50/60 text-slate-900' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'}`}
-                      >
-                        <span className={`h-3 w-3 rounded-full ${p.color}`} />
-                        <span className="flex-1">{p.label}</span>
-                        {active && <Check className="h-4 w-4 text-amber-600" strokeWidth={3} />}
-                      </motion.button>
-                    );
-                  })}
-                </div>
-                <label className={LABEL}>Numéro de téléphone (Wave / OM)</label>
+              <SectionCard icon={Wallet} gradient="amber" title="Réception des paiements" subtitle="Les comptes qui reçoivent l'argent de vos ventes">
+                {(() => {
+                  const chosen = settingsForm.payout_providers || [];
+                  const allChosen = chosen.length === PAYOUT_PROVIDERS.length;
+                  // Plusieurs comptes possibles ; il en reste toujours au moins un de coché.
+                  const toggle = (id) => {
+                    const next = chosen.includes(id) ? chosen.filter((x) => x !== id) : [...chosen, id];
+                    if (next.length === 0) { showToast('Gardez au moins un compte pour recevoir vos paiements.'); return; }
+                    setSettingsForm({ ...settingsForm, payout_providers: parsePayoutProviders(next.join(',')) });
+                  };
+                  return (
+                    <>
+                      <div className="mb-1.5 flex items-end justify-between gap-3">
+                        <span className={`${LABEL} !mb-0`} id="payout-label">Comptes de réception <span className="font-normal text-stone-500">(cochez tous ceux que vous avez)</span></span>
+                        <button
+                          type="button"
+                          onClick={() => setSettingsForm({ ...settingsForm, payout_providers: allChosen ? [chosen[0] || 'WAVE'] : PAYOUT_PROVIDERS.map((p) => p.id) })}
+                          className="shrink-0 rounded-full px-3 py-1.5 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-50"
+                        >
+                          {allChosen ? 'Garder un seul' : 'Tout cocher'}
+                        </button>
+                      </div>
+                      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3" role="group" aria-labelledby="payout-label">
+                        {PAYOUT_PROVIDERS.map((p) => {
+                          const active = chosen.includes(p.id);
+                          return (
+                            <motion.button
+                              type="button"
+                              key={p.id}
+                              role="checkbox"
+                              aria-checked={active}
+                              whileTap={{ scale: 0.97 }}
+                              onClick={() => toggle(p.id)}
+                              className={`flex items-center gap-3 rounded-2xl border-2 px-4 py-3.5 text-left font-bold transition-colors ${active ? 'border-amber-500 bg-amber-50/60 text-slate-900' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'}`}
+                            >
+                              <span className={`h-3 w-3 rounded-full ${p.color}`} />
+                              <span className="flex-1">{p.label}</span>
+                              <span className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition-colors ${active ? 'border-amber-500 bg-amber-500 text-white' : 'border-slate-300 bg-white'}`}>
+                                {active && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+                              </span>
+                            </motion.button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  );
+                })()}
+                <label className={LABEL}>Numéro de téléphone (le même pour les comptes cochés)</label>
                 <input type="tel" value={settingsForm.payout_phone_number} onChange={(e) => setSettingsForm({ ...settingsForm, payout_phone_number: e.target.value })} className={INPUT} placeholder="Ex : 77 123 45 67" />
-                <p className="mt-2 text-xs text-slate-500">Vous recevrez l'argent de vos ventes sur ce compte (moins la commission de 5 %).</p>
+                <p className="mt-2 text-xs text-slate-500">Vous recevez l'argent de vos ventes payées en ligne sur ce numéro (moins la commission de 5 %).</p>
               </SectionCard>
 
               <SectionCard icon={ImagePlus} gradient="rose" title="Logo de la boutique" subtitle="Format carré recommandé, idéalement un PNG à fond transparent">

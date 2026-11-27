@@ -426,19 +426,19 @@ export default function DriverDashboard() {
       </AnimatePresence>
 
       {/* En-tête */}
-      <header className="sticky top-0 z-40 border-b border-[#e8e5dc] bg-white/90 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0c0a24]/90 text-white backdrop-blur-xl">
         <div className="mx-auto flex max-w-md items-center justify-between gap-3 px-4 py-2.5">
           <div className="flex min-w-0 items-center gap-3">
             <span className="relative shrink-0">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-ink text-base font-bold text-white">
+              <span className="btn-gold flex h-10 w-10 items-center justify-center rounded-xl text-base font-extrabold">
                 {driverName.charAt(0).toUpperCase() || '?'}
               </span>
-              <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" aria-hidden="true" />
+              <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#0c0a24] bg-emerald-400" aria-hidden="true" />
             </span>
             <div className="min-w-0">
-              <h1 className="truncate text-[15px] font-bold leading-tight text-ink">{driverName || 'Livreur'}</h1>
-              <p className="flex items-center gap-1.5 truncate text-xs text-stone-500">
-                <span className="font-semibold text-emerald-700">En service</span> · {shopLabel}
+              <h1 className="truncate text-[15px] font-bold leading-tight text-white">{driverName || 'Livreur'}</h1>
+              <p className="flex items-center gap-1.5 truncate text-xs text-white/55">
+                <span className="font-semibold text-emerald-300">En service</span> · {shopLabel}
               </p>
             </div>
           </div>
@@ -446,14 +446,14 @@ export default function DriverDashboard() {
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={toggleSound}
-              className={`flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-colors ${soundEnabled ? 'bg-brand-100 text-brand-800' : 'bg-[#f7f6f2] text-stone-600 ring-1 ring-black/[0.05]'}`}
+              className={`flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-colors ${soundEnabled ? 'btn-gold' : 'bg-white/[0.08] text-white/75 ring-1 ring-white/15'}`}
               aria-label={soundEnabled ? 'Couper les alertes' : 'Activer les alertes'}
               aria-pressed={soundEnabled}
             >
               {soundEnabled ? <BellRing className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
               <span className="hidden min-[380px]:inline">{soundEnabled ? 'Alertes' : 'Muet'}</span>
             </motion.button>
-            <motion.button whileTap={{ scale: 0.9, rotate: -20 }} onClick={fetchDriverOrders} className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f7f6f2] text-stone-600 ring-1 ring-black/[0.05]" aria-label="Actualiser">
+            <motion.button whileTap={{ scale: 0.9, rotate: -20 }} onClick={fetchDriverOrders} className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.08] text-white/80 ring-1 ring-white/15" aria-label="Actualiser">
               <RotateCw className={`h-[18px] w-[18px] ${loading ? 'animate-spin' : ''}`} />
             </motion.button>
           </div>
@@ -594,18 +594,18 @@ export default function DriverDashboard() {
       {/* Navigation basse */}
       {/* Collée au bas de l'écran, sur toute la largeur, comme une application ; la zone du geste
           d'accueil des iPhone (safe area) reste libre. */}
-      <nav aria-label="Espace livreur" className="fixed inset-x-0 bottom-0 z-40 border-t border-[#e8e5dc] bg-white/95 backdrop-blur-xl" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <nav aria-label="Espace livreur" className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0c0a24]/95 text-white backdrop-blur-xl" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="mx-auto flex max-w-md items-stretch">
           {tabs.map((t) => {
             const active = activeTab === t.id;
             return (
-              <button key={t.id} onClick={() => openTab(t.id)} aria-current={active ? 'page' : undefined} className="relative flex min-h-[3.75rem] flex-1 flex-col items-center justify-center gap-0.5 pb-1.5 pt-2 active:bg-stone-50">
+              <button key={t.id} onClick={() => openTab(t.id)} aria-current={active ? 'page' : undefined} className="relative flex min-h-[3.75rem] flex-1 flex-col items-center justify-center gap-0.5 pb-1.5 pt-2 active:bg-white/5">
                 <span className="relative flex h-8 w-14 items-center justify-center">
-                  {active && <motion.span layoutId="driver-tab" className="absolute inset-0 rounded-full bg-brand-100" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />}
-                  <t.icon className={`relative h-5 w-5 transition-colors ${active ? 'text-brand-800' : 'text-stone-500'}`} />
-                  {t.badge > 0 && <span className="absolute -top-0.5 right-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white ring-2 ring-white">{t.badge}</span>}
+                  {active && <motion.span layoutId="driver-tab" className="absolute inset-0 rounded-full bg-white/[0.12] ring-1 ring-white/15" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />}
+                  <t.icon className={`relative h-5 w-5 transition-colors ${active ? 'text-[#f6c768]' : 'text-white/45'}`} />
+                  {t.badge > 0 && <span className="btn-gold absolute -top-0.5 right-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-extrabold ring-2 ring-[#0c0a24]">{t.badge}</span>}
                 </span>
-                <span className={`text-[11px] font-semibold leading-none ${active ? 'text-ink' : 'text-stone-500'}`}>{t.label}</span>
+                <span className={`text-[11px] font-semibold leading-none ${active ? 'text-white' : 'text-white/50'}`}>{t.label}</span>
               </button>
             );
           })}

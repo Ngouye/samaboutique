@@ -16,7 +16,7 @@ import { Magnetic, SpotlightCard } from '../components/landing/Magic';
 import ScrollProgress from '../components/motion/ScrollProgress';
 import RollingNumber from '../components/motion/RollingNumber';
 import Logo from '../components/brand/Logo';
-import { PAYMENT_CHOICES } from '../utils/payments';
+import { PAYMENT_CHOICES, depositFor } from '../utils/payments';
 import {
   QrCode as DuoQrCode, ChartBar as DuoChart, Wallet as DuoWallet, Images as DuoImages, Users as DuoUsers,
   MapTrifold as DuoMap, MapPin as DuoPin, SealCheck as DuoSeal, Star as DuoStar, Megaphone as DuoMegaphone,
@@ -24,8 +24,8 @@ import {
 } from '../components/dashboard/icons';
 
 const EASE = [0.16, 1, 0.3, 1];
-// ?v=2 : captures refaites (design Indigo & Or) ; le numéro force les navigateurs à oublier les anciennes.
-const SCREEN = (name) => `/images/landing/screens/${name}.webp?v=2`;
+// ?v=3 : captures refaites (tableau de bord « nuit de Dakar ») ; le numéro force les navigateurs à oublier les anciennes.
+const SCREEN = (name) => `/images/landing/screens/${name}.webp?v=3`;
 const photoSet = (name) => `/images/landing/${name}-640.webp 640w, /images/landing/${name}-1024.webp 1024w, /images/landing/${name}.webp 1400w`;
 
 // Boutiques de démonstration affichées pour chaque thème (captures du vrai produit).
@@ -1527,7 +1527,7 @@ function Included() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Expérience en Direct & Simulateur Interactif                       */
+/* Essayez vous-même : commande en direct et simulateur de revenus      */
 /* ------------------------------------------------------------------ */
 
 function playChime() {
@@ -1551,615 +1551,351 @@ function playChime() {
   }
 }
 
+const fmtF = (n) => `${Math.round(n).toLocaleString('fr-FR')} F`;
+
 const DEMO_PRODUCTS = [
-  {
-    id: 'wax',
-    name: 'Robe Soie & Wax Brodé',
-    category: 'Mode & Couture',
-    price: 25000,
-    img: 'boutique-vetements',
-    variants: ['Taille S', 'Taille M', 'Taille L'],
-    defaultVariant: 'Taille M',
-    themeName: 'Terracotta',
-    themeId: 'terracotta',
-  },
-  {
-    id: 'panier',
-    name: 'Panier Fraîcheur Bio Dakar',
-    category: 'Épicerie & Frais',
-    price: 12500,
-    img: 'marche-fruits',
-    variants: ['5 kg', '10 kg (Famille)'],
-    defaultVariant: '5 kg',
-    themeName: 'Émeraude',
-    themeId: 'emeraude',
-  },
-  {
-    id: 'sac',
-    name: 'Sac Cuir Artisanal Ngor',
-    category: 'Artisanat & Cadeaux',
-    price: 18000,
-    img: 'artisanat',
-    variants: ['Noir Ébène', 'Camel Terracotta'],
-    defaultVariant: 'Camel Terracotta',
-    themeName: 'Épure',
-    themeId: 'epure',
-  },
+  { id: 'wax', name: 'Robe Soie & Wax Brodé', category: 'Mode & Couture', price: 25000, img: 'boutique-vetements', variants: ['Taille S', 'Taille M', 'Taille L'], defaultVariant: 'Taille M', themeId: 'terracotta', shop: 'Wax & Couture' },
+  { id: 'panier', name: 'Panier Fraîcheur Bio', category: 'Épicerie & Frais', price: 12500, img: 'marche-fruits', variants: ['5 kg', '10 kg'], defaultVariant: '5 kg', themeId: 'emeraude', shop: 'Chez Awa' },
+  { id: 'sac', name: 'Sac Cuir Artisanal Ngor', category: 'Artisanat', price: 18000, img: 'artisanat', variants: ['Noir Ébène', 'Camel'], defaultVariant: 'Camel', themeId: 'epure', shop: 'Studio Fall' },
 ];
+
+const EVENT_TONES = {
+  brand: 'bg-brand-500/20 text-brand-200 ring-brand-300/30',
+  sky: 'bg-sky-400/15 text-sky-200 ring-sky-300/30',
+  gold: 'bg-amber-400/15 text-amber-200 ring-amber-300/30',
+  emerald: 'bg-emerald-400/15 text-emerald-200 ring-emerald-300/30',
+};
+
+// Ce qui se passe chez le commerçant après la commande (mêmes règles que le vrai produit :
+// paiement mobile = 5 % de commission ; à la livraison = acompte de 10 % en ligne, le reste en espèces).
+function demoEvents(product, variant, pay) {
+  const deposit = depositFor(product.price);
+  return [
+    { icon: ShoppingBag, tone: 'brand', title: 'Commande reçue', text: `${product.name} · ${variant}`, meta: 'Sans compte client' },
+    pay === 'wave'
+      ? { logo: '/logos/wave.png', tone: 'sky', title: `Paiement Wave reçu · ${fmtF(product.price)}`, text: 'Validé automatiquement, sans capture d’écran', meta: 'Sécurisé' }
+      : { icon: Banknote, tone: 'gold', title: `Acompte payé · ${fmtF(deposit)}`, text: `Le reste, ${fmtF(product.price - deposit)}, en espèces au livreur`, meta: 'Acompte 10 %' },
+    { logo: '/logos/whatsapp.svg', tone: 'emerald', title: 'Boutique prévenue sur WhatsApp', text: 'Alerte sonore au tableau de bord, stock mis à jour', meta: 'Instantané' },
+    { icon: Bike, tone: 'brand', title: 'Lamine a pris la course', text: 'Le client le suit en direct sur la carte', meta: 'En route' },
+    { icon: ShieldCheck, tone: 'emerald', title: 'Livrée · code 5834 validé', text: 'Colis remis à la bonne personne', meta: 'Terminé' },
+  ];
+}
+
+// Téléphone interactif : la fiche produit d'une vitrine, comme la voit le client.
+function DemoPhone({ product, variant, onVariant, pay, onPay, onOrder, busy, done }) {
+  const theme = getShopTheme(product.themeId);
+  const deposit = depositFor(product.price);
+  return (
+    <div className="relative mx-auto w-[296px] sm:w-[312px]">
+      <div className="pointer-events-none absolute -inset-12 rounded-full bg-brand-500/25 blur-3xl" aria-hidden="true" />
+      <div className="relative rounded-[2.9rem] bg-[#0d0d12] p-[10px] shadow-[0_60px_100px_-40px_rgba(0,0,0,0.9),inset_0_0_0_1.5px_rgba(255,255,255,0.1)]">
+        <div className="relative overflow-hidden rounded-[2.3rem] bg-white text-ink">
+          <span className="absolute left-1/2 top-2 z-10 h-[24px] w-[88px] -translate-x-1/2 rounded-full bg-black" aria-hidden="true" />
+          <div className="flex items-center gap-2 px-4 pb-2.5 pt-10">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-extrabold text-white" style={{ background: theme.accent }}>{product.shop.charAt(0)}</span>
+            <span className="text-[13px] font-extrabold">{product.shop}</span>
+            <span className="ml-auto rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Ouvert</span>
+          </div>
+          <div className="relative mx-3 aspect-[4/3] overflow-hidden rounded-2xl bg-slate-100">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.img key={product.id} src={`/images/landing/${product.img}-640.webp`} alt={product.name} loading="lazy" decoding="async"
+                initial={{ opacity: 0, scale: 1.06 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4, ease: EASE }}
+                className="absolute inset-0 h-full w-full object-cover" />
+            </AnimatePresence>
+            <span className="absolute left-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-bold text-ink">{product.category}</span>
+          </div>
+          <div className="px-4 pb-4 pt-3">
+            <p className="text-[15px] font-extrabold leading-tight">{product.name}</p>
+            <p className="mt-0.5 font-figures text-lg font-bold" style={{ color: theme.accent }}>{fmtF(product.price)}</p>
+            <div className="mt-2.5 flex flex-wrap gap-1.5" role="group" aria-label="Variante">
+              {product.variants.map((v) => (
+                <button key={v} type="button" onClick={() => onVariant(v)} aria-pressed={variant === v}
+                  className={`min-h-8 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors ${variant === v ? 'text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                  style={variant === v ? { background: theme.accent } : undefined}>
+                  {v}
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-1.5" role="group" aria-label="Paiement">
+              {[
+                { id: 'wave', label: 'Wave', sub: 'Tout en ligne', logo: '/logos/wave.png' },
+                { id: 'cash', label: 'À la livraison', sub: `Acompte ${fmtF(deposit)}` },
+              ].map((o) => (
+                <button key={o.id} type="button" onClick={() => onPay(o.id)} aria-pressed={pay === o.id}
+                  className={`flex min-w-0 items-center gap-1.5 rounded-xl px-2 py-2 text-left transition-all ${pay === o.id ? 'bg-white ring-2' : 'bg-slate-50 ring-1 ring-slate-200 hover:bg-slate-100'}`}
+                  style={pay === o.id ? { '--tw-ring-color': theme.accent } : undefined}>
+                  {o.logo
+                    ? <img src={o.logo} alt="" className="h-5 w-5 shrink-0 rounded-md object-contain" />
+                    : <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-amber-50 text-amber-700"><Banknote className="h-3.5 w-3.5" /></span>}
+                  <span className="min-w-0">
+                    <span className="block truncate text-[10.5px] font-extrabold">{o.label}</span>
+                    <span className="block truncate text-[9.5px] font-semibold text-slate-500">{o.sub}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="relative mt-3">
+              {/* Onde qui invite à appuyer, tant que la démonstration n'a pas été lancée */}
+              {!busy && !done && <span className="pointer-events-none absolute inset-0 rounded-2xl ring-2 motion-safe:animate-ping" style={{ '--tw-ring-color': theme.accent, opacity: 0.35 }} aria-hidden="true" />}
+              <button type="button" onClick={onOrder} disabled={busy}
+                className="shine-btn flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-extrabold text-white transition-transform active:scale-[0.98] disabled:opacity-80"
+                style={{ background: theme.accent }}>
+                {busy
+                  ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> Commande en cours…</>
+                  : done ? <><RotateCcw className="h-4 w-4" /> Commander à nouveau</>
+                    : <>Commander · {pay === 'wave' ? fmtF(product.price) : `acompte ${fmtF(deposit)}`}</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Fil des notifications côté commerçant, qui arrivent une à une.
+function DemoFeed({ events, step, busy, onReset, product, pay, themeId }) {
+  const doneAll = step >= events.length;
+  const commission = Math.floor((pay === 'wave' ? product.price : depositFor(product.price)) * ONLINE_COMMISSION_RATE);
+  return (
+    <div className="relative min-w-0 rounded-[2rem] bg-white/[0.04] p-5 ring-1 ring-white/10 backdrop-blur-xl sm:p-7">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" /></span>
+          <p className="text-sm font-extrabold">Pendant ce temps, chez vous</p>
+        </div>
+        {step > 0 && !busy && (
+          <button type="button" onClick={onReset} className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] px-3 py-1.5 text-xs font-bold text-white/80 ring-1 ring-white/10 transition-colors hover:bg-white/15">
+            <RotateCcw className="h-3.5 w-3.5" /> Recommencer
+          </button>
+        )}
+      </div>
+
+      <ol className="relative mt-6 space-y-2.5" aria-live="polite">
+        <span className="absolute bottom-6 left-[21px] top-6 w-[2px] rounded-full bg-white/10" aria-hidden="true">
+          <span className="block w-full rounded-full bg-gradient-to-b from-brand-400 via-[#f6c768] to-emerald-400 transition-[height] duration-500 ease-out" style={{ height: `${(Math.max(0, step - 1) / (events.length - 1)) * 100}%` }} />
+        </span>
+        {events.map((e, i) => {
+          const shown = i < step;
+          const loading = busy && i === step;
+          const Icon = e.icon;
+          return (
+            <li key={i} className={`relative flex items-start gap-3.5 rounded-2xl p-2.5 transition-all duration-500 ${shown ? 'bg-white/[0.06] ring-1 ring-white/10' : 'opacity-40'}`}>
+              <span className={`relative z-10 flex h-[26px] w-[26px] shrink-0 translate-x-[5px] items-center justify-center rounded-full ring-1 transition-colors duration-500 ${shown ? EVENT_TONES[e.tone] : 'bg-[#15123a] text-white/40 ring-white/15'}`}>
+                {loading
+                  ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/70 border-t-transparent" />
+                  : shown && e.logo ? <img src={e.logo} alt="" className="h-3.5 w-3.5 object-contain" />
+                    : Icon ? <Icon className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
+              </span>
+              <span className="min-w-0 flex-1 pl-1">
+                <span className="flex items-center justify-between gap-2">
+                  <span className="truncate text-sm font-extrabold">{e.title}</span>
+                  {shown && <motion.span initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="shrink-0 rounded-full bg-white/[0.08] px-2 py-0.5 text-[10px] font-bold text-white/60">{e.meta}</motion.span>}
+                </span>
+                <span className="mt-0.5 block text-xs text-white/55">{e.text}</span>
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+
+      <AnimatePresence>
+        {doneAll && (
+          <motion.div initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5, ease: EASE }}
+            className="mt-5 flex flex-col gap-4 rounded-2xl bg-[linear-gradient(135deg,rgba(246,199,104,0.16),rgba(138,124,241,0.14))] p-4 ring-1 ring-[#f6c768]/35 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#f6c768]">Dans votre caisse</p>
+              <p className="mt-0.5 font-figures text-3xl font-bold">{fmtF(product.price - commission)}</p>
+              <p className="text-xs text-white/55">Commission SamaBoutik : {fmtF(commission)}{pay === 'cash' ? ' (sur l’acompte seulement)' : ''}</p>
+            </div>
+            <Link to={registerHref(product.themeId || themeId)} className="btn-gold inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-extrabold">
+              Créer ma boutique <ArrowRight className="h-4 w-4" />
+            </Link>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function GoldSlider({ id, label, value, min, max, step, onChange, display, ticks }) {
+  const fill = ((value - min) / (max - min)) * 100;
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-3">
+        <label htmlFor={id} className="text-sm font-bold text-white/65">{label}</label>
+        <span className="font-figures text-2xl font-bold tabular-nums text-white">{display}</span>
+      </div>
+      <input id={id} type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))}
+        className="range-gold mt-4 w-full" style={{ '--fill': `${fill}%` }} />
+      <div className="mt-2 flex justify-between text-[11px] font-semibold text-white/35">{ticks.map((t) => <span key={t}>{t}</span>)}</div>
+    </div>
+  );
+}
 
 function LiveExperience({ themeId }) {
   const [tab, setTab] = useState('demo'); // 'demo' | 'calculator'
-  const [selectedProd, setSelectedProd] = useState(DEMO_PRODUCTS[0]);
-  const [selectedVar, setSelectedVar] = useState(DEMO_PRODUCTS[0].defaultVariant);
-  const [payMethod, setPayMethod] = useState('wave'); // 'wave' | 'cash'
-  const [simStep, setSimStep] = useState(0); // 0 = idle, 1..4 = steps
-  const [isSimulating, setIsSimulating] = useState(false);
+  const [product, setProduct] = useState(DEMO_PRODUCTS[0]);
+  const [variant, setVariant] = useState(DEMO_PRODUCTS[0].defaultVariant);
+  const [pay, setPay] = useState('wave'); // 'wave' | 'cash'
+  const [step, setStep] = useState(0); // nombre de notifications arrivées
+  const [busy, setBusy] = useState(false);
+  const timers = useRef([]);
 
-  // Pour le simulateur de revenus
+  // Simulateur de revenus
   const [ordersPerDay, setOrdersPerDay] = useState(15);
   const [avgBasket, setAvgBasket] = useState(18000);
   const [onlineShare, setOnlineShare] = useState(50); // % des ventes payées par Wave / Orange Money
 
   const monthlyOrders = ordersPerDay * 30;
   const monthlyRevenue = monthlyOrders * avgBasket;
-  const commission = Math.round(monthlyRevenue * (onlineShare / 100) * ONLINE_COMMISSION_RATE);
+  // 5 % sur les paiements mobiles ; à la livraison, 5 % sur l'acompte de 10 % seulement.
+  const commission = Math.round(monthlyRevenue * ((onlineShare / 100) * ONLINE_COMMISSION_RATE + (1 - onlineShare / 100) * 0.1 * ONLINE_COMMISSION_RATE));
+  const kept = monthlyRevenue - commission;
+  const keptShare = monthlyRevenue ? (kept / monthlyRevenue) * 100 : 100;
   const hoursSaved = Math.round((monthlyOrders * 20) / 60); // hypothèse affichée : 20 min d'échanges évitées par commande
 
+  const events = demoEvents(product, variant, pay);
+
+  const clearTimers = () => { timers.current.forEach(clearTimeout); timers.current = []; };
+  useEffect(() => clearTimers, []);
+
+  const reset = () => { clearTimers(); setStep(0); setBusy(false); };
+
   const runSimulation = () => {
-    setIsSimulating(true);
-    setSimStep(1);
+    if (busy) return;
+    clearTimers();
+    setBusy(true);
+    setStep(0);
     playChime();
-    try {
-      confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.65 },
-        colors: [BRAND.vivid, BRAND.light, BRAND.gold, '#fde68a', '#ffffff'],
-      });
-    } catch {
-      // ignore
-    }
-
-    setTimeout(() => setSimStep(2), 700);
-    setTimeout(() => setSimStep(3), 1400);
-    setTimeout(() => {
-      setSimStep(4);
-      setIsSimulating(false);
-    }, 2100);
+    events.forEach((_, i) => {
+      timers.current.push(setTimeout(() => {
+        setStep(i + 1);
+        if (i === events.length - 1) {
+          setBusy(false);
+          try {
+            confetti({ particleCount: 90, spread: 75, origin: { y: 0.6 }, colors: [BRAND.vivid, BRAND.light, BRAND.gold, '#fde68a', '#ffffff'], disableForReducedMotion: true });
+          } catch { /* confettis indisponibles */ }
+        }
+      }, 450 + i * 750));
+    });
   };
 
-  const resetSimulation = () => {
-    setSimStep(0);
-    setIsSimulating(false);
-  };
+  const pickProduct = (p) => { setProduct(p); setVariant(p.defaultVariant); reset(); };
+
+  const TABS = [
+    { id: 'demo', label: 'Commander comme un client', short: 'Commander', icon: Zap },
+    { id: 'calculator', label: 'Calculer mes revenus', short: 'Mes revenus', icon: Calculator },
+  ];
 
   return (
-    <section className="relative overflow-hidden py-24 lg:py-32 bg-night text-white">
-      {/* Effets lumineux néon d'ambiance */}
-      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-40 left-1/2 h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-brand-500/15 blur-[140px]" />
-        <div className="absolute bottom-0 right-10 h-[450px] w-[450px] rounded-full bg-brand-600/10 blur-[130px]" />
+    <section className="relative isolate overflow-hidden bg-[#0a0820] py-24 text-white lg:py-32" aria-labelledby="demo-titre">
+      {/* Décor « nuit de Dakar » */}
+      <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
+        <div className="absolute inset-0 bg-[radial-gradient(60%_45%_at_50%_0%,rgba(106,88,232,0.42),transparent_70%),radial-gradient(40%_35%_at_100%_80%,rgba(246,199,104,0.1),transparent_70%)]" />
+        <div className="absolute inset-x-0 top-0 h-[50%] [mask-image:linear-gradient(to_bottom,black,transparent)] opacity-60">
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(174,166,247,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(174,166,247,0.08)_1px,transparent_1px)] bg-[size:64px_64px]" />
+        </div>
+        <div className="hero-grain absolute inset-0 opacity-[0.06] mix-blend-overlay" />
       </div>
 
       <div className="mx-auto max-w-7xl px-5 lg:px-8">
-        {/* En-tête de section */}
-        <div className="text-center max-w-3xl mx-auto">
+        <div className="mx-auto max-w-3xl text-center">
           <Reveal>
-            <div className="inline-flex items-center gap-2 rounded-full border border-brand-400/30 bg-brand-500/10 px-4 py-1.5 text-xs font-extrabold uppercase tracking-widest text-brand-300 backdrop-blur-md">
-              <span className="flex h-2 w-2 rounded-full bg-brand-400 animate-ping" />
-              <span>Expérience Interactive en Direct</span>
-            </div>
-            <h2 className="mt-4 text-balance text-3xl font-extrabold leading-[1.1] tracking-tight text-white sm:text-5xl lg:text-[3.25rem]">
-              Voyez la magie en action. <Em light>En 10 secondes chrono</Em>.
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] px-4 py-1.5 text-sm font-semibold text-white/80 ring-1 ring-white/15 backdrop-blur">
+              <Sparkle className="h-3.5 w-3.5 text-[#f6c768]" /> Essayez vous-même
+            </span>
+            <h2 id="demo-titre" className="mt-6 text-balance text-[2.3rem] font-extrabold leading-[1.02] tracking-[-0.04em] sm:text-6xl lg:text-[4.2rem]">
+              Voyez la magie en action, <Em light>en 10 secondes</Em>.
             </h2>
-            <p className="mt-4 text-base leading-relaxed text-brand-100/75 sm:text-xl">
-              Ne nous croyez pas sur parole : testez vous-même une commande en direct ou calculez le chiffre d’affaires que vous rapportera votre boutique.
-            </p>
+            <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-white/60">Passez une commande comme vos clients, et regardez ce qui se passe chez vous. Ou calculez ce que votre boutique peut vous rapporter.</p>
           </Reveal>
 
-          {/* Onglets principaux : Démo vs Calculateur */}
+          {/* Onglets */}
           <Reveal delay={0.08}>
-            <div className="mt-9 inline-flex items-center rounded-2xl bg-white/5 p-1.5 ring-1 ring-white/10 backdrop-blur-md">
-              <button
-                type="button"
-                onClick={() => { setTab('demo'); resetSimulation(); }}
-                className={`relative rounded-xl px-5 py-2.5 text-xs font-bold transition-all sm:text-sm ${
-                  tab === 'demo' ? 'text-night' : 'text-white/70 hover:text-white'
-                }`}
-              >
-                {tab === 'demo' && (
-                  <motion.div
-                    layoutId="mainTab"
-                    className="absolute inset-0 rounded-xl bg-brand-400 shadow-md shadow-brand-400/30"
-                    transition={{ type: 'spring', bounce: 0.15, duration: 0.5 }}
-                  />
-                )}
-                <span className="relative z-10 flex items-center gap-2">
-                  <Zap className="h-4 w-4" /> Tester une commande en direct
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setTab('calculator')}
-                className={`relative rounded-xl px-5 py-2.5 text-xs font-bold transition-all sm:text-sm ${
-                  tab === 'calculator' ? 'text-night' : 'text-white/70 hover:text-white'
-                }`}
-              >
-                {tab === 'calculator' && (
-                  <motion.div
-                    layoutId="mainTab"
-                    className="absolute inset-0 rounded-xl bg-brand-400 shadow-md shadow-brand-400/30"
-                    transition={{ type: 'spring', bounce: 0.15, duration: 0.5 }}
-                  />
-                )}
-                <span className="relative z-10 flex items-center gap-2">
-                  <Calculator className="h-4 w-4" /> Simulateur de chiffre d’affaires
-                </span>
-              </button>
+            <div className="mt-9 inline-flex max-w-full items-center rounded-full bg-white/[0.05] p-1.5 ring-1 ring-white/10 backdrop-blur" role="tablist" aria-label="Démonstration">
+              {TABS.map((t) => {
+                const on = tab === t.id;
+                return (
+                  <button key={t.id} type="button" role="tab" aria-selected={on} onClick={() => { setTab(t.id); reset(); }}
+                    className={`relative rounded-full px-4 py-2.5 text-[13px] font-extrabold transition-colors sm:px-6 sm:text-sm ${on ? 'text-[#1a1033]' : 'text-white/65 hover:text-white'}`}>
+                    {on && <motion.span layoutId="demo-tab" className="btn-gold absolute inset-0 rounded-full" transition={{ type: 'spring', bounce: 0.18, duration: 0.5 }} />}
+                    <span className="relative z-10 flex items-center gap-2 whitespace-nowrap"><t.icon className="h-4 w-4" /> <span className="sm:hidden">{t.short}</span><span className="hidden sm:inline">{t.label}</span></span>
+                  </button>
+                );
+              })}
             </div>
           </Reveal>
         </div>
 
-        {/* CONTENU ONGLET 1 : DÉMO COMMANDE EN DIRECT */}
-        {tab === 'demo' && (
-          <div className="mt-12">
-            <Reveal delay={0.1}>
-              <div className="rounded-[2.5rem] border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.02] p-6 lg:p-10 shadow-2xl backdrop-blur-xl ring-1 ring-white/10">
-                {/* Barre de contrôle du terminal */}
-                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-6">
-                  <div className="flex items-center gap-2">
-                    <span className="h-3 w-3 rounded-full bg-rose-500/80" />
-                    <span className="h-3 w-3 rounded-full bg-amber-500/80" />
-                    <span className="h-3 w-3 rounded-full bg-brand-500/80" />
-                    <span className="ml-2 font-mono text-xs text-white/50">samaboutik-simulator // live-feed</span>
-                  </div>
-                  <div className="inline-flex items-center gap-2 rounded-full bg-brand-500/20 px-3 py-1 text-xs font-bold text-brand-300 ring-1 ring-brand-400/30">
-                    <span className="h-2 w-2 rounded-full bg-brand-400 animate-pulse" />
-                    <span>SYSTÈME EN DIRECT</span>
-                  </div>
-                </div>
-
-                <div className="mt-8 grid gap-8 lg:grid-cols-12 lg:items-start">
-                  {/* Côté Gauche (5 colonnes) : Sélection & Commande client */}
-                  <div className="lg:col-span-5 flex flex-col justify-between space-y-6 rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-md">
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider text-brand-400">1. Choisissez un article</span>
-                        <span className="text-xs text-white/50">Cliquez pour tester</span>
-                      </div>
-
-                      {/* Sélecteur de produit démo */}
-                      <div className="mt-3 grid grid-cols-3 gap-2">
-                        {DEMO_PRODUCTS.map((p) => {
-                          const isSel = selectedProd.id === p.id;
-                          return (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedProd(p);
-                                setSelectedVar(p.defaultVariant);
-                                resetSimulation();
-                              }}
-                              className={`group relative flex flex-col items-center rounded-2xl p-2.5 text-center transition-all ${
-                                isSel
-                                  ? 'bg-brand-500/25 ring-2 ring-brand-400'
-                                  : 'bg-white/5 hover:bg-white/10 ring-1 ring-white/10'
-                              }`}
-                            >
-                              <img
-                                src={`/images/landing/${p.img}-640.webp`}
-                                alt={p.name}
-                                className="h-14 w-14 rounded-xl object-cover shadow-sm group-hover:scale-105 transition-transform"
-                              />
-                              <p className="mt-2 line-clamp-1 text-[11px] font-bold text-white">{p.name}</p>
-                              <p className="text-[10px] font-extrabold text-brand-300">{p.price.toLocaleString('fr-FR')} F</p>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* Détail du produit actif */}
-                      <div className="mt-5 rounded-2xl bg-black/40 p-4 border border-white/5">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-bold text-white">{selectedProd.name}</p>
-                            <p className="text-xs text-white/60">{selectedProd.category}</p>
-                          </div>
-                          <span className="text-lg font-extrabold text-brand-300">
-                            {selectedProd.price.toLocaleString('fr-FR')} FCFA
-                          </span>
-                        </div>
-
-                        {/* Variantes */}
-                        <div className="mt-3 pt-3 border-t border-white/10">
-                          <p className="text-[11px] font-semibold text-white/60">Variante sélectionnée :</p>
-                          <div className="mt-1.5 flex flex-wrap gap-1.5">
-                            {selectedProd.variants.map((v) => (
-                              <button
-                                key={v}
-                                type="button"
-                                onClick={() => setSelectedVar(v)}
-                                className={`min-h-9 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                                  selectedVar === v
-                                    ? 'bg-brand-400 text-night'
-                                    : 'bg-white/10 text-white/80 hover:bg-white/15'
-                                }`}
-                              >
-                                {v}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Mode de paiement */}
-                        <div className="mt-4 pt-3 border-t border-white/10">
-                          <p className="text-[11px] font-semibold text-white/60">Mode de paiement client :</p>
-                          <div className="mt-1.5 grid grid-cols-2 gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setPayMethod('wave')}
-                              className={`flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-bold transition-all ${
-                                payMethod === 'wave'
-                                  ? 'bg-[#1dc4e9]/20 text-[#1dc4e9] ring-2 ring-[#1dc4e9]'
-                                  : 'bg-white/5 text-white/70 hover:bg-white/10 ring-1 ring-white/10'
-                              }`}
-                            >
-                              <img src="/logos/wave.png" alt="Wave" className="h-4 w-4 rounded-full object-contain" />
-                              <span>Paiement Wave</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setPayMethod('cash')}
-                              className={`flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-bold transition-all ${
-                                payMethod === 'cash'
-                                  ? 'bg-amber-400/20 text-amber-300 ring-2 ring-amber-400'
-                                  : 'bg-white/5 text-white/70 hover:bg-white/10 ring-1 ring-white/10'
-                              }`}
-                            >
-                              <Banknote className="h-4 w-4" />
-                              <span>À la livraison</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Bouton d'action pour lancer la commande */}
-                    <div className="pt-2">
-                      <button
-                        type="button"
-                        onClick={runSimulation}
-                        disabled={isSimulating}
-                        className="group relative flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-brand-400 via-brand-500 to-amber-300 py-4 text-base font-extrabold text-night shadow-lg shadow-brand-500/30 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60"
-                      >
-                        {isSimulating ? (
-                          <>
-                            <span className="h-5 w-5 animate-spin rounded-full border-2 border-night border-t-transparent" />
-                            <span>Simulation du flux en cours…</span>
-                          </>
-                        ) : (
-                          <>
-                            <Zap className="h-5 w-5 fill-night" />
-                            <span>Tester la commande en 1 clic 🚀</span>
-                          </>
-                        )}
-                      </button>
-                      <p className="mt-2 text-center text-[11px] text-white/50">
-                        Déclenche instantanément la synchronisation en direct.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Côté Droit (7 colonnes) : Pipeline en Temps Réel */}
-                  <div className="lg:col-span-7 flex flex-col justify-between rounded-3xl border border-white/10 bg-black/40 p-6 backdrop-blur-md">
-                    <div>
-                      <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                        <div className="flex items-center gap-2.5">
-                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-500/20 text-brand-300">
-                            <Zap className="h-4 w-4" />
-                          </span>
-                          <div>
-                            <p className="text-sm font-bold text-white">Pipeline des Opérations SamaBoutik</p>
-                            <p className="text-[11px] text-white/50">Automatisation complète du panier jusqu’à la livraison</p>
-                          </div>
-                        </div>
-
-                        {simStep > 0 && (
-                          <button
-                            type="button"
-                            onClick={resetSimulation}
-                            className="inline-flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/80 transition-colors hover:bg-white/15"
-                          >
-                            <RotateCcw className="h-3.5 w-3.5" /> Réinitialiser
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Flux d'étapes animées */}
-                      <div className="mt-6 space-y-3.5">
-                        {/* Étape 1 : Expérience Client */}
-                        <div
-                          className={`flex items-start gap-3.5 rounded-2xl p-4 transition-all duration-500 ${
-                            simStep >= 1
-                              ? 'bg-brand-500/15 border border-brand-400/40 shadow-sm'
-                              : 'bg-white/[0.03] border border-white/5 opacity-50'
-                          }`}
-                        >
-                          <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl text-xs font-black ${
-                            simStep >= 1 ? 'bg-brand-400 text-night shadow-md shadow-brand-400/30' : 'bg-white/10 text-white/40'
-                          }`}>
-                            {simStep >= 1 ? '✓' : '1'}
-                          </span>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs font-bold uppercase tracking-wider text-brand-300">Étape 1 • Expérience Client</p>
-                              {simStep >= 1 && <span className="font-mono text-[10px] text-brand-300 font-bold">Sans compte</span>}
-                            </div>
-                            <p className="text-sm font-extrabold text-white mt-0.5">
-                              {simStep >= 1 ? 'Commande #SB-892 validée sans création de compte' : 'En attente du clic client sur le panier…'}
-                            </p>
-                            <p className="text-xs text-white/70 mt-1">
-                              Article : {selectedProd.name} ({selectedVar}) • Reçu de commande numérique généré instantanément.
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Étape 2 : Règlement */}
-                        <div
-                          className={`flex items-start gap-3.5 rounded-2xl p-4 transition-all duration-500 ${
-                            simStep >= 2
-                              ? 'bg-brand-500/15 border border-brand-400/40 shadow-sm'
-                              : 'bg-white/[0.03] border border-white/5 opacity-50'
-                          }`}
-                        >
-                          <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl text-xs font-black ${
-                            simStep >= 2 ? 'bg-brand-400 text-night shadow-md shadow-brand-400/30' : 'bg-white/10 text-white/40'
-                          }`}>
-                            {simStep >= 2 ? '✓' : '2'}
-                          </span>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs font-bold uppercase tracking-wider text-brand-300">Étape 2 • Flux Financier Sécurisé</p>
-                              {simStep >= 2 && <span className="font-mono text-[10px] text-brand-300 font-bold">{payMethod === 'wave' ? 'Confirmé' : 'À la livraison'}</span>}
-                            </div>
-                            <p className="text-sm font-extrabold text-white mt-0.5">
-                              {simStep >= 2
-                                ? (payMethod === 'wave' ? `Paiement Wave ${selectedProd.price.toLocaleString('fr-FR')} F certifié en direct` : `Paiement en espèces prévu à la remise (${selectedProd.price.toLocaleString('fr-FR')} F)`)
-                                : 'Validation automatique du règlement sans capture d’écran…'}
-                            </p>
-                            <p className="text-xs text-white/70 mt-1">
-                              {payMethod === 'wave' ? 'Reversement automatique sur le numéro Wave ou Orange Money du marchand, moins 5 % de commission.' : 'Le livreur encaisse la somme exacte à la remise du colis • aucune commission.'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Étape 3 : Marchand */}
-                        <div
-                          className={`flex items-start gap-3.5 rounded-2xl p-4 transition-all duration-500 ${
-                            simStep >= 3
-                              ? 'bg-brand-500/15 border border-brand-400/40 shadow-sm'
-                              : 'bg-white/[0.03] border border-white/5 opacity-50'
-                          }`}
-                        >
-                          <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl text-xs font-black ${
-                            simStep >= 3 ? 'bg-brand-400 text-night shadow-md shadow-brand-400/30' : 'bg-white/10 text-white/40'
-                          }`}>
-                            {simStep >= 3 ? '✓' : '3'}
-                          </span>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs font-bold uppercase tracking-wider text-brand-300">Étape 3 • Tableau de Bord Marchand</p>
-                              {simStep >= 3 && <span className="font-mono text-[10px] text-brand-300 font-bold">Bip reçu 🔔</span>}
-                            </div>
-                            <p className="text-sm font-extrabold text-white mt-0.5">
-                              {simStep >= 3 ? 'Notification WhatsApp envoyée & stock mis à jour' : 'Alerte sonore et notification WhatsApp automatique…'}
-                            </p>
-                            <p className="text-xs text-white/70 mt-1">
-                              Le marchand prépare le colis sans avoir échangé 20 messages WhatsApp au préalable.
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Étape 4 : Livreur & PIN */}
-                        <div
-                          className={`flex items-start gap-3.5 rounded-2xl p-4 transition-all duration-500 ${
-                            simStep >= 4
-                              ? 'bg-brand-500/25 border-2 border-brand-400 shadow-lg shadow-brand-500/20'
-                              : 'bg-white/[0.03] border border-white/5 opacity-50'
-                          }`}
-                        >
-                          <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl text-xs font-black ${
-                            simStep >= 4 ? 'bg-brand-400 text-night shadow-md shadow-brand-400/30' : 'bg-white/10 text-white/40'
-                          }`}>
-                            {simStep >= 4 ? '✓' : '4'}
-                          </span>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs font-bold uppercase tracking-wider text-brand-300">Étape 4 • Course & Livraison Sécurisée</p>
-                              {simStep >= 4 && <span className="inline-flex items-center gap-1 rounded-full bg-brand-400 text-night px-2 py-0.5 text-[10px] font-black">PIN ACTIF</span>}
-                            </div>
-                            <p className="text-sm font-extrabold text-white mt-0.5">
-                              {simStep >= 4 ? 'Livreur Modou en route avec itinéraire Google Maps' : 'Attribution de la course et génération du code PIN…'}
-                            </p>
-                            <p className="text-xs text-white/70 mt-1">
-                              {simStep >= 4 ? '🔒 Code PIN secret envoyé au client : 5834. Aucun colis égaré.' : 'Position GPS partagée en direct sur le téléphone du client.'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Résumé de fin de simulation */}
-                    {simStep === 4 && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="mt-6 flex flex-col items-center justify-between gap-3 rounded-2xl bg-brand-500/20 p-4 border border-brand-400/30 sm:flex-row"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-400 text-night font-black">
-                            ✓
-                          </span>
-                          <div>
-                            <p className="text-sm font-extrabold text-white">Parcours complet : de la commande à la livraison.</p>
-                            <p className="text-xs text-brand-200">Voici, en accéléré, ce que vivront vos clients.</p>
-                          </div>
-                        </div>
-                        <Link
-                          to={registerHref(selectedProd.themeId || themeId)}
-                          className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-night shadow-md hover:bg-brand-100 transition-colors"
-                        >
-                          <span>Lancer ma boutique maintenant</span>
-                          <ArrowRight className="h-3.5 w-3.5" />
-                        </Link>
-                      </motion.div>
-                    )}
-                  </div>
-                </div>
+        {tab === 'demo' ? (
+          <div className="mt-14 grid items-center gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-14">
+            <div className="min-w-0">
+              {/* Choix de l'article */}
+              <div className="mb-6 flex justify-center gap-2" role="group" aria-label="Article à commander">
+                {DEMO_PRODUCTS.map((p) => {
+                  const on = p.id === product.id;
+                  return (
+                    <button key={p.id} type="button" onClick={() => pickProduct(p)} aria-pressed={on}
+                      className={`flex items-center gap-2 rounded-full py-1 pl-1 pr-3.5 text-xs font-bold transition-all ${on ? 'bg-white text-ink shadow-lg' : 'bg-white/[0.06] text-white/70 ring-1 ring-white/10 hover:bg-white/10'}`}>
+                      <img src={`/images/landing/${p.img}-640.webp`} alt="" loading="lazy" className="h-8 w-8 rounded-full object-cover" />
+                      <span className="hidden sm:inline">{p.category}</span>
+                      <span className="sm:hidden">{p.category.split(' ')[0]}</span>
+                    </button>
+                  );
+                })}
               </div>
-            </Reveal>
+              <p className="mb-5 text-center text-sm font-semibold text-white/55">Choisissez la taille et le paiement, puis appuyez sur <span className="text-[#f6c768]">« Commander »</span>.</p>
+              <DemoPhone product={product} variant={variant} onVariant={(v) => { setVariant(v); reset(); }} pay={pay} onPay={(v) => { setPay(v); reset(); }} onOrder={runSimulation} busy={busy} done={step >= events.length} />
+            </div>
+            <DemoFeed events={events} step={step} busy={busy} onReset={reset} product={product} pay={pay} themeId={themeId} />
           </div>
-        )}
+        ) : (
+          <div className="mt-14 grid gap-5 lg:grid-cols-2">
+            <div className="space-y-9 rounded-[2rem] bg-white/[0.04] p-6 ring-1 ring-white/10 backdrop-blur-xl sm:p-9">
+              <GoldSlider id="orders-slider" label="Commandes par jour" value={ordersPerDay} min={2} max={50} step={1} onChange={setOrdersPerDay} display={ordersPerDay} ticks={['2', '25', '50']} />
+              <GoldSlider id="basket-slider" label="Panier moyen" value={avgBasket} min={3000} max={50000} step={1000} onChange={setAvgBasket} display={fmtF(avgBasket)} ticks={['3 000 F', '25 000 F', '50 000 F']} />
+              <GoldSlider id="online-slider" label="Payé par paiement mobile" value={onlineShare} min={0} max={100} step={10} onChange={setOnlineShare} display={`${onlineShare} %`} ticks={['Tout à la livraison', 'Tout en ligne']} />
+              <p className="rounded-2xl bg-white/[0.05] p-4 text-xs leading-relaxed text-white/60 ring-1 ring-white/10">
+                <strong className="text-white">Bon à savoir :</strong> sur un paiement mobile (Wave, Orange Money, Free Money, Wizall), SamaBoutik garde 5 %. À la livraison, seul l’acompte de 10 % payé en ligne compte : rien sur les espèces.
+              </p>
+            </div>
 
-        {/* CONTENU ONGLET 2 : SIMULATEUR DE REVENUS & GAINS */}
-        {tab === 'calculator' && (
-          <div className="mt-12">
-            <Reveal delay={0.1}>
-              <div className="rounded-[2.5rem] border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.02] p-6 lg:p-12 shadow-2xl backdrop-blur-xl ring-1 ring-white/10">
-                <div className="grid gap-10 lg:grid-cols-12 lg:items-center">
-                  {/* Curseurs interactifs (6 colonnes) */}
-                  <div className="lg:col-span-6 space-y-8 rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8 backdrop-blur-md">
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <label htmlFor="orders-slider" className="text-sm font-bold text-white">Commandes par jour :</label>
-                        <span className="shrink-0 whitespace-nowrap rounded-xl bg-brand-400 px-3 py-1 font-mono text-sm font-extrabold text-night">
-                          {ordersPerDay} commandes / j
-                        </span>
-                      </div>
-                      <input
-                        id="orders-slider"
-                        type="range"
-                        min="2"
-                        max="50"
-                        step="1"
-                        value={ordersPerDay}
-                        onChange={(e) => setOrdersPerDay(Number(e.target.value))}
-                        className="mt-4 h-2.5 w-full cursor-pointer appearance-none rounded-lg bg-white/20 accent-brand-400"
-                      />
-                      <div className="mt-2 flex justify-between text-[11px] text-white/50">
-                        <span>2 / jour</span>
-                        <span>25 / jour</span>
-                        <span>50 / jour</span>
-                      </div>
-                    </div>
+            <div className="relative isolate overflow-hidden rounded-[2rem] bg-[linear-gradient(150deg,#3b2fc9_0%,#2a2580_45%,#120f3a_100%)] p-6 ring-1 ring-white/10 sm:p-9">
+              <div className="pointer-events-none absolute -right-20 -top-24 -z-10 h-72 w-72 rounded-full bg-[#f6c768]/20 blur-3xl" aria-hidden="true" />
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-white/55">Chiffre d’affaires par mois</p>
+              <p className="mt-2 font-figures text-5xl font-bold tracking-tight sm:text-6xl">
+                <RollingNumber value={monthlyRevenue} /> <span className="text-2xl text-[#f6c768]">F</span>
+              </p>
+              <p className="mt-2 text-sm text-white/60">{monthlyOrders.toLocaleString('fr-FR')} commandes par mois</p>
 
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <label htmlFor="basket-slider" className="text-sm font-bold text-white">Panier moyen par commande :</label>
-                        <span className="shrink-0 whitespace-nowrap rounded-xl bg-brand-400 px-3 py-1 font-mono text-sm font-extrabold text-night">
-                          {avgBasket.toLocaleString('fr-FR')} FCFA
-                        </span>
-                      </div>
-                      <input
-                        id="basket-slider"
-                        type="range"
-                        min="3000"
-                        max="50000"
-                        step="1000"
-                        value={avgBasket}
-                        onChange={(e) => setAvgBasket(Number(e.target.value))}
-                        className="mt-4 h-2.5 w-full cursor-pointer appearance-none rounded-lg bg-white/20 accent-brand-400"
-                      />
-                      <div className="mt-2 flex justify-between text-[11px] text-white/50">
-                        <span>3 000 F</span>
-                        <span>25 000 F</span>
-                        <span>50 000 F</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <label htmlFor="online-slider" className="text-sm font-bold text-white">Payé par paiement mobile :</label>
-                        <span className="shrink-0 whitespace-nowrap rounded-xl bg-brand-400 px-3 py-1 font-mono text-sm font-extrabold text-night">
-                          {onlineShare} %
-                        </span>
-                      </div>
-                      <input
-                        id="online-slider"
-                        type="range"
-                        min="0"
-                        max="100"
-                        step="10"
-                        value={onlineShare}
-                        onChange={(e) => setOnlineShare(Number(e.target.value))}
-                        className="mt-4 h-2.5 w-full cursor-pointer appearance-none rounded-lg bg-white/20 accent-brand-400"
-                      />
-                      <div className="mt-2 flex justify-between text-[11px] text-white/50">
-                        <span>Tout à la livraison</span>
-                        <span>Tout en ligne</span>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl bg-brand-500/10 p-4 border border-brand-400/20 text-xs text-brand-200">
-                      💡 <strong>Bon à savoir :</strong> le paiement à la livraison est sans commission. Sur un paiement mobile (Wave, Orange Money, Free Money, Wizall), SamaBoutik garde <strong>5 %</strong> et vous reverse le reste automatiquement.
-                    </div>
-                  </div>
-
-                  {/* Rendu des calculs en direct (6 colonnes) */}
-                  <div className="lg:col-span-6 space-y-6">
-                    <div className="rounded-3xl border border-brand-400/30 bg-gradient-to-b from-brand-500/20 to-brand-950/40 p-7 lg:p-9 shadow-xl">
-                      <p className="text-xs font-extrabold uppercase tracking-widest text-brand-300">Chiffre d’affaires mensuel estimé</p>
-                      <p className="mt-2 text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl">
-                        {monthlyRevenue.toLocaleString('fr-FR')} <span className="text-2xl font-bold text-brand-300 sm:text-3xl">FCFA</span>
-                      </p>
-                      <p className="mt-2 text-xs text-brand-100/70">
-                        Soit {monthlyOrders} commandes par mois · vous gardez {(monthlyRevenue - commission).toLocaleString('fr-FR')} FCFA après commission.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-md">
-                        <div className="flex items-center gap-2 text-brand-400">
-                          <Banknote className="h-5 w-5" />
-                          <p className="text-xs font-bold uppercase">Commission SamaBoutik</p>
-                        </div>
-                        <p className="mt-2 text-2xl font-black text-white">
-                          {commission.toLocaleString('fr-FR')} F
-                        </p>
-                        <p className="mt-1 text-[11px] text-white/60">
-                          5 % des ventes payées en ligne · 0 F sur le paiement à la livraison.
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-md">
-                        <div className="flex items-center gap-2 text-brand-400">
-                          <Clock className="h-5 w-5" />
-                          <p className="text-xs font-bold uppercase">Temps gagné</p>
-                        </div>
-                        <p className="mt-2 text-2xl font-black text-white">
-                          ~{hoursSaved} heures
-                        </p>
-                        <p className="mt-1 text-[11px] text-white/60">
-                          Estimation : ~20 minutes d’échanges évitées par commande.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="pt-2">
-                      <Link
-                        to={registerHref(themeId)}
-                        className="inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-brand-400 py-4 text-base font-extrabold text-night shadow-lg shadow-brand-400/25 transition-all hover:bg-brand-300 hover:scale-[1.01]"
-                      >
-                        <span>Ouvrir ma boutique à 0 franc</span>
-                        <ArrowRight className="h-5 w-5" />
-                      </Link>
-                    </div>
-                  </div>
+              <div className="mt-8">
+                <div className="flex h-3 overflow-hidden rounded-full bg-white/10" aria-hidden="true">
+                  <motion.span className="h-full bg-gradient-to-r from-brand-300 to-[#f6c768]" initial={false} animate={{ width: `${keptShare}%` }} transition={{ duration: 0.5, ease: EASE }} />
+                  <span className="h-full flex-1 bg-[#ef8f5b]" />
+                </div>
+                <div className="mt-3 flex flex-wrap justify-between gap-2 text-xs font-semibold">
+                  <span className="flex items-center gap-1.5 text-white/75"><span className="h-2 w-2 rounded-full bg-[#f6c768]" /> Vous gardez {keptShare.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %</span>
+                  <span className="flex items-center gap-1.5 text-white/55"><span className="h-2 w-2 rounded-full bg-[#ef8f5b]" /> Commission {fmtF(commission)}</span>
                 </div>
               </div>
-            </Reveal>
+
+              <div className="mt-7 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl bg-white/[0.07] p-4 ring-1 ring-white/10">
+                  <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-white/50"><Banknote className="h-4 w-4 text-[#f6c768]" /> Pour vous</p>
+                  <p className="mt-1.5 font-figures text-xl font-bold sm:text-2xl">{fmtF(kept)}</p>
+                </div>
+                <div className="rounded-2xl bg-white/[0.07] p-4 ring-1 ring-white/10">
+                  <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-white/50"><Clock className="h-4 w-4 text-[#f6c768]" /> Temps gagné</p>
+                  <p className="mt-1.5 font-figures text-xl font-bold sm:text-2xl">~{hoursSaved} h</p>
+                  <p className="text-[10.5px] text-white/45">≈ 20 min d’échanges évitées par commande</p>
+                </div>
+              </div>
+
+              <Link to={registerHref(themeId)} className="btn-gold shine-btn mt-7 inline-flex w-full items-center justify-center gap-2 rounded-full py-4 text-base font-extrabold">
+                Ouvrir ma boutique à 0 franc <ArrowRight className="h-5 w-5" />
+              </Link>
+            </div>
           </div>
         )}
       </div>

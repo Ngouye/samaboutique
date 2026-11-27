@@ -1251,6 +1251,9 @@ export default function PublicShop() {
                   className="sh-hero-photo ken-burns absolute inset-0 h-full w-full object-cover"
                 />
                 <div className="sh-hero-overlay absolute inset-0" />
+                {/* Lueur aux couleurs de la boutique et grain photo */}
+                <div className="sh-hero-fx absolute -inset-[10%]" aria-hidden="true" />
+                <div className="hero-grain pointer-events-none absolute inset-0 opacity-[0.08] mix-blend-overlay" aria-hidden="true" />
 
                 <div className="relative grid min-h-[440px] items-center gap-10 p-7 md:min-h-[520px] md:p-12 lg:grid-cols-[1.15fr_1fr]">
                   <div>
