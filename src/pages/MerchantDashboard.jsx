@@ -36,6 +36,8 @@ import { cashToCollect } from '../utils/delivery';
 import OrderTimeline from '../components/dashboard/OrderTimeline';
 import { whatsappNumber } from '../utils/phone';
 import { PAYOUT_PROVIDERS, parsePayoutProviders, serializePayoutProviders } from '../utils/payout';
+import InstallAppButton from '../components/InstallApp';
+import { useAppManifest } from '../utils/installPrompt';
 import AiProductAssistant, { AiTeaser } from '../components/dashboard/AiProductAssistant';
 import ProductPoster from '../components/dashboard/ProductPoster';
 import PublishDialog, { VisibilityPicker, VisibilityBadge } from '../components/dashboard/PublishDialog';
@@ -83,6 +85,7 @@ export default function MerchantDashboard() {
   const [newProduct, setNewProduct] = useState({ name: '', description: '', price_fcfa: '', stock: '', category: 'Vêtements', features: {}, tags: [], image: null, visibility: 'published', publish_at: '' });
   const [uploading, setUploading] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  useAppManifest('/manifest-commercant.webmanifest'); // installée, l'application s'ouvre sur le tableau de bord
   const [wideScreen, setWideScreen] = useState(isWideScreen);
   const [sidebarOpen, setSidebarOpen] = useState(() => isWideScreen() && sidebarWanted());
   useEffect(() => {
@@ -1171,7 +1174,8 @@ Merci de votre confiance ! 🙏`;
             <ArrowUpRight className="h-4 w-4 shrink-0 text-white/50" />
           </button>
         )}
-        <div className="grid grid-cols-2 gap-2 border-t border-white/10 pt-3">
+        <div className="border-t border-white/10 pt-3"><InstallAppButton variant="glass" /></div>
+        <div className="grid grid-cols-2 gap-2">
           <button onClick={() => setShowQRModal(true)} className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-white/[0.06] px-2 py-2.5 text-xs font-bold text-white/80 ring-1 ring-white/10 transition-all hover:bg-white/10 hover:text-white">
             <QrCode className="h-4 w-4 text-[#f6c768]" /> QR code
           </button>
@@ -1316,6 +1320,7 @@ Merci de votre confiance ! 🙏`;
                 </button>
               )}
 
+              <InstallAppButton variant="light" className="mt-3" />
               <LogoutButton onClick={handleLogout} detail={user?.email} className="mt-3 p-2.5" />
             </motion.div>
           </>

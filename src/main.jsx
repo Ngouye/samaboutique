@@ -3,8 +3,10 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import { initMonitoring } from './lib/monitoring'
+import { initInstallPrompt } from './utils/installPrompt'
 
 initMonitoring()
+initInstallPrompt()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

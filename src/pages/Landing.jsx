@@ -16,6 +16,7 @@ import { Magnetic, SpotlightCard } from '../components/landing/Magic';
 import ScrollProgress from '../components/motion/ScrollProgress';
 import RollingNumber from '../components/motion/RollingNumber';
 import Logo from '../components/brand/Logo';
+import InstallAppButton from '../components/InstallApp';
 import { PAYMENT_CHOICES, depositFor } from '../utils/payments';
 import {
   QrCode as DuoQrCode, ChartBar as DuoChart, Wallet as DuoWallet, Images as DuoImages, Users as DuoUsers,
@@ -193,6 +194,7 @@ function Navbar() {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
+            <InstallAppButton variant="nav" label="Installer l’app" labelClassName="xl:sr-only" className="hidden md:inline-flex xl:px-2.5" />
             <Link to="/login" className="hidden whitespace-nowrap rounded-full px-4 py-2.5 text-[14.5px] font-semibold text-white/80 transition-colors hover:text-white sm:block">Se connecter</Link>
             <AnimatePresence initial={false}>
               {pastHero && !open && (
@@ -217,6 +219,7 @@ function Navbar() {
               <div className="flex flex-col gap-1 px-3 pb-4">
                 {links.map((l) => <a key={l.href} href={l.href} onClick={(e) => { setOpen(false); goTo(e, l.href); }} className="rounded-xl px-4 py-3 font-semibold text-white/80 hover:bg-white/10 hover:text-white">{l.label}</a>)}
                 <Link to="/boutiques" className="rounded-xl px-4 py-3 font-semibold text-white/80 hover:bg-white/10 hover:text-white">Boutiques près de moi</Link>
+                <InstallAppButton variant="glass" className="mt-2 !py-3 !text-sm" />
                 <div className="mt-3 grid grid-cols-2 gap-2 border-t border-white/10 pt-4">
                   <Link to="/login" onClick={() => setOpen(false)} className="inline-flex items-center justify-center rounded-full bg-white/5 px-4 py-3 text-sm font-bold text-white ring-1 ring-white/15 hover:bg-white/10">Se connecter</Link>
                   <Link to="/register" onClick={() => setOpen(false)} className="btn-gold inline-flex items-center justify-center rounded-full px-4 py-3 text-sm font-extrabold">Créer ma boutique</Link>
@@ -2028,6 +2031,9 @@ function FinalCta({ themeId }) {
             <Link to="/boutiques" className="inline-flex items-center justify-center gap-2 rounded-full bg-white/[0.06] px-7 py-4 font-bold text-white ring-1 ring-white/15 backdrop-blur transition-colors hover:bg-white/10">
               <Store className="h-4 w-4" /> Voir les boutiques
             </Link>
+          </div>
+          <div className="mt-7 flex justify-center">
+            <InstallAppButton variant="link" label="Installer SamaBoutik sur votre téléphone ou votre ordinateur" />
           </div>
         </Reveal>
       </div>

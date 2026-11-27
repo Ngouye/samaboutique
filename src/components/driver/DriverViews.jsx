@@ -6,6 +6,7 @@ import {
   WhatsApp, ChevronRight, TriangleAlert,
 } from '../dashboard/icons';
 import { CARD } from '../dashboard/ui';
+import InstallAppButton from '../InstallApp';
 import LiveLocationShare from './LiveLocationShare';
 import SlideToConfirm from './SlideToConfirm';
 import { parseOrderAddress, orderDirectionsUrl } from '../../utils/orderAddress';
@@ -467,6 +468,8 @@ export function ProfileView({ driverName, shopLabel, merchantPhone, summary, ava
           </li>
         ))}
       </ul>
+
+      <InstallAppButton variant="light" />
 
       <div className="flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-3.5">
         <Info className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />

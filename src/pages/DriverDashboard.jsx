@@ -9,6 +9,9 @@ import {
 import confetti from 'canvas-confetti';
 import { playSuccess, playPop } from '../utils/audio';
 import { Field, ErrorBanner, EASE } from '../components/auth/AuthUI';
+import { InstallBanner } from '../components/InstallApp';
+import { useAppManifest } from '../utils/installPrompt';
+import { DRIVER_SHOP_KEY } from './DriverLauncher';
 import { friendlyError } from '../utils/networkErrors';
 import { BRAND } from '../utils/brand';
 import { paymentLabel, depositPaid } from '../utils/payments';
@@ -33,6 +36,11 @@ function Aurora() {
 
 export default function DriverDashboard() {
   const { shopName } = useParams();
+  // Installée, l'application « Livreur » s'ouvre sur /livreur, qui ramène ici grâce à la boutique retenue.
+  useAppManifest('/manifest-livreur.webmanifest');
+  useEffect(() => {
+    try { localStorage.setItem(DRIVER_SHOP_KEY, decodeURIComponent(shopName)); } catch { /* mémoire du navigateur indisponible */ }
+  }, [shopName]);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [merchant, setMerchant] = useState(null);
@@ -540,6 +548,7 @@ export default function DriverDashboard() {
         <AnimatePresence mode="wait">
           {activeTab === 'courses' && (
             <motion.div key="courses" {...view} className="space-y-5">
+              <InstallBanner storageKey="samaboutik_install_livreur_ferme" title="Installez l’application livreur" text="Vos courses en un geste depuis l’écran d’accueil, comme une vraie application." />
               <TodayStrip summary={summary} />
               {activeOrder && (
                 <ActiveDelivery

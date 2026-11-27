@@ -15,6 +15,7 @@ const Register = lazyWithRetry(() => import('./pages/Register'));
 const MerchantDashboard = lazyWithRetry(() => import('./pages/MerchantDashboard'));
 const PublicShop = lazyWithRetry(() => import('./pages/PublicShop'));
 const DriverDashboard = lazyWithRetry(() => import('./pages/DriverDashboard'));
+const DriverLauncher = lazyWithRetry(() => import('./pages/DriverLauncher'));
 const Landing = lazyWithRetry(() => import('./pages/Landing'));
 const AdminDashboard = lazyWithRetry(() => import('./pages/AdminDashboard'));
 const Directory = lazyWithRetry(() => import('./pages/Directory'));
@@ -118,6 +119,7 @@ export default function App() {
                 />
 
                 <Route path="/boutique/:shopName" element={<PublicShop />} />
+                <Route path="/livreur" element={<DriverLauncher />} />
                 <Route path="/livreur/:shopName" element={<DriverDashboard />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
