@@ -843,6 +843,11 @@
 
 /* Accueil : barre de progression des étapes « Comment ça marche » */
 @keyframes step-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+/* Anneau de progression autour de l'étape en cours (cercle de rayon 27 : longueur 169.65) */
+@keyframes ring-fill { from { stroke-dashoffset: 169.65; } to { stroke-dashoffset: 0; } }
+.ring-progress { animation-name: ring-fill; animation-timing-function: linear; animation-fill-mode: forwards; }
+/* Grand numéro en filigrane (contour seul) */
+.ghost-number { color: transparent; -webkit-text-stroke: 1.5px rgba(174, 166, 247, 0.24); }
 .step-progress { transform-origin: left; animation-name: step-progress; animation-timing-function: linear; animation-fill-mode: forwards; }
 /* Page d'accueil : ligne de lecture qui balaie le QR code de la boutique */
 @keyframes qr-scan { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(128px); } }

@@ -4,7 +4,7 @@ import { motion, AnimatePresence, MotionConfig, useInView, useReducedMotion, use
 import {
   ArrowRight, ArrowUpRight, Check, Menu, X, ShieldCheck, Bike, BarChart3, Users, Rocket, Zap, Gem,
   ChevronDown, Banknote, Bell, LayoutDashboard, Store, ShoppingBag, UserRound, ChevronLeft, ChevronRight,
-  Pause, Play, RotateCcw, Calculator, Clock, Package, Truck,
+  Pause, Play, RotateCcw, Calculator, Clock, Package, Truck, Smartphone, Wallet, QrCode, MapPin,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { QRCodeSVG } from 'qrcode.react';
@@ -20,7 +20,7 @@ import { PAYMENT_CHOICES } from '../utils/payments';
 import {
   QrCode as DuoQrCode, ChartBar as DuoChart, Wallet as DuoWallet, Images as DuoImages, Users as DuoUsers,
   MapTrifold as DuoMap, MapPin as DuoPin, SealCheck as DuoSeal, Star as DuoStar, Megaphone as DuoMegaphone,
-  WhatsApp as DuoWhatsApp, LockKey as DuoLock, Palette as DuoPalette, Truck as DuoTruck,
+  WhatsApp as DuoWhatsApp, LockKey as DuoLock, Truck as DuoTruck,
 } from '../components/dashboard/icons';
 
 const EASE = [0.16, 1, 0.3, 1];
@@ -438,7 +438,7 @@ function Hero({ themeId, setThemeId }) {
   const depth = (layer) => (fine ? layer : undefined);
 
   return (
-    <section onMouseMove={onMove} onMouseLeave={onLeave} className="relative isolate overflow-hidden bg-[#0a0820] pb-36 pt-28 text-white sm:pb-44 lg:pt-36">
+    <section onMouseMove={onMove} onMouseLeave={onLeave} className="relative isolate overflow-hidden rounded-b-[2.25rem] bg-[#0a0820] pb-8 pt-28 text-white sm:rounded-b-[3rem] sm:pb-10 lg:rounded-b-[4rem] lg:pt-36">
       {/* Décor : lumières, aurores, sol quadrillé en perspective, grain */}
       <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
         <div className="absolute inset-0 bg-[radial-gradient(70%_55%_at_78%_0%,rgba(106,88,232,0.55),transparent_70%),radial-gradient(45%_40%_at_4%_12%,rgba(246,199,104,0.16),transparent_70%),radial-gradient(60%_45%_at_50%_108%,rgba(81,64,218,0.4),transparent_70%)]" />
@@ -565,41 +565,51 @@ function Hero({ themeId, setThemeId }) {
           </motion.div>
         </div>
       </div>
+      <HeroStrip />
     </section>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Ruban croisé (passage du héros à la suite)                           */
+/* Bande des paiements et outils (bas du héros)                       */
 /* ------------------------------------------------------------------ */
 
-const RIBBON_GOLD = ['Wave', 'Orange Money', 'Free Money', 'Wizall', 'Paiement à la livraison', 'Commandes WhatsApp'];
-const RIBBON_INDIGO = ['Livreurs suivis en direct', 'Code de livraison', '6 thèmes de vitrine', 'QR code', 'Statistiques', 'Boutiques près de moi'];
+// Bande droite en bas du héros : moyens de paiement et outils, qui défilent lentement.
+const HERO_STRIP = [
+  { label: 'Wave', logo: '/logos/wave.png' },
+  { label: 'Orange Money', logo: '/logos/orange-money.svg' },
+  { label: 'Free Money', icon: Smartphone },
+  { label: 'Wizall', icon: Wallet },
+  { label: 'Paiement à la livraison', icon: Banknote },
+  { label: 'Commandes WhatsApp', logo: '/logos/whatsapp.svg' },
+  { label: 'Livreurs suivis en direct', icon: Bike },
+  { label: 'Code de livraison', icon: ShieldCheck },
+  { label: 'QR code de boutique', icon: QrCode },
+  { label: 'Statistiques de ventes', icon: BarChart3 },
+  { label: 'Boutiques près de moi', icon: MapPin },
+];
 
-function RibbonBand({ items, reverse = false }) {
+function HeroStrip() {
   return (
-    <div className={`marquee-track ${reverse ? 'marquee-reverse' : ''}`} style={{ animationDuration: '46s' }}>
-      {[0, 1].map((copy) => (
-        <ul key={copy} className="flex shrink-0 items-center" aria-hidden={copy === 1 ? true : undefined}>
-          {items.map((t) => (
-            <li key={t} className="flex items-center gap-7 whitespace-nowrap pl-7 text-lg font-extrabold uppercase tracking-[-0.01em] sm:text-2xl">
-              {t}<Sparkle className="h-4 w-4 shrink-0 opacity-70 sm:h-5 sm:w-5" />
-            </li>
+    <div className="relative mt-14 border-y border-white/10 bg-white/[0.03] lg:mt-12">
+      <p className="sr-only">Paiements et outils inclus : {HERO_STRIP.map((i) => i.label).join(', ')}.</p>
+      <div className="overflow-hidden py-4 [mask-image:linear-gradient(90deg,transparent,black_10%,black_90%,transparent)] sm:py-5" aria-hidden="true">
+        <div className="marquee-track" style={{ animationDuration: '55s' }}>
+          {[0, 1].map((copy) => (
+            <ul key={copy} className="flex shrink-0 items-center">
+              {HERO_STRIP.map(({ label, logo, icon: Icon }) => (
+                <li key={label} className="flex items-center gap-3 whitespace-nowrap pl-10 text-[15px] font-semibold text-white/70 sm:pl-14 sm:text-base">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.08] ring-1 ring-white/15">
+                    {logo
+                      ? <img src={logo} alt="" className="h-4 w-4 object-contain" />
+                      : <Icon className="h-4 w-4 text-[#f6c768]" />}
+                  </span>
+                  {label}
+                </li>
+              ))}
+            </ul>
           ))}
-        </ul>
-      ))}
-    </div>
-  );
-}
-
-function Ribbon() {
-  return (
-    <div className="relative z-10 -mt-24 h-[180px] overflow-hidden bg-[linear-gradient(transparent_50%,#f7f6f2_50%)] sm:-mt-28 sm:h-[210px]">
-      <div className="absolute inset-x-[-12%] top-[56px] -rotate-[4deg] bg-gradient-to-r from-[#f9d784] via-[#f3a953] to-[#ec8a5a] py-3 text-[#1a1033] shadow-[0_24px_50px_-24px_rgba(243,169,83,0.7)] sm:top-[66px] sm:py-4">
-        <RibbonBand items={RIBBON_GOLD} />
-      </div>
-      <div className="absolute inset-x-[-12%] top-[66px] rotate-[3deg] bg-brand-700 py-3 text-white shadow-[0_24px_50px_-20px_rgba(42,37,128,0.8)] sm:top-[78px] sm:py-4">
-        <RibbonBand items={RIBBON_INDIGO} reverse />
+        </div>
       </div>
     </div>
   );
@@ -639,7 +649,7 @@ function Commerces() {
   const choose = (i) => { setActive(i); setPaused(true); };
 
   return (
-    <section className="relative bg-[#f7f6f2] pb-20 pt-6 lg:pb-28" aria-labelledby="commerces-titre">
+    <section className="relative bg-[#f7f6f2] pb-20 pt-20 lg:pb-28 lg:pt-28" aria-labelledby="commerces-titre">
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 lg:flex-row lg:items-end lg:justify-between lg:px-8">
         <Reveal>
           <div className="max-w-2xl">
@@ -903,6 +913,7 @@ function WhatsAppScreen() {
 }
 
 const STEP_DURATION_MS = 6500;
+const RING_LENGTH = 169.65; // 2 × π × 27
 
 const ACTORS = {
   client: { label: 'Côté client', icon: UserRound, cls: 'bg-sky-400/15 text-sky-200 ring-sky-300/30' },
@@ -915,7 +926,7 @@ const STEPS = [
     tab: 'Commande', actor: 'client', icon: ShoppingBag,
     title: 'Le client commande en une minute, sans compte',
     text: 'Depuis votre vitrine, il choisit ses articles et laisse seulement son nom, son téléphone et son adresse.',
-    points: ['Aucun compte ni mot de passe à créer', 'Sa position GPS partagée en un geste', 'Paiement à la livraison ou mobile : Wave, Orange Money, Free Money, Wizall'],
+    points: ['Aucun compte ni mot de passe', 'Position GPS en un geste', 'Wave, Orange Money ou à la livraison'],
     chip: 'Commande envoyée',
     visual: () => <PhoneFrame src={SCREEN('panier')} alt="Formulaire de commande sur la vitrine : paiement à la livraison, Wave, Orange Money, Free Money ou Wizall" />,
   },
@@ -923,7 +934,7 @@ const STEPS = [
     tab: 'Notification', actor: 'boutique', icon: Bell,
     title: 'Vous êtes prévenu tout de suite sur WhatsApp',
     text: 'La commande arrive sur votre téléphone avec tout ce qu’il faut pour la préparer.',
-    points: ['Articles, adresse et téléphone du client', 'Une alerte sonore dans votre tableau de bord', 'Le client reçoit sa confirmation et son code de livraison'],
+    points: ['Articles, adresse et téléphone', 'Alerte sonore au tableau de bord', 'Code de livraison envoyé au client'],
     chip: 'Nouvelle commande',
     visual: () => <WhatsAppScreen />,
   },
@@ -931,7 +942,7 @@ const STEPS = [
     tab: 'Livraison', actor: 'livreur', icon: Bike,
     title: 'Le livreur part, le client le suit en direct',
     text: 'Votre livreur accepte la course depuis son téléphone. Sa position est partagée pendant tout le trajet.',
-    points: ['La course apparaît dans l’application du livreur', 'Le client voit son livreur arriver sur la carte', 'Appel ou WhatsApp en un geste'],
+    points: ['Course reçue sur son téléphone', 'Le client le voit arriver', 'Appel ou WhatsApp en un geste'],
     chip: 'Position en direct',
     visual: () => <PhoneFrame src={SCREEN('livreur-course')} alt="Application livreur avec une course en cours" />,
   },
@@ -939,7 +950,7 @@ const STEPS = [
     tab: 'Code PIN', actor: 'livreur', icon: ShieldCheck,
     title: 'Remis avec un code, à la bonne personne',
     text: 'À l’arrivée, le livreur demande au client son code secret à 4 chiffres.',
-    points: ['Un code différent pour chaque commande', 'Impossible de valider la livraison sans lui', 'Les essais au hasard sont bloqués'],
+    points: ['Un code par commande', 'Pas de validation sans lui', 'Essais au hasard bloqués'],
     chip: 'Livraison validée',
     visual: () => <PhoneFrame src={SCREEN('livreur-code')} alt="Saisie du code client pour valider la livraison" />,
   },
@@ -947,9 +958,8 @@ const STEPS = [
     tab: 'Paiement', actor: 'boutique', icon: Banknote,
     title: 'L’argent arrive chez vous',
     text: 'Votre journée se lit d’un coup d’œil : ce qui est encaissé, ce que doivent les livreurs, et votre part.',
-    points: ['Paiements mobiles reversés sur votre numéro', 'Espèces encaissées par votre livreur', 'Le bilan de chaque livreur, chaque jour'],
+    points: ['Paiements mobiles reversés', 'Espèces encaissées par le livreur', 'Bilan de chaque livreur'],
     chip: '+ 47 500 F aujourd’hui',
-    chipAt: 'bottom-[14%]', // sous la caisse du jour, pour ne pas cacher le montant
     visual: () => <PhoneFrame src={SCREEN('tableau-mobile')} alt="Tableau de bord sur téléphone : caisse du jour, frais de livraison et votre part" />,
   },
 ];
@@ -959,151 +969,235 @@ const isKeyboardFocus = (el) => {
   try { return el.matches(':focus-visible'); } catch { return true; }
 };
 
+// Grand écran : la frise avance toute seule. Sur téléphone, le visiteur ouvre lui-même les étapes
+// (une étape qui s'ouvre seule ferait sauter la page pendant qu'il la fait défiler).
+function useWideScreen() {
+  const query = '(min-width: 1024px)';
+  const [wide, setWide] = useState(() => typeof window !== 'undefined' && Boolean(window.matchMedia?.(query).matches));
+  useEffect(() => {
+    const mq = window.matchMedia?.(query);
+    if (!mq) return undefined;
+    const onChange = (e) => setWide(e.matches);
+    mq.addEventListener?.('change', onChange);
+    return () => mq.removeEventListener?.('change', onChange);
+  }, []);
+  return wide;
+}
+
+// Scène d'une étape : téléphone sur un halo, numéro géant en filigrane, étiquette flottante.
+function StepStage({ index, compact = false }) {
+  const step = STEPS[index];
+  const actor = ACTORS[step.actor];
+  return (
+    <div className={`relative flex items-center justify-center [perspective:1200px] ${compact ? 'h-[440px]' : 'h-[640px]'}`}>
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.span
+            key={index}
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -40 }}
+            transition={{ duration: 0.6, ease: EASE }}
+            className={`ghost-number select-none font-extrabold leading-none tracking-[-0.06em] ${compact ? 'text-[13rem]' : 'text-[19rem] xl:text-[22rem]'}`}
+          >
+            0{index + 1}
+          </motion.span>
+        </AnimatePresence>
+        <div className={`absolute rounded-full bg-[conic-gradient(from_120deg,#6a58e8,#f6c768,#ef8f5b,#8a7cf1,#6a58e8)] opacity-30 blur-[70px] ${compact ? 'h-[260px] w-[260px]' : 'h-[380px] w-[380px]'}`} />
+        <div className={`orbit orbit-slow border border-white/10 ${compact ? 'h-[330px] w-[330px]' : 'h-[470px] w-[470px]'}`}>
+          <span className="absolute left-1/2 top-0 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#f6c768] shadow-[0_0_16px_4px_rgba(246,199,104,0.55)]" />
+        </div>
+      </div>
+
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={index}
+          initial={{ opacity: 0, rotateY: -32, y: 30, scale: 0.92 }}
+          animate={{ opacity: 1, rotateY: 0, y: 0, scale: 1 }}
+          exit={{ opacity: 0, rotateY: 32, y: -20, scale: 0.92 }}
+          transition={{ duration: 0.6, ease: EASE }}
+          className={`relative ${compact ? 'w-[200px]' : 'w-[250px] xl:w-[268px]'}`}
+        >
+          {step.visual()}
+          <div className="mx-auto mt-4 h-5 w-[70%] rounded-[50%] bg-brand-500/45 blur-xl" aria-hidden="true" />
+          <motion.span
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.45, ease: EASE }}
+            className={`absolute -top-4 left-1/2 inline-flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset backdrop-blur ${actor.cls}`}
+            aria-hidden="true"
+          >
+            <actor.icon className="h-3.5 w-3.5" /> {actor.label}
+          </motion.span>
+          <motion.span
+            initial={{ opacity: 0, x: -16, scale: 0.94 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            transition={{ delay: 0.4, duration: 0.5, ease: EASE }}
+            className={`absolute ${compact ? '-left-8 top-[38%]' : '-left-16 top-[40%]'} flex items-center gap-2.5 rounded-2xl bg-white px-3.5 py-2.5 text-ink shadow-[0_24px_50px_-18px_rgba(0,0,0,0.7)]`}
+            aria-hidden="true"
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-50 text-brand-700"><step.icon className="h-4 w-4" /></span>
+            <span className="whitespace-nowrap text-sm font-bold">{step.chip}</span>
+          </motion.span>
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}
+
 function HowItWorks() {
   const sectionRef = useRef(null);
-  const tabsRef = useRef(null);
-  const inView = useInView(sectionRef, { amount: 0.35 });
+  const listRef = useRef(null);
+  const inView = useInView(sectionRef, { amount: 0.3 });
   const reduce = useReducedMotion();
+  const wide = useWideScreen();
   const [active, setActive] = useState(0);
   // 'auto' : défile seul (suspendu au survol et au clavier) · 'paused' : arrêté par le visiteur · 'forced' : relancé par le visiteur
   const [mode, setMode] = useState('auto');
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
-  const running = !reduce && inView && (mode === 'forced' || (mode === 'auto' && !hovered && !focused));
-  const step = STEPS[active];
+  const autoplay = wide && !reduce;
+  const running = autoplay && inView && (mode === 'forced' || (mode === 'auto' && !hovered && !focused));
 
   const go = (i) => setActive((i + STEPS.length) % STEPS.length);
   // Dès que le visiteur choisit lui-même une étape, le défilement automatique s'arrête ; il peut le relancer.
   const pick = (i) => { setMode('paused'); go(i); };
 
-  // Garde l'onglet actif visible dans la barre défilante (téléphone), sans faire défiler la page.
-  useEffect(() => {
-    const bar = tabsRef.current;
-    const tab = bar?.children[active];
-    if (!bar || !tab || bar.scrollWidth <= bar.clientWidth) return;
-    bar.scrollTo({ left: tab.offsetLeft - bar.clientWidth / 2 + tab.clientWidth / 2, behavior: 'smooth' });
-  }, [active]);
-
-  const onTabKey = (e) => {
-    const moves = { ArrowRight: active + 1, ArrowLeft: active - 1, Home: 0, End: STEPS.length - 1 };
+  const onListKey = (e) => {
+    const moves = { ArrowDown: active + 1, ArrowUp: active - 1, Home: 0, End: STEPS.length - 1 };
     if (!(e.key in moves)) return;
     e.preventDefault();
     const next = (moves[e.key] + STEPS.length) % STEPS.length;
     pick(next);
-    tabsRef.current?.children[next]?.focus();
+    listRef.current?.querySelectorAll('[data-step]')[next]?.focus();
   };
+
+  const fill = `${(active / (STEPS.length - 1)) * 100}%`;
 
   return (
     <section
       ref={sectionRef}
       onFocus={(e) => { if (isKeyboardFocus(e.target)) setFocused(true); }}
       onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setFocused(false); }}
-      className="relative overflow-hidden bg-ink py-20 text-white lg:py-28"
+      className="relative isolate overflow-hidden bg-[#0a0820] py-24 text-white lg:py-32"
     >
-      <div className="pointer-events-none absolute -left-40 top-0 h-[520px] w-[520px] rounded-full bg-brand-500/15 blur-3xl" aria-hidden="true" />
-      <div className="pointer-events-none absolute -right-40 bottom-0 h-[420px] w-[420px] rounded-full bg-amber-400/10 blur-3xl" aria-hidden="true" />
+      {/* Décor « nuit de Dakar » */}
+      <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
+        <div className="absolute inset-0 bg-[radial-gradient(55%_45%_at_15%_0%,rgba(106,88,232,0.4),transparent_70%),radial-gradient(45%_40%_at_95%_70%,rgba(246,199,104,0.1),transparent_70%)]" />
+        <div className="absolute inset-x-0 top-0 h-[45%] overflow-hidden [mask-image:linear-gradient(to_bottom,black,transparent)] opacity-60">
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(174,166,247,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(174,166,247,0.08)_1px,transparent_1px)] bg-[size:64px_64px]" />
+        </div>
+        <div className="hero-grain absolute inset-0 opacity-[0.06] mix-blend-overlay" />
+      </div>
+
       <div className="relative mx-auto max-w-7xl px-5 lg:px-8">
         <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
           <Reveal><SectionTitle light kicker="Comment ça marche" title={<>De la commande à l’argent encaissé, <Em light>en 5 étapes</Em>.</>} /></Reveal>
-          <div className="flex items-center gap-2" role="group" aria-label="Commandes du parcours">
-            <button type="button" onClick={() => pick(active - 1)} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 transition-colors hover:bg-white/10" aria-label="Étape précédente"><ChevronLeft className="h-5 w-5" /></button>
-            <button type="button" onClick={() => pick(active + 1)} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 transition-colors hover:bg-white/10" aria-label="Étape suivante"><ChevronRight className="h-5 w-5" /></button>
-            {!reduce && (
-              <button type="button" onClick={() => setMode((m) => (m === 'paused' ? 'forced' : 'paused'))} className="ml-1 inline-flex h-11 items-center gap-2 rounded-full border border-white/15 px-4 text-sm font-bold transition-colors hover:bg-white/10">
+          {autoplay && (
+            <div className="flex items-center gap-2" role="group" aria-label="Commandes du parcours">
+              <span className="mr-2 text-sm font-bold tabular-nums text-white/45">0{active + 1} <span className="text-white/25">/ 0{STEPS.length}</span></span>
+              <button type="button" onClick={() => pick(active - 1)} className="flex h-11 w-11 items-center justify-center rounded-full bg-white/[0.05] ring-1 ring-white/15 transition-colors hover:bg-white/10" aria-label="Étape précédente"><ChevronLeft className="h-5 w-5" /></button>
+              <button type="button" onClick={() => pick(active + 1)} className="flex h-11 w-11 items-center justify-center rounded-full bg-white/[0.05] ring-1 ring-white/15 transition-colors hover:bg-white/10" aria-label="Étape suivante"><ChevronRight className="h-5 w-5" /></button>
+              <button type="button" onClick={() => setMode((m) => (m === 'paused' ? 'forced' : 'paused'))} className="ml-1 inline-flex h-11 items-center gap-2 rounded-full bg-white/[0.05] px-4 text-sm font-bold ring-1 ring-white/15 transition-colors hover:bg-white/10">
                 {mode === 'paused' ? <><Play className="h-4 w-4" /> Lecture</> : <><Pause className="h-4 w-4" /> Pause</>}
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* Onglets des 5 étapes, avec barre de progression */}
-        <div ref={tabsRef} role="tablist" aria-label="Étapes" onKeyDown={onTabKey} className="scrollbar-hide -mx-5 mt-12 flex gap-3 overflow-x-auto px-5 pb-1 lg:mx-0 lg:grid lg:grid-cols-5 lg:overflow-visible lg:px-0">
-          {STEPS.map((s, i) => {
-            const selected = i === active;
-            const Icon = s.icon;
-            return (
-              <button
-                key={s.tab}
-                id={`how-tab-${i}`}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                aria-controls="how-panel"
-                tabIndex={selected ? 0 : -1}
-                onClick={() => pick(i)}
-                className={`relative min-w-[170px] shrink-0 overflow-hidden rounded-2xl border px-4 pb-4 pt-5 text-left transition-colors lg:min-w-0 ${selected ? 'border-white/25 bg-white/10' : 'border-white/10 hover:bg-white/5'}`}
-              >
-                <span className="absolute inset-x-4 top-2.5 h-[3px] overflow-hidden rounded-full bg-white/10" aria-hidden="true">
-                  {selected ? (
-                    reduce
-                      ? <span className="block h-full w-full bg-brand-400" />
-                      : <span key={`${i}-${active}`} className="step-progress block h-full w-full bg-brand-400" style={{ animationDuration: `${STEP_DURATION_MS}ms`, animationPlayState: running ? 'running' : 'paused' }} onAnimationEnd={() => go(active + 1)} />
-                  ) : i < active ? <span className="block h-full w-full bg-brand-400/60" /> : null}
-                </span>
-                <span className="flex items-center gap-3">
-                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${selected ? 'bg-brand-400 text-ink' : 'bg-white/10 text-white/70'}`}><Icon className="h-[18px] w-[18px]" /></span>
-                  <span className="min-w-0">
-                    <span className={`block text-[11px] font-bold uppercase tracking-wider ${selected ? 'text-brand-300' : 'text-white/60'}`}>Étape {i + 1}</span>
-                    <span className={`block truncate font-bold ${selected ? 'text-white' : 'text-white/75'}`}>{s.tab}</span>
-                  </span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <div className="mt-14 grid items-center gap-10 lg:mt-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-12">
+          {/* Frise des 5 étapes */}
+          <div
+            ref={listRef}
+            onKeyDown={onListKey}
+            onPointerEnter={(e) => { if (e.pointerType === 'mouse') setHovered(true); }}
+            onPointerLeave={(e) => { if (e.pointerType === 'mouse') setHovered(false); }}
+            className="relative"
+          >
+            {/* Ligne qui relie les étapes, remplie jusqu'à l'étape en cours */}
+            <div className="absolute bottom-9 left-[29px] top-9 w-[2px] rounded-full bg-white/10" aria-hidden="true">
+              <div className="w-full rounded-full bg-gradient-to-b from-brand-400 via-[#f6c768] to-[#ef8f5b] transition-[height] duration-700 ease-out" style={{ height: fill }} />
+            </div>
 
-        {/* Scène de l'étape active */}
-        <div
-          id="how-panel"
-          role="tabpanel"
-          aria-labelledby={`how-tab-${active}`}
-          onPointerEnter={(e) => { if (e.pointerType === 'mouse') setHovered(true); }}
-          onPointerLeave={(e) => { if (e.pointerType === 'mouse') setHovered(false); }}
-          className="mt-6 grid items-center gap-12 overflow-hidden rounded-[2.5rem] border border-white/10 bg-white/[0.04] p-6 sm:p-10 lg:grid-cols-[1.15fr_1fr] lg:gap-16 lg:p-14"
-        >
-          {/* Les 5 textes sont superposés dans la même case : le bloc garde la hauteur du plus long,
-              donc la page ne bouge pas quand l'étape change. Seul le texte de l'étape active est visible et lu. */}
-          <div className="grid">
-            {STEPS.map((s, i) => {
-              const shown = i === active;
-              const actor = ACTORS[s.actor];
-              return (
-                <div
-                  key={s.tab}
-                  aria-hidden={!shown}
-                  className={`col-start-1 row-start-1 transition-[opacity,translate,visibility] duration-300 ease-out motion-reduce:transition-none ${shown ? 'visible translate-y-0 opacity-100 delay-150' : 'invisible translate-y-3 opacity-0'}`}
-                >
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="text-sm font-bold tabular-nums text-white/60">0{i + 1} / 0{STEPS.length}</span>
-                    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset ${actor.cls}`}><actor.icon className="h-3.5 w-3.5" /> {actor.label}</span>
-                  </div>
-                  <h3 className="mt-5 text-balance text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">{s.title}</h3>
-                  <p className="mt-4 max-w-lg text-lg leading-relaxed text-white/70">{s.text}</p>
-                  <ul className="mt-8 space-y-3.5">
-                    {s.points.map((p) => (
-                      <li key={p} className="flex items-start gap-3">
-                        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-400/15 text-brand-300"><Check className="h-3.5 w-3.5" strokeWidth={3} /></span>
-                        <span className="text-white/85">{p}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
+            <ol className="relative space-y-2">
+              {STEPS.map((s, i) => {
+                const on = i === active;
+                const done = i < active;
+                const Icon = s.icon;
+                const actor = ACTORS[s.actor];
+                return (
+                  <li key={s.tab}>
+                    <button
+                      type="button"
+                      data-step
+                      onClick={() => pick(i)}
+                      aria-expanded={on}
+                      aria-controls={`etape-${i}`}
+                      className={`group flex w-full items-center gap-5 rounded-[1.4rem] py-2 pl-0 pr-3 text-left transition-colors ${on ? '' : 'hover:bg-white/[0.03]'}`}
+                    >
+                      <span className="relative flex h-[60px] w-[60px] shrink-0 items-center justify-center">
+                        {/* Anneau de progression de l'étape en cours */}
+                        {on && autoplay && (
+                          <svg viewBox="0 0 60 60" className="absolute inset-0 -rotate-90" aria-hidden="true">
+                            <circle cx="30" cy="30" r="27" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="2.5" />
+                            <circle
+                              key={`${i}-${active}`}
+                              cx="30" cy="30" r="27" fill="none" stroke="#f6c768" strokeWidth="2.5" strokeLinecap="round"
+                              strokeDasharray={RING_LENGTH}
+                              className="ring-progress"
+                              style={{ animationDuration: `${STEP_DURATION_MS}ms`, animationPlayState: running ? 'running' : 'paused' }}
+                              onAnimationEnd={() => go(active + 1)}
+                            />
+                          </svg>
+                        )}
+                        <span className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-500 ${on
+                          ? 'btn-gold shadow-[0_0_0_6px_rgba(246,199,104,0.12),0_12px_30px_-8px_rgba(243,169,83,0.7)]'
+                          : done ? 'bg-brand-600 text-white ring-1 ring-brand-400/50' : 'bg-[#15123a] text-white/55 ring-1 ring-white/15 group-hover:text-white'}`}
+                        >
+                          {done ? <Check className="h-5 w-5" strokeWidth={3} /> : <Icon className="h-5 w-5" />}
+                        </span>
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className={`block text-[11px] font-bold uppercase tracking-[0.16em] ${on ? 'text-[#f6c768]' : 'text-white/40'}`}>Étape 0{i + 1} · {actor.label.replace('Côté ', '')}</span>
+                        <span className={`block text-xl font-extrabold tracking-tight transition-colors sm:text-2xl ${on ? 'text-white' : 'text-white/55 group-hover:text-white/80'}`}>{s.tab}</span>
+                      </span>
+                      <ChevronDown className={`h-5 w-5 shrink-0 text-white/40 transition-transform duration-300 lg:hidden ${on ? 'rotate-180' : ''}`} aria-hidden="true" />
+                    </button>
+
+                    <AnimatePresence initial={false}>
+                      {on && (
+                        <motion.div
+                          id={`etape-${i}`}
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.45, ease: EASE }}
+                          className="overflow-hidden"
+                        >
+                          <div className="pb-4 pl-[80px] pr-2 pt-1">
+                            <h3 className="text-balance text-2xl font-extrabold leading-tight tracking-tight sm:text-[1.7rem]">{s.title}</h3>
+                            <p className="mt-3 max-w-lg leading-relaxed text-white/65">{s.text}</p>
+                            <ul className="mt-5 flex flex-wrap gap-2">
+                              {s.points.map((p) => (
+                                <li key={p} className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-3 py-1.5 text-[13px] font-semibold text-white/85 ring-1 ring-white/10">
+                                  <Check className="h-3.5 w-3.5 text-[#f6c768]" strokeWidth={3} /> {p}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                          {/* Téléphone : la capture de l'étape sous son texte */}
+                          {!wide && <div className="-ml-5 -mr-5 pb-4"><StepStage index={i} compact /></div>}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </li>
+                );
+              })}
+            </ol>
           </div>
 
-          <div className="relative mx-auto w-[240px] sm:w-[268px]">
-            <div className="pointer-events-none absolute -inset-10 rounded-full bg-brand-400/20 blur-3xl" aria-hidden="true" />
-            <AnimatePresence mode="wait">
-              <motion.div key={active} initial={{ opacity: 0, y: 28, rotate: -2 }} animate={{ opacity: 1, y: 0, rotate: 0 }} exit={{ opacity: 0, y: -18, rotate: 2 }} transition={{ duration: 0.5, ease: EASE }} className="relative">
-                {step.visual()}
-                <motion.div initial={{ opacity: 0, x: -14, scale: 0.95 }} animate={{ opacity: 1, x: 0, scale: 1 }} transition={{ delay: 0.35, duration: 0.45, ease: EASE }} className={`absolute -left-10 ${step.chipAt || 'top-[42%]'} flex items-center gap-2.5 rounded-2xl bg-white px-3.5 py-2.5 text-ink shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] sm:-left-16`} aria-hidden="true">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-50 text-brand-700"><step.icon className="h-4 w-4" /></span>
-                  <span className="whitespace-nowrap text-sm font-bold">{step.chip}</span>
-                </motion.div>
-              </motion.div>
-            </AnimatePresence>
-          </div>
+          {/* Scène (grand écran) */}
+          {wide && <StepStage index={active} />}
         </div>
       </div>
     </section>
@@ -1156,162 +1250,281 @@ function Themes({ themeId, onPick }) {
 /* Tout est inclus                                                      */
 /* ------------------------------------------------------------------ */
 
-// Carte de la grille « Tout est inclus ». tone : light (blanc), ink (nuit) ou indigo (dégradé de la marque).
-function Tile({ icon: Icon, title, text, children, className = '', tone = 'light' }) {
-  const dark = tone !== 'light';
-  const surface = {
-    light: 'border border-black/[0.06] bg-white',
-    ink: 'bg-ink text-white',
-    indigo: 'bg-gradient-to-br from-brand-700 via-brand-900 to-night text-white',
+// Carte de la mosaïque « Tout est inclus ». tone : light (blanc), night (nuit), gold (doré) ou indigo.
+const TILE_TONES = {
+  light: 'bg-white text-ink ring-1 ring-black/[0.06] shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_24px_50px_-34px_rgba(18,16,58,0.35)]',
+  night: 'bg-[#0f0c2e] text-white ring-1 ring-white/10 shadow-[0_40px_80px_-40px_rgba(15,12,46,0.9)]',
+  gold: 'bg-[linear-gradient(145deg,#fbe3a4_0%,#f6c768_40%,#ef9a5c_100%)] text-[#1a1033] shadow-[0_40px_80px_-40px_rgba(239,154,92,0.8)]',
+  indigo: 'bg-[linear-gradient(150deg,#5140da_0%,#2a2580_55%,#120f3a_100%)] text-white shadow-[0_40px_80px_-40px_rgba(59,47,201,0.9)]',
+};
+
+function BentoTile({ icon: Icon, kicker, title, text, tone = 'light', big = false, className = '', children }) {
+  const onDark = tone === 'night' || tone === 'indigo';
+  const chip = {
+    light: 'bg-brand-50 text-brand-700 ring-brand-100',
+    night: 'bg-white/10 text-[#f6c768] ring-white/15',
+    gold: 'bg-white/40 text-[#1a1033] ring-white/50',
+    indigo: 'bg-white/10 text-[#f6c768] ring-white/15',
   }[tone];
   return (
-    <Reveal className={className}>
-      <SpotlightCard className={`group relative flex h-full flex-col overflow-hidden rounded-[1.75rem] p-6 transition-[transform,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_30px_60px_-30px_rgba(18,16,58,0.35)] ${surface}`}>
-        <span className={`mb-4 flex h-11 w-11 items-center justify-center rounded-2xl transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110 ${dark ? 'bg-white/10 text-amber-300 ring-1 ring-white/15' : 'bg-gradient-to-br from-brand-50 to-white text-brand-700 ring-1 ring-brand-100'}`}>
-          <Icon className="h-6 w-6" />
-        </span>
-        <h3 className={`text-[17px] font-bold ${dark ? 'text-white' : 'text-ink'}`}>{title}</h3>
-        <p className={`mt-1.5 text-sm leading-relaxed ${dark ? 'text-white/65' : 'text-slate-600'}`}>{text}</p>
-        {children && <div className="mt-5 flex flex-1 flex-col justify-end">{children}</div>}
+    <Reveal className={`min-w-0 ${className}`}>
+      <SpotlightCard className={`group relative isolate flex h-full flex-col overflow-hidden rounded-[2rem] p-6 transition-[transform,box-shadow] duration-500 hover:-translate-y-1 sm:p-7 ${TILE_TONES[tone]}`}>
+        <div className="flex items-center gap-2.5">
+          <span className={`flex h-9 w-9 items-center justify-center rounded-xl ring-1 transition-transform duration-500 group-hover:-rotate-6 group-hover:scale-110 ${chip}`}><Icon className="h-5 w-5" /></span>
+          <span className={`text-[11px] font-extrabold uppercase tracking-[0.16em] ${onDark ? 'text-white/55' : tone === 'gold' ? 'text-[#1a1033]/60' : 'text-slate-400'}`}>{kicker}</span>
+        </div>
+        <h3 className={`mt-4 text-balance font-extrabold leading-[1.1] tracking-tight ${big ? 'text-2xl sm:text-[1.9rem]' : 'text-lg sm:text-xl'}`}>{title}</h3>
+        {text && <p className={`mt-2 text-sm leading-relaxed ${onDark ? 'text-white/60' : tone === 'gold' ? 'text-[#1a1033]/75' : 'text-slate-500'}`}>{text}</p>}
+        {children && <div className="relative mt-5 flex flex-1 flex-col justify-end">{children}</div>}
       </SpotlightCard>
     </Reveal>
   );
 }
 
+// Statistiques : périodes au choix, courbe qui se redessine et total qui défile
+const STAT_PERIODS = [
+  { id: '7', label: '7 j', total: 128500, orders: 21, points: [20, 35, 28, 46, 40, 58, 52, 64, 60, 72, 68, 84] },
+  { id: '30', label: '30 j', total: 545000, orders: 84, points: [30, 26, 40, 36, 52, 48, 60, 55, 70, 66, 78, 90] },
+  { id: '90', label: '90 j', total: 1482000, orders: 236, points: [18, 30, 26, 38, 50, 44, 58, 62, 57, 74, 80, 94] },
+];
 const STAT_BARS = [28, 36, 31, 44, 40, 52, 47, 58, 54, 66, 61, 74, 70, 86];
-const MAP_PINS = [[22, 62, false], [46, 40, true], [70, 70, false], [84, 34, false]]; // [x %, y %, boutique mise en avant]
+
+// Courbe lissée (Catmull-Rom) passant par les points, dans une zone de 600 × 200
+function smoothPath(values, w = 600, h = 200) {
+  const pts = values.map((v, i) => [(i / (values.length - 1)) * w, h - (v / 100) * (h - 16) - 8]);
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i += 1) {
+    const p0 = pts[i - 1] || pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] || p2;
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  return { line: d, area: `${d} L${w},${h} L0,${h} Z`, last: pts[pts.length - 1] };
+}
+
+function StatsVisual() {
+  const [period, setPeriod] = useState(STAT_PERIODS[1]);
+  const { line, area, last } = smoothPath(period.points);
+  return (
+    <div>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/45">Chiffre d’affaires · {period.label}</p>
+          <p className="mt-1 font-figures text-4xl font-bold tracking-tight sm:text-5xl"><RollingNumber value={period.total} /> <span className="text-lg text-white/40">F</span></p>
+          <p className="mt-1 text-sm font-semibold text-emerald-300">{period.orders} commandes livrées</p>
+        </div>
+        <div className="flex rounded-full bg-white/[0.06] p-1 ring-1 ring-white/10" role="group" aria-label="Période">
+          {STAT_PERIODS.map((p) => (
+            <button key={p.id} type="button" onClick={() => setPeriod(p)} aria-pressed={p.id === period.id}
+              className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${p.id === period.id ? 'btn-gold' : 'text-white/60 hover:text-white'}`}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="relative mt-6 h-[180px] sm:h-[200px]" aria-hidden="true">
+        <svg viewBox="0 0 600 200" preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible">
+          <defs>
+            <linearGradient id="stats-area" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#8a7cf1" stopOpacity="0.45" />
+              <stop offset="1" stopColor="#8a7cf1" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="stats-line" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stopColor="#8a7cf1" />
+              <stop offset="0.6" stopColor="#f6c768" />
+              <stop offset="1" stopColor="#ef8f5b" />
+            </linearGradient>
+          </defs>
+          {[50, 100, 150].map((y) => <line key={y} x1="0" x2="600" y1={y} y2={y} stroke="rgba(255,255,255,0.07)" strokeDasharray="4 6" />)}
+          <motion.path initial={false} animate={{ d: area }} transition={{ duration: 0.8, ease: EASE }} fill="url(#stats-area)" />
+          <motion.path
+            initial={{ pathLength: 0 }} whileInView={{ pathLength: 1 }} viewport={{ once: true }}
+            animate={{ d: line }} transition={{ d: { duration: 0.8, ease: EASE }, pathLength: { duration: 1.6, ease: EASE } }}
+            fill="none" stroke="url(#stats-line)" strokeWidth="3.5" strokeLinecap="round" vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+        <motion.span
+          className="absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#f6c768] shadow-[0_0_0_6px_rgba(246,199,104,0.2),0_0_24px_4px_rgba(246,199,104,0.6)]"
+          initial={false}
+          animate={{ left: `${(last[0] / 600) * 100}%`, top: `${(last[1] / 200) * 100}%` }}
+          transition={{ duration: 0.8, ease: EASE }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// Paiement : l'option choisie change toute seule (ou au clic), comme sur l'écran du client
+function PaymentVisual() {
+  const ref = useRef(null);
+  const [picked, setPicked] = useState(null);
+  const tick = useTicker(ref, 2200);
+  const index = picked ?? (tick % PAYMENT_CHOICES.length);
+  const choice = PAYMENT_CHOICES[index];
+  return (
+    <div ref={ref} className="rounded-[1.5rem] bg-[#f7f6f2] p-3 ring-1 ring-black/[0.05]">
+      <ul className="space-y-1.5">
+        {PAYMENT_CHOICES.map((m, i) => {
+          const on = i === index;
+          return (
+            <li key={m.id}>
+              <button type="button" onClick={() => setPicked(i)} aria-pressed={on}
+                className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all duration-300 ${on ? 'bg-white shadow-[0_10px_24px_-14px_rgba(18,16,58,0.45)] ring-2 ring-brand-500' : 'ring-1 ring-transparent hover:bg-white/70'}`}>
+                {m.id === 'ON_DELIVERY' ? (
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-brand-700 ring-1 ring-black/5"><DuoTruck className="h-5 w-5" /></span>
+                ) : m.logo ? (
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white p-1 ring-1 ring-black/5"><img src={m.logo} alt="" loading="lazy" className="max-h-full max-w-full object-contain" /></span>
+                ) : (
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[10px] font-extrabold" style={{ background: m.tint, color: m.ink }} aria-hidden="true">{m.monogram}</span>
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold text-ink">{m.label}</span>
+                  <span className="block truncate text-[11px] text-slate-500">{m.id === 'ON_DELIVERY' ? m.depositSub : m.sub}</span>
+                </span>
+                <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors ${on ? 'bg-brand-600 text-white' : 'ring-1 ring-slate-300'}`}>{on && <Check className="h-3 w-3" strokeWidth={3.5} />}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl bg-ink px-4 py-3 text-white">
+        <span className="min-w-0 truncate text-sm font-bold">
+          {choice.id === 'ON_DELIVERY' ? 'Payer l’acompte · 1 950 F' : `Payer 19 500 F · ${choice.label}`}
+        </span>
+        <ArrowRight className="h-4 w-4 shrink-0 text-[#f6c768]" />
+      </div>
+    </div>
+  );
+}
+
+const MAP_PINS = [[18, 66, false], [38, 30, false], [52, 52, true], [74, 72, false], [86, 28, false]]; // [x %, y %, boutique mise en avant]
 
 function Included() {
   const reduce = useReducedMotion();
-  const appear = (i, from) => (reduce ? {} : { initial: from, whileInView: { opacity: 1, x: 0, y: 0, scaleY: 1 }, viewport: { once: true }, transition: { duration: 0.55, delay: 0.15 + i * 0.05, ease: EASE } });
+  const appear = (i, from) => (reduce ? {} : { initial: from, whileInView: { opacity: 1, x: 0, y: 0, scaleY: 1 }, viewport: { once: true }, transition: { duration: 0.55, delay: 0.15 + i * 0.06, ease: EASE } });
   return (
-    <section className="bg-[#f7f6f2] py-20 lg:py-28">
-      <div className="mx-auto max-w-7xl px-5 lg:px-8">
-        <Reveal><SectionTitle kicker="Tout est inclus" title={<>Les outils d’une grande enseigne, <Em>dans votre poche</Em>.</>} text="Pensés pour le commerce au Sénégal : rapides même en 3G, simples à prendre en main, sans application à installer." /></Reveal>
+    <section className="relative isolate overflow-hidden bg-[#f7f6f2] py-24 lg:py-32" aria-labelledby="inclus-titre">
+      {/* Décor : lumières douces et trame de points */}
+      <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
+        <div className="absolute -left-40 top-24 h-[34rem] w-[34rem] rounded-full bg-brand-300/25 blur-[110px]" />
+        <div className="absolute -right-32 bottom-10 h-[28rem] w-[28rem] rounded-full bg-amber-300/25 blur-[110px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(rgba(18,16,58,0.09)_1px,transparent_1px)] bg-[size:22px_22px] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_75%)]" />
+      </div>
 
-        {/* Grille de 4 colonnes x 4 rangées sur ordinateur (2 colonnes sur tablette), remplie sans trou */}
-        <div className="mt-12 grid grid-flow-row-dense gap-4 sm:grid-cols-2 lg:auto-rows-fr lg:grid-cols-4">
-          <Tile tone="ink" icon={DuoQrCode} title="QR code de boutique" text="À coller sur votre comptoir ou vos sacs : un scan, et le client est sur votre vitrine." className="lg:row-span-2">
-            <div className="flex flex-1 flex-col items-center justify-center gap-4 py-2">
-              <div className="relative rounded-2xl bg-white p-3 shadow-[0_0_70px_-12px_rgba(138,124,241,0.7)]">
-                <QRCodeSVG value="https://samaboutik-nine.vercel.app/boutiques" size={128} fgColor={BRAND.ink} />
+      <div className="mx-auto max-w-7xl px-5 lg:px-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <Reveal>
+            <div className="max-w-2xl">
+              <p className="mb-3 text-sm font-bold uppercase tracking-[0.14em] text-brand-700">Tout est inclus</p>
+              <h2 id="inclus-titre" className="text-balance text-[2.1rem] font-extrabold leading-[1.05] tracking-tight text-ink sm:text-5xl lg:text-[3.6rem]">
+                Les outils d’une grande enseigne, <Em>dans votre poche</Em>.
+              </h2>
+            </div>
+          </Reveal>
+          <Reveal delay={0.1}>
+            <div className="flex flex-wrap gap-2 lg:max-w-sm lg:justify-end">
+              {['Rapide même en 3G', 'Rien à installer', 'Tout depuis votre téléphone'].map((t) => (
+                <span key={t} className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-sm font-bold text-ink ring-1 ring-black/[0.06]">
+                  <Check className="h-4 w-4 text-brand-600" strokeWidth={3} /> {t}
+                </span>
+              ))}
+            </div>
+          </Reveal>
+        </div>
+
+        <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-12">
+          {/* Statistiques */}
+          <BentoTile tone="night" big icon={DuoChart} kicker="Statistiques" title="Vos chiffres, clairs comme un tableau de bord de banque." className="sm:col-span-2 lg:col-span-7">
+            <StatsVisual />
+          </BentoTile>
+
+          {/* Paiements */}
+          <BentoTile big icon={DuoWallet} kicker="5 façons de payer" title="Le client choisit, vous encaissez." className="sm:col-span-2 lg:col-span-5">
+            <PaymentVisual />
+          </BentoTile>
+
+          {/* QR code */}
+          <BentoTile tone="gold" icon={DuoQrCode} kicker="QR code de boutique" title="Un scan, et le client est sur votre vitrine." text="À coller sur votre comptoir, vos sacs ou vos cartes de visite." className="lg:col-span-4">
+            <div className="flex items-end justify-between gap-3">
+              <div className="relative rotate-[-4deg] rounded-2xl bg-white p-3 shadow-[0_24px_50px_-18px_rgba(26,16,51,0.55)] transition-transform duration-500 group-hover:rotate-0">
+                <QRCodeSVG value="https://samaboutik-nine.vercel.app/boutiques" size={112} fgColor={BRAND.ink} />
                 <span className="qr-scan pointer-events-none absolute inset-x-2 top-3 h-0.5 rounded-full bg-brand-500 shadow-[0_0_14px_3px_rgba(106,88,232,0.65)]" aria-hidden="true" />
               </div>
-              <p className="text-xs font-semibold text-white/50">Scannez : l’annuaire s’ouvre</p>
+              <span className="mb-1 rounded-full bg-[#1a1033] px-3 py-1.5 text-xs font-bold text-[#f6c768]">Scannez-moi</span>
             </div>
-          </Tile>
+          </BentoTile>
 
-          <Tile icon={DuoChart} title="Statistiques" text="Chiffre d’affaires, commandes, panier moyen et taux de livraison, sur 7, 30 ou 90 jours." className="sm:col-span-2">
-            <div className="flex items-end gap-5">
-              <div className="shrink-0">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">30 derniers jours</p>
-                <p className="font-figures text-2xl font-bold text-ink tabular-nums">545 000 F</p>
-              </div>
-              <div className="flex h-20 flex-1 items-end gap-1" aria-hidden="true">
-                {STAT_BARS.map((h, i) => (
-                  <motion.span key={i} {...appear(i, { scaleY: 0 })} className={`flex-1 origin-bottom rounded-t-md transition-colors ${i === STAT_BARS.length - 1 ? 'bg-brand-600' : 'bg-brand-100 group-hover:bg-brand-200'}`} style={{ height: `${h}%` }} />
-                ))}
-              </div>
-            </div>
-          </Tile>
-
-          <Tile icon={DuoWallet} title="5 façons de payer" text="Vos clients choisissent : à la livraison, Wave, Orange Money, Free Money ou Wizall." className="lg:row-span-2">
-            <ul className="space-y-2">
-              {PAYMENT_CHOICES.map((m, i) => (
-                <motion.li key={m.id} {...appear(i, { opacity: 0, x: 14 })} className="flex items-center gap-3 rounded-2xl bg-[#f7f6f2] px-3 py-2.5 ring-1 ring-black/[0.04]">
-                  {m.id === 'ON_DELIVERY' ? (
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-brand-700 ring-1 ring-black/5"><DuoTruck className="h-5 w-5" /></span>
-                  ) : m.logo ? (
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white p-1 ring-1 ring-black/5"><img src={m.logo} alt="" loading="lazy" className="max-h-full max-w-full object-contain" /></span>
-                  ) : (
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-[10px] font-extrabold" style={{ background: m.tint, color: m.ink }} aria-hidden="true">{m.monogram}</span>
-                  )}
-                  <span className="min-w-0 flex-1 truncate text-sm font-bold text-ink">{m.label}</span>
-                  <Check className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
-                </motion.li>
-              ))}
-            </ul>
-          </Tile>
-
-          <Tile icon={DuoImages} title="Photos allégées" text="Vos photos sont compressées automatiquement : la vitrine s’ouvre vite, même en 3G.">
-            <p className="flex items-baseline gap-2 font-extrabold text-ink"><span className="text-sm text-slate-400 line-through">4,2 Mo</span><ArrowRight className="h-4 w-4 self-center text-brand-600" /><span className="font-figures text-2xl">180 Ko</span></p>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
-              <motion.div className="h-full w-[6%] rounded-full bg-gradient-to-r from-brand-500 to-amber-400" {...(reduce ? {} : { initial: { width: '100%' }, whileInView: { width: '6%' }, viewport: { once: true }, transition: { duration: 1.4, delay: 0.3, ease: EASE } })} />
-            </div>
-          </Tile>
-
-          <Tile icon={DuoUsers} title="Équipe de livreurs" text="Ajoutez vos livreurs : ils acceptent les courses et vous voyez le bilan de chacun.">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex -space-x-2">{['L', 'M', 'B', 'A'].map((l, i) => <span key={l} className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold text-white ring-2 ring-white ${['bg-brand-700', 'bg-amber-600', 'bg-sky-700', 'bg-ink'][i]}`}>{l}</span>)}</div>
-              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-100">4 courses aujourd’hui</span>
-            </div>
-          </Tile>
-
-          <Tile icon={DuoMap} title="Boutiques près de moi" text="Votre boutique apparaît sur la carte des commerçants de votre quartier." className="sm:col-span-2">
-            <div className="flex flex-col-reverse gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <Link to="/boutiques" className="inline-flex min-h-9 items-center gap-1.5 text-sm font-bold text-brand-700 hover:underline">Voir l’annuaire <ArrowUpRight className="h-4 w-4" /></Link>
-              <div className="relative h-24 w-full overflow-hidden rounded-2xl bg-[#eceaf6] ring-1 ring-black/5 sm:max-w-[18rem]" aria-hidden="true">
-                <svg className="absolute inset-0 h-full w-full" viewBox="0 0 256 96" preserveAspectRatio="none" fill="none" stroke="#ffffff" strokeWidth="7" strokeLinecap="round">
-                  <path d="M-10 72 C 60 58, 120 92, 270 38" /><path d="M72 -10 L 98 110" /><path d="M184 -10 C 172 40, 204 70, 192 110" />
-                </svg>
-                {MAP_PINS.map(([x, y, main]) => (
-                  <span key={`${x}-${y}`} className="absolute -translate-x-1/2 -translate-y-full" style={{ left: `${x}%`, top: `${y}%` }}>
-                    {main && <span className="absolute left-1/2 top-3/4 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-500/35 motion-safe:animate-ping" />}
-                    <DuoPin className={`relative h-6 w-6 drop-shadow-sm ${main ? 'text-brand-700' : 'text-slate-400'}`} />
-                  </span>
-                ))}
-                <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-ink shadow-sm">Chez Awa · 4,8 <DuoStar className="h-3 w-3 text-amber-400" /></span>
-              </div>
-            </div>
-          </Tile>
-
-          <Tile icon={DuoSeal} title="Avis vérifiés" text="Les avis de vos clients livrés portent le badge « achat vérifié ».">
-            <div className="rounded-2xl bg-[#f7f6f2] p-3 ring-1 ring-black/[0.04]">
-              <div className="flex items-center gap-0.5" role="img" aria-label="5 étoiles sur 5">{[1, 2, 3, 4, 5].map((s) => <DuoStar key={s} className="h-4 w-4 text-amber-400" />)}</div>
-              <p className="mt-1.5 text-xs font-medium text-slate-700">« Livré en 2 h, très bon accueil. »</p>
-              <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700"><DuoSeal className="h-3.5 w-3.5" /> Achat vérifié</span>
-            </div>
-          </Tile>
-
-          <Tile tone="indigo" icon={DuoMegaphone} title="Affiche pour WhatsApp" text="En un clic : photo, prix, lien et QR code de votre boutique, prêts pour votre statut." className="lg:row-span-2">
-            <div className="flex flex-1 flex-col items-center justify-end gap-3" aria-hidden="true">
-              <div className="w-full max-w-[11rem] -rotate-3 overflow-hidden rounded-2xl bg-night shadow-2xl ring-1 ring-white/10 transition-transform duration-500 group-hover:rotate-0">
+          {/* Affiche WhatsApp */}
+          <BentoTile tone="indigo" icon={DuoMegaphone} kicker="Affiche WhatsApp" title="Votre produit, prêt pour votre statut." text="Photo, prix, lien et QR code : en un clic." className="lg:col-span-4">
+            <div className="flex items-end justify-between gap-3" aria-hidden="true">
+              <div className="w-[9.5rem] -rotate-6 overflow-hidden rounded-2xl bg-[#0a0820] shadow-2xl ring-1 ring-white/10 transition-transform duration-500 group-hover:-rotate-2 group-hover:scale-[1.03]">
                 <div className="flex items-center gap-1.5 px-2.5 pt-2.5"><span className="flex h-4 w-4 items-center justify-center rounded-full bg-brand-500 text-[8px] font-bold">C</span><span className="text-[9px] font-bold">Chez Awa</span></div>
                 <div className="relative mx-2.5 mt-2 aspect-[4/5] overflow-hidden rounded-xl">
                   <img src="/images/landing/boutique-mode-640.webp" alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                   <span className="absolute bottom-1.5 right-1.5 rounded-full bg-brand-600 px-2 py-0.5 font-figures text-[10px] font-bold">18 500 F</span>
                 </div>
-                <p className="px-2.5 pt-2 text-[11px] font-bold">Robe wax Teranga</p>
-                <div className="m-2.5 flex items-center justify-between rounded-lg bg-white p-1.5 text-ink"><span className="text-[8px] font-bold leading-tight">Commandez<br />ici</span><QRCodeSVG value="https://samaboutik-nine.vercel.app/boutiques" size={30} fgColor={BRAND.ink} /></div>
+                <div className="m-2.5 flex items-center justify-between rounded-lg bg-white p-1.5 text-ink"><span className="text-[8px] font-bold leading-tight">Commandez<br />ici</span><QRCodeSVG value="https://samaboutik-nine.vercel.app/boutiques" size={26} fgColor={BRAND.ink} /></div>
               </div>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#25D366] px-3.5 py-1.5 text-xs font-bold text-white shadow-lg shadow-[#25D366]/25"><DuoWhatsApp className="h-4 w-4" /> Partager</span>
+              <span className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-[#25D366] px-3.5 py-1.5 text-xs font-bold text-white shadow-lg shadow-[#25D366]/30"><DuoWhatsApp className="h-4 w-4" /> Partager</span>
             </div>
-          </Tile>
+          </BentoTile>
 
-          <Tile icon={DuoLock} title="Données protégées" text="Les informations de vos clients restent privées, et chaque livraison est confirmée par un code." className="sm:col-span-2 lg:col-span-1">
-            <div className="flex gap-1.5" aria-hidden="true">
-              {['4', '8', '3', '0'].map((d, i) => <motion.span key={i} {...appear(i, { opacity: 0, y: 8 })} className="flex h-10 w-9 items-center justify-center rounded-xl bg-[#f7f6f2] font-figures text-lg font-bold text-ink ring-1 ring-black/5">{d}</motion.span>)}
-            </div>
-          </Tile>
-
-          <Tile icon={DuoPalette} title="6 thèmes de vitrine" text="Changez l’allure de votre vitrine en un geste, sans toucher à vos produits." className="sm:col-span-2">
-            <div className="flex flex-wrap gap-2">
-              {SHOP_THEMES.map((t) => (
-                <span key={t.id} className="inline-flex items-center gap-2 rounded-full bg-[#f7f6f2] py-1.5 pl-1.5 pr-3 text-xs font-bold text-ink ring-1 ring-black/5 transition-transform duration-200 hover:-translate-y-0.5">
-                  <span className="h-5 w-5 rounded-full ring-2 ring-white" style={{ background: t.accent }} /> {t.name}
+          {/* Annuaire */}
+          <BentoTile icon={DuoMap} kicker="Boutiques près de moi" title="Visible dans votre quartier." text="Votre boutique apparaît sur la carte des commerçants." className="sm:col-span-2 lg:col-span-4">
+            <div className="relative h-36 overflow-hidden rounded-[1.4rem] bg-[linear-gradient(135deg,#eceaf6,#f4f1e8)] ring-1 ring-black/5" aria-hidden="true">
+              <svg className="absolute inset-0 h-full w-full" viewBox="0 0 320 144" preserveAspectRatio="none" fill="none" stroke="#ffffff" strokeLinecap="round">
+                <path d="M-10 108 C 80 86, 150 132, 330 52" strokeWidth="9" />
+                <path d="M92 -10 L 122 160" strokeWidth="7" />
+                <path d="M228 -10 C 214 56, 252 100, 236 160" strokeWidth="7" />
+                <path d="M-10 34 C 60 44, 140 20, 330 30" strokeWidth="4" opacity="0.8" />
+              </svg>
+              {MAP_PINS.map(([x, y, main]) => (
+                <span key={`${x}-${y}`} className="absolute -translate-x-1/2 -translate-y-full" style={{ left: `${x}%`, top: `${y}%` }}>
+                  {main && <span className="absolute left-1/2 top-3/4 h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-500/35 motion-safe:animate-ping" />}
+                  <DuoPin className={`relative drop-shadow-sm ${main ? 'h-7 w-7 text-brand-700' : 'h-5 w-5 text-slate-400'}`} />
                 </span>
               ))}
+              <span className="absolute bottom-2.5 left-2.5 inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-ink shadow-sm">Chez Awa · 4,8 <DuoStar className="h-3 w-3 text-amber-400" /> · ouvert</span>
             </div>
-          </Tile>
+            <Link to="/boutiques" className="mt-3 inline-flex min-h-9 items-center gap-1.5 self-start text-sm font-bold text-brand-700 hover:underline">Voir l’annuaire <ArrowUpRight className="h-4 w-4" /></Link>
+          </BentoTile>
+
+          {/* Petites cartes */}
+          <BentoTile icon={DuoImages} kicker="Photos allégées" title="Une vitrine rapide, même en 3G." className="lg:col-span-3">
+            <p className="flex items-baseline gap-2 font-extrabold text-ink"><span className="text-sm text-slate-400 line-through">4,2 Mo</span><ArrowRight className="h-4 w-4 self-center text-brand-600" /><span className="font-figures text-2xl">180 Ko</span></p>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+              <motion.div className="h-full w-[6%] rounded-full bg-gradient-to-r from-brand-500 to-amber-400" {...(reduce ? {} : { initial: { width: '100%' }, whileInView: { width: '6%' }, viewport: { once: true }, transition: { duration: 1.4, delay: 0.3, ease: EASE } })} />
+            </div>
+          </BentoTile>
+
+          <BentoTile icon={DuoUsers} kicker="Équipe de livreurs" title="Le bilan de chacun, chaque jour." className="lg:col-span-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex -space-x-2">{['L', 'M', 'B', 'A'].map((l, i) => <motion.span key={l} {...appear(i, { opacity: 0, x: -10 })} className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold text-white ring-2 ring-white ${['bg-brand-700', 'bg-amber-600', 'bg-sky-700', 'bg-ink'][i]}`}>{l}</motion.span>)}</div>
+              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-100">4 courses</span>
+            </div>
+          </BentoTile>
+
+          <BentoTile icon={DuoSeal} kicker="Avis vérifiés" title="La confiance, badge à l’appui." className="lg:col-span-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-0.5" role="img" aria-label="5 étoiles sur 5">{[1, 2, 3, 4, 5].map((s) => <DuoStar key={s} className="h-4 w-4 text-amber-400" />)}</div>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700"><DuoSeal className="h-3.5 w-3.5" /> Achat vérifié</span>
+            </div>
+          </BentoTile>
+
+          <BentoTile tone="night" icon={DuoLock} kicker="Données protégées" title="Chaque livraison confirmée par un code." className="lg:col-span-3">
+            <div className="flex gap-1.5" aria-hidden="true">
+              {['4', '8', '2', '7'].map((d, i) => <motion.span key={i} {...appear(i, { opacity: 0, y: 8 })} className="flex h-10 w-9 items-center justify-center rounded-xl bg-white/[0.08] font-figures text-lg font-bold text-white ring-1 ring-white/15">{d}</motion.span>)}
+              <span className="ml-1 flex h-10 items-center justify-center rounded-xl bg-emerald-400/15 px-2.5 text-emerald-300 ring-1 ring-emerald-300/25"><Check className="h-4 w-4" strokeWidth={3} /></span>
+            </div>
+          </BentoTile>
         </div>
       </div>
     </section>
   );
 }
-
-/* ------------------------------------------------------------------ */
-/* Commerces                                                            */
-/* ------------------------------------------------------------------ */
 
 /* ------------------------------------------------------------------ */
 /* Expérience en Direct & Simulateur Interactif                       */
@@ -2125,8 +2338,7 @@ export default function Landing() {
         <ScrollProgress />
         <Navbar />
         <main>
-          <Hero themeId={themeId} setThemeId={setThemeId} />
-          <Ribbon />
+          <div className="bg-[#f7f6f2]"><Hero themeId={themeId} setThemeId={setThemeId} /></div>
           <Commerces />
           <Deferred id="produit" minHeight={1300}><ProductShowcase /></Deferred>
           <Deferred id="parcours" minHeight={1150}><HowItWorks /></Deferred>
