@@ -1,12 +1,14 @@
-// Suivi d'une commande : étapes, livreur en route (téléphone et position), code de livraison, montants.
-import { useCallback, useEffect, useState } from 'react';
+// Suivi d'une commande : alerte (livreur qui cherche à joindre le client, changement de livreur), étapes,
+// livreur en route (téléphone et position), code de livraison, historique, montants.
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { TRACK_STEPS, findOrder, sinceLabel, statusInfo, trackOrder } from '../../src/lib/myOrders';
+import { TRACK_STEPS, clockLabel, findOrder, sinceLabel, statusInfo, trackHistory, trackOrder } from '../../src/lib/myOrders';
 import { cachedMerchant, fetchShop, rememberShop } from '../../src/lib/shop';
-import { MOBILE_CHANNELS, depositAmount, isDeposit, whatsappNumber } from '../../src/lib/shared';
+import { MOBILE_CHANNELS, customerTimeline, depositAmount, isDeposit, trackingNotice, whatsappNumber } from '../../src/lib/shared';
+import { buzzWarning } from '../../src/lib/feedback';
 import { fmt } from '../../src/lib/format';
 import { COLORS, RADIUS, SHADOW, sheet } from '../../src/theme';
 
@@ -18,6 +20,24 @@ const TONES = {
   red: { bg: '#fdecea', fg: COLORS.danger },
 };
 
+// Icône et couleur de chaque étape de l'historique
+const STEP_STYLE = {
+  created: ['receipt-outline', 'brand'],
+  deposit_paid: ['card-outline', 'green'],
+  paid: ['card-outline', 'green'],
+  accepted: ['storefront-outline', 'brand'],
+  preparing_again: ['cube-outline', 'brand'],
+  driver_taken: ['bicycle-outline', 'brand'],
+  in_transit: ['bicycle-outline', 'brand'],
+  driver_calling: ['call-outline', 'red'],
+  driver_lost: ['location-outline', 'gold'],
+  driver_changed: ['swap-horizontal-outline', 'gold'],
+  delivered: ['checkmark-done-outline', 'green'],
+  cancelled: ['close-circle-outline', 'red'],
+  disputed: ['alert-circle-outline', 'gold'],
+};
+const NOTICE_ICON = { driver_calling: 'call', driver_lost: 'navigate', driver_changed: 'swap-horizontal' };
+
 export default function TrackScreen() {
   const { id } = useLocalSearchParams();
   const orderId = String(id || '');
@@ -26,6 +46,7 @@ export default function TrackScreen() {
   const entry = findOrder(orderId);
 
   const [order, setOrder] = useState(null);
+  const [events, setEvents] = useState([]);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [merchant, setMerchant] = useState(() => (entry ? cachedMerchant(entry.shop) : null));
@@ -33,8 +54,9 @@ export default function TrackScreen() {
 
   const load = useCallback(async () => {
     if (!entry) return;
-    const result = await trackOrder(entry);
+    const [result, history] = await Promise.all([trackOrder(entry), trackHistory(entry)]);
     setNow(Date.now());
+    if (history) setEvents(history);
     if (result.ok) { setOrder(result.order); setError(''); } else setError(result.error);
   }, [entry?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -52,6 +74,15 @@ export default function TrackScreen() {
     if (merchant || !entry?.shop) return;
     fetchShop(entry.shop).then((data) => { if (data) { rememberShop(data.merchant, data.products); setMerchant(data.merchant); } }).catch(() => {});
   }, [merchant, entry?.shop]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Vibration quand une nouvelle alerte apparaît (le livreur cherche à joindre le client, changement de livreur).
+  const notice = order ? trackingNotice(order, events, now) : null;
+  const noticeKey = notice ? `${notice.kind}-${notice.at}` : '';
+  const lastNotice = useRef('');
+  useEffect(() => {
+    if (noticeKey && lastNotice.current !== noticeKey) buzzWarning();
+    lastNotice.current = noticeKey;
+  }, [noticeKey]);
 
   const refresh = useCallback(async () => { setRefreshing(true); await load(); setRefreshing(false); }, [load]);
   const goBack = useCallback(() => (router.canGoBack() ? router.back() : router.replace('/commandes')), [router]);
@@ -111,6 +142,9 @@ export default function TrackScreen() {
   const position = order.driver_position;
   const shopPhone = whatsappNumber(merchant?.phone_number);
   const driverPhone = order.driver_phone ? whatsappNumber(order.driver_phone) : '';
+  const timeline = customerTimeline(events).reverse(); // le plus récent en haut
+  const noticeTone = notice ? TONES[notice.tone] : null;
+  const callNumber = driverPhone || shopPhone;
 
   return (
     <View style={styles.screen}>
@@ -119,6 +153,26 @@ export default function TrackScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 30 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[COLORS.brand]} tintColor={COLORS.brand} />}
       >
+        {/* Alerte : le livreur cherche à joindre le client, ne trouve pas l'adresse, ou a changé */}
+        {notice ? (
+          <View style={[styles.notice, { backgroundColor: noticeTone.bg, borderColor: noticeTone.fg }]} accessibilityRole="alert">
+            <View style={styles.noticeHead}>
+              <View style={[styles.noticeIcon, { backgroundColor: noticeTone.fg }]}><Ionicons name={NOTICE_ICON[notice.kind] || 'alert'} size={20} color="#fff" /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.noticeTitle, { color: noticeTone.fg }]}>{notice.title}</Text>
+                <Text style={styles.noticeText}>{notice.text}</Text>
+                {notice.at ? <Text style={styles.noticeTime}>{sinceLabel(notice.at, now)}</Text> : null}
+              </View>
+            </View>
+            {notice.call && callNumber ? (
+              <Pressable onPress={() => Linking.openURL(`tel:+${callNumber}`)} style={[styles.noticeButton, { backgroundColor: noticeTone.fg }]}>
+                <Ionicons name="call" size={18} color="#fff" />
+                <Text style={styles.noticeButtonText}>{driverPhone ? `Appeler ${order.driver_name || 'le livreur'}` : 'Appeler la boutique'}</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
+
         {/* Statut */}
         <View style={styles.card}>
           <View style={styles.statusRow}>
@@ -180,6 +234,32 @@ export default function TrackScreen() {
             <Text style={styles.pinLabel}>CODE SECRET DE LIVRAISON</Text>
             <Text style={styles.pin}>{order.delivery_pin}</Text>
             <Text style={styles.pinHelp}>Donnez ce code au livreur seulement quand vous avez reçu votre colis.</Text>
+          </View>
+        ) : null}
+
+        {/* Historique */}
+        {timeline.length ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Historique</Text>
+            {timeline.map((s, i) => {
+              const [icon, toneName] = STEP_STYLE[s.kind] || ['ellipse-outline', 'brand'];
+              const stepTone = TONES[toneName];
+              const last = i === timeline.length - 1;
+              return (
+                <View key={s.key} style={styles.event}>
+                  <View style={styles.eventRail}>
+                    <View style={[styles.eventDot, { backgroundColor: i === 0 ? stepTone.fg : stepTone.bg }]}>
+                      <Ionicons name={icon} size={14} color={i === 0 ? '#fff' : stepTone.fg} />
+                    </View>
+                    {!last ? <View style={styles.eventLine} /> : null}
+                  </View>
+                  <View style={[styles.eventBody, !last && { paddingBottom: 14 }]}>
+                    <Text style={[styles.eventLabel, i === 0 && { fontWeight: '900' }]}>{s.label}</Text>
+                    {s.at ? <Text style={styles.eventTime}>{clockLabel(s.at, now)}</Text> : null}
+                  </View>
+                </View>
+              );
+            })}
           </View>
         ) : null}
 
@@ -267,4 +347,19 @@ const styles = sheet({
   secondaryText: { color: COLORS.ink, fontWeight: '800', fontSize: 15 },
   whatsapp: { height: 50, borderRadius: RADIUS.md, backgroundColor: '#25D366', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   whatsappText: { color: '#fff', fontWeight: '900', fontSize: 15 },
+  notice: { borderRadius: RADIUS.lg, borderWidth: 1.5, padding: 14, marginBottom: 12 },
+  noticeHead: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  noticeIcon: { width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  noticeTitle: { fontSize: 16, fontWeight: '900' },
+  noticeText: { color: COLORS.ink, fontSize: 13.5, lineHeight: 19, marginTop: 2 },
+  noticeTime: { color: COLORS.muted, fontSize: 11.5, fontWeight: '700', marginTop: 4 },
+  noticeButton: { height: 48, borderRadius: RADIUS.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12 },
+  noticeButtonText: { color: '#fff', fontWeight: '900', fontSize: 15 },
+  event: { flexDirection: 'row', gap: 12 },
+  eventRail: { alignItems: 'center', width: 28 },
+  eventDot: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  eventLine: { flex: 1, width: 2, backgroundColor: COLORS.line, marginVertical: 3 },
+  eventBody: { flex: 1, paddingTop: 4 },
+  eventLabel: { color: COLORS.ink, fontSize: 14, fontWeight: '700' },
+  eventTime: { color: COLORS.faint, fontSize: 12, fontWeight: '600', marginTop: 1 },
 });

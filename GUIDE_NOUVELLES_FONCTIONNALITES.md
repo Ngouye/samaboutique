@@ -288,3 +288,32 @@ Tant que le script n'est pas exécuté, le paiement à la livraison fonctionne c
 - `src/pages/PublicShop.jsx`, `src/pages/MerchantDashboard.jsx`, `src/pages/DriverDashboard.jsx`, `src/components/driver/DriverViews.jsx` ;
 - `src/utils/payments.js`, `src/utils/delivery.js` ;
 - tests : `tests/db/acompte.test.js`, `tests/server/payments.test.js`, `tests/server/notifications.test.js`, `tests/unit/payments.test.js`, `tests/unit/delivery.test.js`.
+
+## 11. Commandes, livreurs et boutique : suivi et communication
+
+**Ce qui change** :
+- **Historique de chaque commande** : dans le détail d'une commande, la boutique voit qui a fait quoi et à quelle heure (commande passée, acompte ou paiement reçu, acceptée, prise par tel livreur, problème signalé, course rendue, livrée, annulée).
+- **Livreur** : deux boutons sous « Glissez pour valider » :
+  - « Signaler un problème » (client injoignable, adresse introuvable, client absent, colis abîmé, avec une précision facultative) : la boutique est prévenue tout de suite, le livreur garde la course ;
+  - « Rendre la course » (avec la raison) : la course redevient disponible pour les autres livreurs, le client garde son code.
+- **Livreur** : un bandeau « Connexion perdue » s'affiche quand les courses ne se mettent plus à jour, et disparaît dès que la connexion revient.
+- **Boutique** : une alerte (avec son) quand un livreur prend une course, la livre, la rend ou signale un problème. Dans une commande en livraison, les boutons « Appeler le livreur » et « WhatsApp ».
+- **Boutique** : une confirmation est demandée avant d'annuler une commande (avec un rappel de rembourser si le client a payé en ligne), de la marquer livrée sans le code du client, de la retirer à un livreur en route, ou de la passer « En livraison » sans livreur.
+- **Boutique** : la liste des commandes se met à jour en temps réel, et en plus toutes les 30 secondes au cas où le temps réel ne passe pas.
+- Quand la boutique remet une commande « En attente » ou « En préparation », le nom de l'ancien livreur est effacé.
+- **Client (application mobile, écran « Suivi de commande »)** :
+  - un bandeau rouge « Votre livreur essaie de vous joindre », avec le bouton « Appeler » le livreur, quand celui-ci signale « Client injoignable » ou « Client absent » ; un bandeau « Votre livreur cherche votre adresse » pour « Adresse introuvable » ;
+  - un bandeau « Changement de livreur » quand la course est rendue ou reprise par la boutique (le code secret reste le même) ;
+  - l'historique de la commande (passée, payée, acceptée, prise par tel livreur, livrée…). Le client ne voit jamais les messages des livreurs ni les raisons des courses rendues.
+
+**Mise en ligne, dans cet ordre** :
+1. mettre en ligne le nouveau site (Vercel) ;
+2. exécuter `livraisons_suivi.sql` dans l'éditeur SQL de Supabase (le script peut être relancé sans risque ; il active aussi le temps réel sur les commandes).
+
+Tant que le script n'est pas exécuté, le site et l'application fonctionnent comme avant : l'historique et les bandeaux ne s'affichent pas, et les deux nouveaux boutons du livreur répondent « Fonction pas encore disponible : appelez la boutique ».
+
+**Fichiers** :
+- `livraisons_suivi.sql` ;
+- `src/pages/MerchantDashboard.jsx`, `src/pages/DriverDashboard.jsx`, `src/components/driver/DriverViews.jsx`, `src/components/dashboard/OrderTimeline.jsx` ;
+- `src/utils/orderHistory.js` (partagé avec l'application), `mobile/app/suivi/[id].js`, `mobile/src/lib/myOrders.js`, `mobile/src/lib/shared.js` ;
+- tests : `tests/db/livraisons.test.js`, `tests/unit/orderHistory.test.js`.

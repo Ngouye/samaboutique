@@ -39,6 +39,32 @@ export async function trackOrder(entry) {
   return data?.ok ? { ok: true, order: data.order } : { ok: false, error: data?.error || 'Commande introuvable.' };
 }
 
+// Historique simplifié de la commande (livraisons_suivi.sql) : liste d'étapes { kind, at, name },
+// ou null si indisponible (script pas encore installé, pas de réseau) : l'écran garde alors l'historique déjà affiché.
+export async function trackHistory(entry) {
+  if (configError) return null;
+  try {
+    const { data, error } = await supabase.rpc('track_order_history', { p_phone: entry.phone, p_pin: entry.pin });
+    if (error || !data?.ok || String(data.order_id) !== String(entry.id)) return null;
+    return Array.isArray(data.events) ? data.events : [];
+  } catch {
+    return null;
+  }
+}
+
+// « 10 h 02 », « hier · 18 h 30 », « 25/11 · 09 h 15 »
+export function clockLabel(iso, now = Date.now()) {
+  const d = new Date(iso || '');
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  const time = `${pad(d.getHours())} h ${pad(d.getMinutes())}`;
+  const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(new Date(now)) - day(d)) / 86400000);
+  if (diff === 0) return time;
+  if (diff === 1) return `hier · ${time}`;
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} · ${time}`;
+}
+
 // Libellés des étapes (mêmes étapes que le suivi du site).
 export const TRACK_STEPS = [
   { id: 'PENDING', label: 'Reçue', icon: 'clipboard-outline' },

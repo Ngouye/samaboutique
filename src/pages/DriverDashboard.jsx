@@ -4,7 +4,7 @@ import { supabase } from '../supabaseClient';
 import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 import {
   Phone, Navigation, BellRing, BellOff, ShieldCheck, X, ArrowRight, CircleCheck, User, Moped, Wallet, Store,
-  RotateCw, Check, IdCard, LoaderCircle, Banknote, CreditCard,
+  RotateCw, Check, IdCard, LoaderCircle, Banknote, CreditCard, TriangleAlert, WifiOff,
 } from '../components/dashboard/icons';
 import confetti from 'canvas-confetti';
 import { playSuccess, playPop } from '../utils/audio';
@@ -19,6 +19,12 @@ import { fmt, daySummary, isPrepaid, cashToCollect, orderRef } from '../utils/de
 import { TodayStrip, ActiveDelivery, AvailableCourses, EarningsView, ProfileView } from '../components/driver/DriverViews';
 
 const EMPTY_PIN = { isOpen: false, orderId: null, pinValue: '', error: '', isLoading: false, success: false, shake: 0 };
+
+// Signalement à la boutique (livraisons_suivi.sql) : raisons proposées, texte libre en plus.
+const ISSUE_REASONS = {
+  report: ['Client injoignable', 'Adresse introuvable', 'Client absent', 'Colis abîmé ou incomplet'],
+  release: ['Panne ou accident', 'Client injoignable', 'Adresse trop éloignée', 'Autre empêchement'],
+};
 
 // Fond papier de la plateforme, avec un voile indigo très léger en haut.
 function Aurora() {
@@ -41,6 +47,8 @@ export default function DriverDashboard() {
   const [lastSync, setLastSync] = useState(null);
   const [now, setNow] = useState(() => Date.now());
   const [alert, setAlert] = useState(null); // bandeau « nouvelle course »
+  const [issue, setIssue] = useState(null); // { mode: 'report' | 'release', orderId, reason, details, loading, error }
+  const [connectionLost, setConnectionLost] = useState(false);
   const audioContextRef = useRef(null);
   const pinInputRef = useRef(null);
   // Session du livreur : jeton délivré par le serveur (valable 12 h). La CNI n'est jamais conservée.
@@ -195,11 +203,13 @@ export default function DriverDashboard() {
     const decodedName = decodeURIComponent(shopName);
 
     try {
-      const { data: mData } = await supabase
+      const { data: mData, error: mError } = await supabase
         .from('merchants')
         .select('id, shop_name, phone_number')
         .ilike('shop_name', decodedName)
         .single();
+      // Boutique introuvable (PGRST116) ≠ réseau coupé : seul le second affiche le bandeau.
+      if (mError && mError.code !== 'PGRST116') throw mError;
 
       if (mData) {
         setMerchant(mData);
@@ -234,11 +244,13 @@ export default function DriverDashboard() {
 
         setOrders(ordersData || []);
         setLastSync(new Date().toISOString());
+        setConnectionLost(false);
         setLoading(false);
         return mData;
       }
     } catch (err) {
       console.error("Erreur lors de la récupération des commandes:", err);
+      setConnectionLost(true);
     }
     setLoading(false);
     return null;
@@ -267,6 +279,29 @@ export default function DriverDashboard() {
     } finally {
       setAssigningId(null);
     }
+  };
+
+  const openIssue = (mode, orderId) => setIssue({ mode, orderId, reason: ISSUE_REASONS[mode][0], details: '', loading: false, error: '' });
+  const submitIssue = async () => {
+    if (!issue || issue.loading) return;
+    const text = [issue.reason, issue.details.trim()].filter(Boolean).join(' · ');
+    setIssue((prev) => ({ ...prev, loading: true, error: '' }));
+    const { error } = issue.mode === 'report'
+      ? await supabase.rpc('report_delivery_issue', { p_token: tokenRef.current, p_order_id: issue.orderId, p_message: text })
+      : await supabase.rpc('release_order', { p_token: tokenRef.current, p_order_id: issue.orderId, p_reason: text });
+    if (error) {
+      if (isSessionError(error)) { setIssue(null); expireSession(); return; }
+      const missing = error.code === 'PGRST202' || /Could not find the function/i.test(error.message || '');
+      setIssue((prev) => ({ ...prev, loading: false, error: missing ? 'Fonction pas encore disponible : appelez la boutique.' : friendlyError(error, 'Envoi impossible. Réessayez ou appelez la boutique.') }));
+      return;
+    }
+    const released = issue.mode === 'release';
+    // La course rendue repasse dans « disponibles » : pas d'alerte « nouvelle course » pour celui qui vient de la rendre.
+    if (released) knownOrderIdsRef.current = new Set([...(knownOrderIdsRef.current || []), issue.orderId]);
+    setIssue(null);
+    playPop();
+    setAlert({ id: `issue-${Date.now()}`, text: released ? 'Course rendue : elle est de nouveau disponible pour les livreurs.' : 'Problème signalé : la boutique est prévenue.' });
+    if (released) fetchDriverOrders();
   };
 
   const openPinModal = (orderId) => {
@@ -425,6 +460,62 @@ export default function DriverDashboard() {
         </div>
       </header>
 
+      {connectionLost && (
+        <div className="sticky top-[3.6rem] z-40 mx-3 mt-2 flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 ring-1 ring-amber-200" role="status">
+          <WifiOff className="h-4 w-4 shrink-0" /> Connexion perdue : les courses ne sont plus à jour. Nouvel essai automatique toutes les 15 s.
+        </div>
+      )}
+
+      <AnimatePresence>
+        {issue && (
+          <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center sm:p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-ink/40 backdrop-blur-sm" onClick={() => !issue.loading && setIssue(null)} />
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="issue-title"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', stiffness: 300, damping: 32 }}
+              className="relative w-full max-w-sm rounded-t-[1.75rem] border border-[#e8e5dc] bg-white p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-ink sm:rounded-[1.75rem]"
+            >
+              <button onClick={() => !issue.loading && setIssue(null)} className="absolute right-4 top-4 rounded-full bg-stone-100 p-2 text-stone-600 hover:bg-stone-200" aria-label="Fermer"><X className="h-4 w-4" /></button>
+              <span className={`mb-3 flex h-12 w-12 items-center justify-center rounded-2xl ${issue.mode === 'report' ? 'bg-amber-50 text-amber-700' : 'bg-stone-100 text-stone-700'}`}>
+                {issue.mode === 'report' ? <TriangleAlert className="h-6 w-6" /> : <RotateCw className="h-6 w-6" />}
+              </span>
+              <h3 id="issue-title" className="font-ledger text-xl">{issue.mode === 'report' ? 'Signaler un problème' : 'Rendre la course'}</h3>
+              <p className="mt-1 text-sm text-stone-500">
+                {issue.mode === 'report'
+                  ? 'La boutique reçoit votre message tout de suite. Vous gardez la course.'
+                  : 'La course redevient disponible pour les autres livreurs. Le client garde son code.'}
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {ISSUE_REASONS[issue.mode].map((r) => (
+                  <button key={r} type="button" onClick={() => setIssue((prev) => ({ ...prev, reason: r }))}
+                    className={`rounded-full px-3 py-1.5 text-[13px] font-semibold ring-1 ${issue.reason === r ? 'bg-ink text-white ring-ink' : 'bg-white text-stone-700 ring-[#e8e5dc] hover:bg-stone-50'}`}>
+                    {r}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                value={issue.details}
+                onChange={(e) => setIssue((prev) => ({ ...prev, details: e.target.value.slice(0, 200) }))}
+                placeholder="Précisez si besoin (facultatif)"
+                rows={2}
+                className="mt-3 w-full resize-none rounded-xl border border-[#e8e5dc] bg-stone-50 px-3 py-2 text-base outline-none focus:border-brand-600 sm:text-sm"
+              />
+              {issue.error && <p className="mt-2 text-sm font-semibold text-red-700">{issue.error}</p>}
+              <button type="button" onClick={submitIssue} disabled={issue.loading}
+                className={`mt-4 flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 font-bold text-white disabled:opacity-60 ${issue.mode === 'report' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-ink hover:bg-brand-800'}`}>
+                {issue.loading ? <LoaderCircle className="h-5 w-5 animate-spin" /> : null}
+                {issue.mode === 'report' ? 'Prévenir la boutique' : 'Rendre la course'}
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Nouvelle course */}
       <AnimatePresence>
         {alert && (
@@ -459,6 +550,8 @@ export default function DriverDashboard() {
                   onPosition={handlePosition}
                   onSessionExpired={expireSession}
                   onValidate={() => openPinModal(activeOrder.id)}
+                  onReport={() => openIssue('report', activeOrder.id)}
+                  onRelease={() => openIssue('release', activeOrder.id)}
                 />
               )}
               <AvailableCourses

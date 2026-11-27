@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   MapPin, Navigation, Package, ShieldCheck, ArrowRight, CircleCheck, Phone, Moped, HandCoins, Banknote, RotateCw,
   Check, Clock, LoaderCircle, LocateFixed, CreditCard, LogOut, BellRing, BellOff, Info, Store, Receipt, Wallet,
-  WhatsApp, ChevronRight,
+  WhatsApp, ChevronRight, TriangleAlert,
 } from '../dashboard/icons';
 import { CARD } from '../dashboard/ui';
 import LiveLocationShare from './LiveLocationShare';
@@ -139,7 +139,7 @@ function PaymentPanel({ order }) {
 
 const ACTION = 'flex flex-col items-center gap-1 rounded-xl border py-3 text-[13px] font-semibold transition-colors';
 
-export function ActiveDelivery({ order, token, now, courier, onPosition, onSessionExpired, onValidate }) {
+export function ActiveDelivery({ order, token, now, courier, onPosition, onSessionExpired, onValidate, onReport, onRelease }) {
   const { address, coords } = parseOrderAddress(order.customer_address);
   const items = order.cart_items || [];
   const directions = orderDirectionsUrl(order);
@@ -215,6 +215,20 @@ export function ActiveDelivery({ order, token, now, courier, onPosition, onSessi
 
           <SlideToConfirm label="Glissez pour valider la livraison" shortLabel="Glissez pour valider" ariaLabel="Glisser pour valider la livraison" onConfirm={onValidate} />
           <p className="text-center text-xs text-stone-500">Le client vous donne son code à 4 chiffres à la remise du colis.</p>
+          {(onReport || onRelease) && (
+            <div className="grid grid-cols-2 gap-2 border-t border-[#efece4] pt-3">
+              {onReport && (
+                <button type="button" onClick={onReport} className="flex items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[13px] font-semibold text-amber-900 hover:bg-amber-100">
+                  <TriangleAlert className="h-4 w-4" /> Signaler un problème
+                </button>
+              )}
+              {onRelease && (
+                <button type="button" onClick={onRelease} className="flex items-center justify-center gap-1.5 rounded-xl border border-[#e8e5dc] bg-white px-3 py-2.5 text-[13px] font-semibold text-stone-700 hover:bg-stone-50">
+                  <RotateCw className="h-4 w-4" /> Rendre la course
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </motion.section>

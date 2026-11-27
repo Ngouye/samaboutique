@@ -33,6 +33,8 @@ import { PLAN_FEATURES } from '../utils/plans';
 import { BRAND } from '../utils/brand';
 import { paymentLabel, isDeposit, depositAmount, awaitingPayment } from '../utils/payments';
 import { cashToCollect } from '../utils/delivery';
+import OrderTimeline from '../components/dashboard/OrderTimeline';
+import { whatsappNumber } from '../utils/phone';
 import AiProductAssistant, { AiTeaser } from '../components/dashboard/AiProductAssistant';
 import ProductPoster from '../components/dashboard/ProductPoster';
 import PublishDialog, { VisibilityPicker, VisibilityBadge } from '../components/dashboard/PublishDialog';
@@ -47,6 +49,9 @@ const pageVariants = {
   exit: { opacity: 0, y: -20, transition: { duration: 0.2 } }
 };
 
+
+// Horloge (hors du rendu) : moment des changements faits depuis ce tableau de bord.
+const timestamp = () => Date.now();
 
 export default function MerchantDashboard() {
   const { user, merchant, logout } = useAuth();
@@ -86,9 +91,11 @@ export default function MerchantDashboard() {
 
   // Toast Notification
   const [toastMessage, setToastMessage] = useState(null);
-  const showToast = (msg) => {
+  const toastTimer = useRef(null);
+  const showToast = (msg, ms = 3000) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToastMessage(null), ms);
   };
 
   const playNotificationSound = () => {
@@ -111,6 +118,10 @@ export default function MerchantDashboard() {
       console.log("Erreur audio", e);
     }
   };
+
+  const fetchDataRef = useRef(() => {});
+  const driverEventRef = useRef(() => {});
+  const [timelineKey, setTimelineKey] = useState(0);
 
   // Commandes arrivées pendant que la page est ouverte (mises en lumière quelques secondes)
   const knownOrderIds = useRef(null);
@@ -330,18 +341,50 @@ const DEFAULT_DELIVERY_ZONES = [
       // Le son et l'annonce « Nouvelle commande » viennent de l'arrivée de la commande dans la liste :
       // une commande payée en ligne n'y entre qu'une fois le paiement (ou l'acompte) confirmé.
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `merchant_id=eq.${user.id}` }, () => {
-        fetchData();
+        fetchDataRef.current({ quiet: true });
+      })
+      // Problème signalé par un livreur (livraisons_suivi.sql) : alerte immédiate.
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'order_events', filter: `merchant_id=eq.${user.id}` }, (payload) => {
+        driverEventRef.current(payload.new);
       })
       .subscribe();
 
+    // Au cas où le temps réel ne passe pas (réseau, option non activée) : vérification toutes les 30 secondes.
+    const ordersPoll = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchDataRef.current({ quiet: true });
+    }, 30000);
+
     return () => {
       if (paymentPoll) clearInterval(paymentPoll);
+      clearInterval(ordersPoll);
       supabase.removeChannel(ordersSubscription);
     };
   }, [user, navigate]);
 
-  const fetchData = async () => {
-    setLoading(true);
+  // Annonce les changements faits par les livreurs depuis le dernier chargement.
+  const knownStatuses = useRef(null);
+  const selfUpdates = useRef(new Map()); // commandes modifiées ici même (pas d'annonce en double)
+  const announceDriverChanges = (list) => {
+    const previous = knownStatuses.current;
+    knownStatuses.current = new Map(list.map((o) => [o.id, { status: o.status, driver: o.driver_name }]));
+    if (!previous) return;
+    const messages = [];
+    list.forEach((o) => {
+      const before = previous.get(o.id);
+      if (!before || before.status === o.status) return;
+      if (timestamp() - (selfUpdates.current.get(o.id) || 0) < 15000) return;
+      if (o.status === 'IN_TRANSIT' && o.driver_name) messages.push(`🛵 ${o.driver_name} a pris la course de ${o.customer_name}`);
+      else if (o.status === 'DELIVERED') messages.push(`✅ Commande de ${o.customer_name} livrée${before.driver ? ` par ${before.driver}` : ''}`);
+      else if (before.status === 'IN_TRANSIT' && o.status === 'PREPARING') messages.push(`↩️ La course de ${o.customer_name} est de nouveau disponible pour vos livreurs`);
+    });
+    if (messages.length) {
+      playNotificationSound();
+      showToast(messages.length > 1 ? `${messages[0]} (+${messages.length - 1})` : messages[0], 6000);
+    }
+  };
+
+  const fetchData = async ({ quiet = false } = {}) => {
+    if (!quiet) setLoading(true);
     if (user) {
       // Les quatre lectures partent en même temps au lieu de s'attendre l'une l'autre.
       const [
@@ -363,7 +406,12 @@ const DEFAULT_DELIVERY_ZONES = [
         setDraftsSupported(!visibilityError);
       }
       // Commandes dont le paiement en ligne ou l'acompte n'est pas encore confirmé : pas encore à traiter.
-      if (ordData) setOrders(ordData.filter((o) => !awaitingPayment(o)));
+      if (ordData) {
+        const visible = ordData.filter((o) => !awaitingPayment(o));
+        announceDriverChanges(visible);
+        setOrders(visible);
+        setTimelineKey((k) => k + 1);
+      }
       if (teamData) setTeam(teamData);
       else if (teamError && teamError.code !== '42P01') console.error(teamError); // Ignore if table doesn't exist yet
       setShopLocation(locationData || null);
@@ -605,6 +653,24 @@ const DEFAULT_DELIVERY_ZONES = [
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
+    const order = orders.find((o) => o.id === orderId);
+    if (order && order.status !== newStatus) {
+      const paidOnline = order.payment_status === 'PAID' ? order.total_amount_fcfa : order.payment_status === 'DEPOSIT_PAID' ? depositAmount(order) : 0;
+      let question = null;
+      if (newStatus === 'CANCELLED') {
+        question = `Annuler la commande de ${order.customer_name} ?\n\nLe client sera prévenu et le stock sera rendu.`
+          + (paidOnline ? `\n\n⚠️ Le client a déjà payé ${fmt(paidOnline)} F en ligne : pensez à le rembourser.` : '');
+      } else if (newStatus === 'DELIVERED') {
+        const cash = cashToCollect(order);
+        question = `Marquer la commande de ${order.customer_name} comme livrée, sans le code secret du client ?\n\nConfirmez que le client a bien reçu son colis${cash ? ` et payé ${fmt(cash)} F` : ''}.`;
+      } else if (order.status === 'IN_TRANSIT' && order.driver_name && ['PENDING', 'PREPARING'].includes(newStatus)) {
+        question = `${order.driver_name} est en train de livrer cette commande.\n\nLa retirer à ce livreur et la remettre « ${statusMeta(newStatus).label} » ?`;
+      } else if (newStatus === 'IN_TRANSIT' && !order.driver_name) {
+        question = 'Passer cette commande « En livraison » sans livreur ?\n\nVous la livrerez vous-même, puis vous la marquerez « Livrée » ici. Vos livreurs ne la verront plus.';
+      }
+      if (question && !window.confirm(question)) return false;
+    }
+    selfUpdates.current.set(orderId, timestamp());
     const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
     if (error) {
       alert(friendlyError(error, "Le statut n'a pas pu être mis à jour. Réessayez."));
@@ -613,6 +679,18 @@ const DEFAULT_DELIVERY_ZONES = [
     fetchData();
     return true;
   };
+
+  // Les abonnements (temps réel, vérification régulière) appellent toujours la version à jour de ces fonctions.
+  useEffect(() => {
+    fetchDataRef.current = fetchData;
+    driverEventRef.current = (event) => {
+      if (event?.kind !== 'driver_issue') return;
+      const order = orders.find((o) => o.id === event.order_id);
+      playNotificationSound();
+      showToast(`⚠️ ${event.actor_name}${order ? ` (commande de ${order.customer_name})` : ''} : ${event.message}`, 9000);
+      setTimelineKey((k) => k + 1);
+    };
+  });
 
   // « Accepter la commande » : pluie de confettis depuis le bouton, puis message de confirmation.
   const acceptOrder = async (order, button) => {
@@ -1604,6 +1682,7 @@ Merci de votre confiance ! 🙏`;
                                 <p className="mt-2 text-xs text-stone-500">
                                   Passée le {new Date(order.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} à {new Date(order.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                                 </p>
+                                <OrderTimeline orderId={order.id} refreshKey={timelineKey} />
                               </div>
                             </motion.div>
                           )}
@@ -1646,9 +1725,25 @@ Merci de votre confiance ! 🙏`;
                           {order.payment_method === 'FULL_UPFRONT' && (
                             <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700"><CircleCheck className="h-3 w-3" /> Intégral payé</span>
                           )}
-                          {order.driver_name && order.status === 'IN_TRANSIT' && (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 px-2 py-0.5 text-xs font-semibold text-violet-700"><Bike className="h-3 w-3" /> {order.driver_name}</span>
-                          )}
+                          {order.driver_name && order.status === 'IN_TRANSIT' && (() => {
+                            const courier = team.find((d) => d.full_name === order.driver_name);
+                            const wa = whatsappNumber(courier?.phone_number);
+                            return (
+                              <>
+                                <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 px-2 py-0.5 text-xs font-semibold text-violet-700"><Bike className="h-3 w-3" /> {order.driver_name}</span>
+                                {courier?.phone_number && (
+                                  <a href={`tel:${courier.phone_number}`} className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-0.5 text-xs font-bold text-violet-700 ring-1 ring-violet-200 hover:bg-violet-50" aria-label={`Appeler ${order.driver_name}`}>
+                                    <Phone className="h-3 w-3" /> Appeler le livreur
+                                  </a>
+                                )}
+                                {wa && (
+                                  <a href={`https://wa.me/${wa}?text=${encodeURIComponent(`Bonjour ${order.driver_name}, au sujet de la commande de ${order.customer_name} (n° ${order.id.slice(0, 6).toUpperCase()}) :`)}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-0.5 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-50" aria-label={`Écrire à ${order.driver_name} sur WhatsApp`}>
+                                    <MessageCircle className="h-3 w-3" /> WhatsApp
+                                  </a>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
 
                         <div className="mt-auto pt-4">

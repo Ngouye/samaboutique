@@ -6,3 +6,4 @@ export { productOptions, needsChoice } from '../../../src/utils/productOptions';
 export {
   MOBILE_CHANNELS, isMobileChannel, DEPOSIT_PERCENT, depositFor, isDeposit, depositAmount, depositPaid,
 } from '../../../src/utils/payments';
+export { customerTimeline, trackingNotice } from '../../../src/utils/orderHistory';
