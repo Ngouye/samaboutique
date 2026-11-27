@@ -118,6 +118,24 @@ describe('Règles et droits', () => {
     expect((await t.query(`SELECT driver_name FROM public.orders WHERE id = $1`, [row.id]))[0].driver_name).toBeNull();
   });
 
+  it('une commande marquée « Livrée » par la boutique reçoit son heure de livraison (bilan du jour)', async () => {
+    await t.as('service_role');
+    const [row] = await t.query(
+      `INSERT INTO public.orders (merchant_id, customer_name, customer_phone, customer_address, delivery_zone, total_amount_fcfa, cart_items, payment_method, status)
+       VALUES ($1, 'Moussa', '760000002', 'Fann', $2, 5, $3::jsonb, 'MOBILE_MONEY', 'PENDING') RETURNING id`,
+      [IDS.MERCHANT, ZONE, cart()],
+    );
+    await t.as('service_role');
+    await t.query(`UPDATE public.orders SET payment_status = 'PAID', status = 'PREPARING' WHERE id = $1`, [row.id]);
+    await t.as('anon');
+    await t.value(`SELECT public.assign_order_to_driver($1, $2) AS v`, [lamine, row.id]);
+    await setStatus(row.id, 'DELIVERED');
+    await t.as('service_role');
+    const [order] = await t.query(`SELECT driver_name, delivered_at FROM public.orders WHERE id = $1`, [row.id]);
+    expect(order.driver_name).toBe('Lamine');
+    expect(order.delivered_at).not.toBeNull();
+  });
+
   it('seule la boutique lit son journal ; personne ne l’écrit directement', async () => {
     await t.as('authenticated', IDS.MERCHANT);
     expect((await t.query(`SELECT count(*)::INT AS n FROM public.order_events WHERE order_id = $1`, [orderId]))[0].n).toBeGreaterThan(5);

@@ -6,7 +6,8 @@
 --  1. Journal de chaque commande (passée, payée, acceptée, prise par un livreur, problème signalé, rendue,
 --     livrée, annulée), visible par la boutique et l'administration.
 --  2. Le livreur peut signaler un problème (client injoignable…) ou rendre une course.
---  3. Une course remise « à traiter » ou « en préparation » n'a plus de livreur.
+--  3. Une course remise « à traiter » ou « en préparation » n'a plus de livreur ; une commande marquée
+--     « Livrée » par la boutique reçoit son heure de livraison (bilans du jour).
 --  4. Mises à jour en direct (Supabase Realtime) des commandes et du journal.
 --  5. Le client voit l'historique simplifié de sa commande (application mobile) : jamais les messages
 --     internes des livreurs ni les raisons des courses rendues.
@@ -136,6 +137,11 @@ AS $$
 BEGIN
     IF NEW.status IS DISTINCT FROM OLD.status AND NEW.status::TEXT IN ('PENDING', 'PREPARING') THEN
         NEW.driver_name := NULL;
+    END IF;
+    -- Livrée par la boutique elle-même (sans le code du client) : l'heure de livraison est aussi enregistrée,
+    -- pour qu'elle compte dans le bilan du jour du livreur et de la boutique.
+    IF NEW.status IS DISTINCT FROM OLD.status AND NEW.status::TEXT = 'DELIVERED' AND NEW.delivered_at IS NULL THEN
+        NEW.delivered_at := now();
     END IF;
     RETURN NEW;
 END;

@@ -52,6 +52,9 @@ const pageVariants = {
 
 // Horloge (hors du rendu) : moment des changements faits depuis ce tableau de bord.
 const timestamp = () => Date.now();
+// Même livreur malgré les majuscules ou les espaces (« mamadou » = « Mamadou »).
+const nameKey = (name) => String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
+const sameDriver = (a, b) => Boolean(nameKey(a)) && nameKey(a) === nameKey(b);
 
 export default function MerchantDashboard() {
   const { user, merchant, logout } = useAuth();
@@ -802,7 +805,7 @@ Merci de votre confiance ! 🙏`;
     let count = 0;
 
     deliveredToday.forEach(order => {
-      if (order.driver_name === driver.full_name) {
+      if (sameDriver(order.driver_name, driver.full_name)) {
         count++;
         const cartTotal = order.cart_items?.reduce((acc, item) => acc + (item.price * item.quantity), 0) || 0;
         const deliveryFee = order.total_amount_fcfa - cartTotal;
@@ -934,12 +937,8 @@ Merci de votre confiance ! 🙏`;
   const deliveredOrders = orders.filter((o) => o.status === 'DELIVERED');
 
   const getDriverDayStats = (driver) => {
-    const todayStr = new Date().toDateString();
-    const driverDeliveries = orders.filter(o =>
-      o.driver_name === driver.full_name &&
-      o.status === 'DELIVERED' &&
-      new Date(o.created_at).toDateString() === todayStr
-    );
+    // Livrées aujourd'hui (date de livraison, pas de commande), comme sur la carte du livreur.
+    const driverDeliveries = deliveredToday.filter((o) => sameDriver(o.driver_name, driver.full_name));
 
     let dTotalEnbaisse = 0;
     let dPartLivreur = 0;
@@ -1726,7 +1725,7 @@ Merci de votre confiance ! 🙏`;
                             <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700"><CircleCheck className="h-3 w-3" /> Intégral payé</span>
                           )}
                           {order.driver_name && order.status === 'IN_TRANSIT' && (() => {
-                            const courier = team.find((d) => d.full_name === order.driver_name);
+                            const courier = team.find((d) => sameDriver(d.full_name, order.driver_name));
                             const wa = whatsappNumber(courier?.phone_number);
                             return (
                               <>
