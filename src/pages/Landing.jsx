@@ -14,6 +14,7 @@ import { BRAND } from '../utils/brand';
 import { useFinePointer } from '../utils/motion';
 import { Magnetic, SpotlightCard } from '../components/landing/Magic';
 import ScrollProgress from '../components/motion/ScrollProgress';
+import RollingNumber from '../components/motion/RollingNumber';
 import Logo from '../components/brand/Logo';
 import { PAYMENT_CHOICES } from '../utils/payments';
 import {
@@ -29,15 +30,6 @@ const photoSet = (name) => `/images/landing/${name}-640.webp 640w, /images/landi
 
 // Boutiques de démonstration affichées pour chaque thème (captures du vrai produit).
 const DEMO_SHOPS = { emeraude: 'Chez Awa', minuit: 'Maison Diouf', terracotta: 'Wax & Couture', ocean: 'Tech Plateau', rose: 'Belle Peau', epure: 'Studio Fall' };
-
-const PAYMENT_LOGOS = [
-  { name: 'Wave', src: '/logos/wave.png', className: 'h-8' },
-  { name: 'Orange Money', src: '/logos/orange-money.svg', className: 'h-6' },
-  { name: 'PayDunya', src: '/logos/paydunya.png', className: 'h-5' },
-  { name: 'WhatsApp', src: '/logos/whatsapp.svg', className: 'h-7' },
-  { name: 'Visa', src: '/logos/visa.svg', className: 'h-6' },
-  { name: 'Mastercard', src: '/logos/mastercard.svg', className: 'h-7' },
-];
 
 // Mêmes limites que le tableau de bord du marchand (onglet Facturation).
 const PLANS = [
@@ -131,7 +123,7 @@ function SectionTitle({ kicker, title, text, light = false, center = false }) {
   );
 }
 
-const Em = ({ children, light = false }) => <span className={light ? 'text-brand-300' : 'text-brand-600'}>{children}</span>;
+const Em = ({ children, light = false }) => <span className={`font-editorial ${light ? 'text-brand-300' : 'text-brand-600'}`}>{children}</span>;
 
 // Cadre de téléphone réaliste autour d'une capture du vrai produit.
 function PhoneFrame({ src, alt, className = '', eager = false, children }) {
@@ -166,7 +158,7 @@ function BrowserFrame({ children, url = 'samaboutik-nine.vercel.app/dashboard' }
 }
 
 /* ------------------------------------------------------------------ */
-/* Navigation                                                          */
+/* Navigation : îlot flottant en verre sombre                           */
 /* ------------------------------------------------------------------ */
 
 function Navbar() {
@@ -186,57 +178,60 @@ function Navbar() {
     { href: '#tarifs', label: 'Tarifs' },
     { href: '#faq', label: 'Questions' },
   ];
+  const solid = scrolled || open;
   return (
-    <header className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${scrolled || open ? 'border-b border-black/5 bg-white/85 backdrop-blur-xl' : ''}`}>
-      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 lg:px-8" aria-label="Navigation principale">
-        <div className="flex items-center gap-8">
-          <Link to="/" className="flex items-center" aria-label="SamaBoutik, accueil">
-            <Logo markClassName="h-8 w-8 sm:h-9 sm:w-9" textClassName="text-lg sm:text-xl" />
-          </Link>
-          <div className="hidden items-center gap-0.5 lg:flex">
-            {links.map((l) => <a key={l.href} href={l.href} onClick={(e) => goTo(e, l.href)} className="rounded-full px-3.5 py-2 text-[15px] font-semibold text-slate-600 transition-colors hover:text-ink">{l.label}</a>)}
-            <Link to="/boutiques" className="rounded-full px-3.5 py-2 text-[15px] font-semibold text-slate-600 transition-colors hover:text-ink">Boutiques près de moi</Link>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link to="/login" className="hidden rounded-full px-4 py-2.5 text-[15px] font-semibold text-slate-700 hover:text-ink sm:block">Se connecter</Link>
-          <AnimatePresence initial={false}>
-            {pastHero && !open && (
-              <motion.span key="cta-mobile" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ duration: 0.2 }} className="sm:hidden">
-                <Link to="/register" onClick={() => setOpen(false)} className="inline-flex whitespace-nowrap rounded-full bg-ink px-3.5 py-2 text-[13px] font-bold text-white transition-colors hover:bg-brand-800">
-                  Commencer
-                </Link>
-              </motion.span>
-            )}
-          </AnimatePresence>
-          <Link to="/register" className="hidden whitespace-nowrap rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-800 sm:inline-flex">
-            Créer ma boutique
-          </Link>
-          <button onClick={() => setOpen(!open)} className="rounded-full p-2.5 text-slate-700 hover:bg-black/5 lg:hidden" aria-label="Menu" aria-expanded={open}>
-            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
-        </div>
-      </nav>
-      <AnimatePresence>
-        {open && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden lg:hidden">
-            <div className="flex flex-col gap-1 px-5 pb-5">
-              {links.map((l) => <a key={l.href} href={l.href} onClick={(e) => { setOpen(false); goTo(e, l.href); }} className="rounded-xl px-4 py-3 font-semibold text-slate-700 hover:bg-black/5">{l.label}</a>)}
-              <Link to="/boutiques" className="rounded-xl px-4 py-3 font-semibold text-slate-700 hover:bg-black/5">Boutiques près de moi</Link>
-              <div className="mt-3 grid grid-cols-2 gap-2 border-t border-black/5 pt-4">
-                <Link to="/login" onClick={() => setOpen(false)} className="inline-flex items-center justify-center rounded-full border border-black/10 bg-white px-4 py-3 text-sm font-bold text-slate-700 hover:border-black/20">Se connecter</Link>
-                <Link to="/register" onClick={() => setOpen(false)} className="inline-flex items-center justify-center rounded-full bg-ink px-4 py-3 text-sm font-bold text-white hover:bg-brand-800">Créer ma boutique</Link>
-              </div>
+    <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-5 sm:pt-4">
+      <div className={`mx-auto max-w-6xl rounded-[1.6rem] transition-[background-color,box-shadow] duration-500 ${solid ? 'bg-[#0c0a26]/80 shadow-[0_24px_60px_-28px_rgba(8,6,30,0.9)] ring-1 ring-white/10 backdrop-blur-xl' : 'bg-white/[0.04] ring-1 ring-white/[0.09] backdrop-blur-md'}`}>
+        <nav className="flex h-14 items-center justify-between pl-4 pr-2 sm:h-[60px] sm:pl-5" aria-label="Navigation principale">
+          <div className="flex items-center gap-5">
+            <Link to="/" className="flex items-center" aria-label="SamaBoutik, accueil">
+              <Logo variant="dark" markClassName="h-8 w-8 sm:h-9 sm:w-9" textClassName="text-lg sm:text-xl" />
+            </Link>
+            <div className="hidden items-center xl:flex">
+              {links.map((l) => <a key={l.href} href={l.href} onClick={(e) => goTo(e, l.href)} className="whitespace-nowrap rounded-full px-3 py-2 text-[14.5px] font-semibold text-white/65 transition-colors hover:text-white">{l.label}</a>)}
+              <Link to="/boutiques" className="whitespace-nowrap rounded-full px-3 py-2 text-[14.5px] font-semibold text-white/65 transition-colors hover:text-white">Boutiques près de moi</Link>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Link to="/login" className="hidden whitespace-nowrap rounded-full px-4 py-2.5 text-[14.5px] font-semibold text-white/80 transition-colors hover:text-white sm:block">Se connecter</Link>
+            <AnimatePresence initial={false}>
+              {pastHero && !open && (
+                <motion.span key="cta-mobile" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ duration: 0.2 }} className="sm:hidden">
+                  <Link to="/register" onClick={() => setOpen(false)} className="btn-gold inline-flex whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-extrabold">
+                    Commencer
+                  </Link>
+                </motion.span>
+              )}
+            </AnimatePresence>
+            <Link to="/register" className="btn-gold hidden items-center gap-1.5 whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-extrabold sm:inline-flex">
+              Créer ma boutique <ArrowRight className="h-4 w-4" />
+            </Link>
+            <button onClick={() => setOpen(!open)} className="rounded-full p-2.5 text-white/80 transition-colors hover:bg-white/10 hover:text-white xl:hidden" aria-label="Menu" aria-expanded={open}>
+              {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
+        </nav>
+        <AnimatePresence>
+          {open && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden xl:hidden">
+              <div className="flex flex-col gap-1 px-3 pb-4">
+                {links.map((l) => <a key={l.href} href={l.href} onClick={(e) => { setOpen(false); goTo(e, l.href); }} className="rounded-xl px-4 py-3 font-semibold text-white/80 hover:bg-white/10 hover:text-white">{l.label}</a>)}
+                <Link to="/boutiques" className="rounded-xl px-4 py-3 font-semibold text-white/80 hover:bg-white/10 hover:text-white">Boutiques près de moi</Link>
+                <div className="mt-3 grid grid-cols-2 gap-2 border-t border-white/10 pt-4">
+                  <Link to="/login" onClick={() => setOpen(false)} className="inline-flex items-center justify-center rounded-full bg-white/5 px-4 py-3 text-sm font-bold text-white ring-1 ring-white/15 hover:bg-white/10">Se connecter</Link>
+                  <Link to="/register" onClick={() => setOpen(false)} className="btn-gold inline-flex items-center justify-center rounded-full px-4 py-3 text-sm font-extrabold">Créer ma boutique</Link>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </header>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Héros                                                                */
+/* Héros : scène « nuit de Dakar »                                      */
 /* ------------------------------------------------------------------ */
 
 const NOTIFICATIONS = [
@@ -246,25 +241,67 @@ const NOTIFICATIONS = [
   { icon: <ShieldCheck className="h-5 w-5 text-emerald-600" />, title: 'Commande livrée', text: 'Code client 4827 validé', time: 'il y a 9 min' },
 ];
 
-function LiveNotification() {
-  const ref = useRef(null);
+// Le titre se termine par un lieu qui change : « prête à vendre au Sénégal / à Dakar / sur WhatsApp… »
+const HERO_WORDS = ['au Sénégal.', 'à Dakar.', 'sur WhatsApp.', 'à Touba.', 'à Saint-Louis.'];
+const CASH_START = 186500;
+const CASH_STEP = 19500;
+
+// Étoile à quatre branches (étincelles du décor et du ruban)
+const Sparkle = ({ className = '', style }) => (
+  <svg viewBox="0 0 24 24" className={className} style={style} aria-hidden="true" focusable="false">
+    <path d="M12 0C12.9 6.3 17.7 11.1 24 12 17.7 12.9 12.9 17.7 12 24 11.1 17.7 6.3 12.9 0 12 6.3 11.1 11.1 6.3 12 0Z" fill="currentColor" />
+  </svg>
+);
+
+// Intervalle qui ne tourne que lorsque l'élément est à l'écran (et jamais si l'on préfère moins d'animations).
+function useTicker(ref, ms) {
   const inView = useInView(ref);
   const reduce = useReducedMotion();
-  const [index, setIndex] = useState(0);
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     if (!inView || reduce) return undefined;
-    const timer = setInterval(() => setIndex((i) => (i + 1) % NOTIFICATIONS.length), 3400);
+    const timer = setInterval(() => setTick((t) => t + 1), ms);
     return () => clearInterval(timer);
-  }, [inView, reduce]);
-  const n = NOTIFICATIONS[index];
+  }, [inView, reduce, ms]);
+  return tick;
+}
+
+function RotatingWords({ words }) {
+  const ref = useRef(null);
+  const index = useTicker(ref, 2600) % words.length;
+  const previous = (index - 1 + words.length) % words.length;
   return (
-    <div ref={ref} className="pointer-events-none absolute right-3 top-6 z-20 w-[248px] sm:-right-6 sm:top-10" aria-hidden="true">
-      <AnimatePresence mode="wait">
-        <motion.div key={index} initial={{ opacity: 0, y: -10, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.97 }} transition={{ duration: 0.4, ease: EASE }}
-          className="flex items-center gap-3 rounded-2xl bg-white/95 p-3 shadow-[0_20px_45px_-18px_color-mix(in_srgb,_var(--color-ink)_50%,_transparent)] ring-1 ring-black/5 backdrop-blur">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50">{n.icon}</span>
+    <span ref={ref} className="relative inline-grid overflow-hidden pb-[0.16em] align-bottom">
+      {words.map((w, i) => (
+        <motion.span
+          key={w}
+          className="text-sunrise col-start-1 row-start-1 whitespace-nowrap pr-[0.08em]"
+          initial={false}
+          animate={{
+            y: i === index ? '0%' : i === previous ? '-110%' : '110%',
+            opacity: i === index ? 1 : 0,
+            filter: i === index ? 'blur(0px)' : 'blur(8px)',
+          }}
+          transition={{ duration: 0.75, ease: EASE }}
+        >
+          {w}
+        </motion.span>
+      ))}
+    </span>
+  );
+}
+
+// Notifications qui se succèdent dans une carte flottante.
+function NotificationCycle() {
+  const ref = useRef(null);
+  const n = NOTIFICATIONS[useTicker(ref, 3400) % NOTIFICATIONS.length];
+  return (
+    <div ref={ref} className="w-[236px]">
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div key={n.title} initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} transition={{ duration: 0.35, ease: EASE }} className="flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50 ring-1 ring-black/5">{n.icon}</span>
           <span className="min-w-0 flex-1">
-            <span className="flex items-baseline justify-between gap-2"><span className="text-[13px] font-bold text-ink">{n.title}</span><span className="hidden shrink-0 text-[10px] text-slate-500 sm:inline">{n.time}</span></span>
+            <span className="flex items-baseline justify-between gap-2"><span className="text-[13px] font-bold text-ink">{n.title}</span><span className="shrink-0 text-[10px] text-slate-400">{n.time}</span></span>
             <span className="block truncate text-xs text-slate-500">{n.text}</span>
           </span>
         </motion.div>
@@ -273,110 +310,259 @@ function LiveNotification() {
   );
 }
 
-function ThemeDots({ themeId, onPick }) {
+// Caisse du jour qui grimpe à chaque vente
+function CashCard() {
+  const ref = useRef(null);
+  const sales = useTicker(ref, 3400);
   return (
-    <div className="flex items-center" role="radiogroup" aria-label="Thème de la vitrine">
-      {SHOP_THEMES.map((t) => (
-        // Zone de toucher de 40 px autour de la pastille de 28 px
-        <button key={t.id} type="button" role="radio" aria-checked={t.id === themeId} aria-label={`Thème ${t.name}`} title={t.name} onClick={() => onPick(t.id)}
-          className="group flex h-10 w-10 items-center justify-center rounded-full">
-          <span
-            className={`h-7 w-7 rounded-full ring-offset-2 transition-transform group-hover:scale-110 ${t.id === themeId ? 'ring-2 ring-ink' : 'ring-1 ring-black/10'}`}
-            style={{ background: `linear-gradient(135deg, ${t.accent} 50%, ${t.preview.panel} 50%)` }}
-          />
-        </button>
-      ))}
+    <div ref={ref} className="w-[196px]">
+      <p className="flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.12em] text-white/55">
+        Caisse du jour <span className="flex items-center gap-1 normal-case tracking-normal text-emerald-300"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> en direct</span>
+      </p>
+      <p className="mt-1.5 text-[1.65rem] font-extrabold leading-none tracking-tight">
+        <RollingNumber value={CASH_START + sales * CASH_STEP} /> <span className="text-sm font-bold text-white/45">F</span>
+      </p>
+      <div className="mt-3 flex h-10 items-end gap-[3px]" aria-hidden="true">
+        {STAT_BARS.slice(2).map((h, i) => (
+          <motion.span key={i} className="flex-1 origin-bottom rounded-t-[3px] bg-gradient-to-t from-brand-500 to-[#f6c768]" style={{ height: `${h}%` }} initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ duration: 0.6, ease: EASE, delay: 1.3 + i * 0.05 }} />
+        ))}
+      </div>
     </div>
   );
 }
 
+function CourierCard() {
+  const reduce = useReducedMotion();
+  return (
+    <div className="w-[214px]">
+      <div className="flex items-center gap-2.5">
+        <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-700">
+          <Bike className="h-[18px] w-[18px] text-white" />
+          <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-[#1d1a45]" />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-[13px] font-bold">Lamine arrive</span>
+          <span className="block text-[11px] text-white/55">Médina · dans 6 min</span>
+        </span>
+      </div>
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+        <motion.div
+          className="h-full rounded-full bg-gradient-to-r from-brand-400 via-[#f6c768] to-[#ef8f5b]"
+          initial={{ width: '22%' }}
+          animate={reduce ? { width: '64%' } : { width: ['22%', '88%'] }}
+          transition={reduce ? { duration: 0 } : { duration: 6.5, repeat: Infinity, ease: 'easeInOut', repeatDelay: 0.6 }}
+        />
+      </div>
+      <div className="mt-1.5 flex justify-between text-[10px] font-semibold text-white/40"><span>Boutique</span><span>Client</span></div>
+    </div>
+  );
+}
+
+// Carte qui apparaît, puis flotte doucement.
+function FloatCard({ children, className = '', style, delay = 0, dark = false, drift = 7 }) {
+  const reduce = useReducedMotion();
+  return (
+    <motion.div style={style} className={`absolute z-20 ${className}`}>
+      <motion.div initial={{ opacity: 0, scale: 0.86, y: 18, filter: 'blur(8px)' }} animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }} transition={{ duration: 0.8, ease: EASE, delay }}>
+        <motion.div
+          animate={reduce ? undefined : { y: [0, -drift, 0] }}
+          transition={{ duration: 5.5 + delay * 2, repeat: Infinity, ease: 'easeInOut', delay: delay + 0.8 }}
+          className={`rounded-2xl p-3 ${dark
+            ? 'bg-[#1b1844]/90 text-white shadow-[0_30px_60px_-25px_rgba(0,0,0,0.85)] ring-1 ring-white/15 backdrop-blur-xl'
+            : 'bg-white text-ink shadow-[0_30px_60px_-22px_rgba(5,3,25,0.8)] ring-1 ring-black/5'}`}
+        >
+          {children}
+        </motion.div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function useDepth(sx, sy, depth) {
+  const x = useTransform(sx, (v) => v * depth);
+  const y = useTransform(sy, (v) => v * depth * 0.75);
+  return { x, y };
+}
+
+function ThemeDots({ themeId, onPick, dark = false }) {
+  return (
+    <div className="flex items-center" role="radiogroup" aria-label="Thème de la vitrine">
+      {SHOP_THEMES.map((t) => {
+        const on = t.id === themeId;
+        const ring = on
+          ? (dark ? 'ring-2 ring-white ring-offset-2 ring-offset-[#17143d]' : 'ring-2 ring-ink ring-offset-2')
+          : (dark ? 'ring-1 ring-white/25' : 'ring-1 ring-black/10');
+        return (
+          // Zone de toucher de 40 px autour de la pastille de 28 px
+          <button key={t.id} type="button" role="radio" aria-checked={on} aria-label={`Thème ${t.name}`} title={t.name} onClick={() => onPick(t.id)}
+            className="group flex h-10 w-10 items-center justify-center rounded-full">
+            <span className={`h-7 w-7 rounded-full transition-transform group-hover:scale-110 ${ring}`} style={{ background: `linear-gradient(135deg, ${t.accent} 50%, ${t.preview.panel} 50%)` }} />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const rise3d = (delay) => ({
+  initial: { opacity: 0, y: 34, filter: 'blur(10px)' },
+  animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
+  transition: { duration: 0.9, ease: EASE, delay },
+});
+
 function Hero({ themeId, setThemeId }) {
   const theme = getShopTheme(themeId);
-  // Profondeur : chaque couche du visuel bouge un peu différemment selon la position de la souris.
+  // Profondeur : chaque couche de la scène bouge un peu différemment selon la position de la souris.
   const fine = useFinePointer();
   const mx = useMotionValue(0);
   const my = useMotionValue(0);
-  const sx = useSpring(mx, { stiffness: 80, damping: 20, mass: 0.6 });
-  const sy = useSpring(my, { stiffness: 80, damping: 20, mass: 0.6 });
-  const rotY = useTransform(sx, (v) => v * 8);
-  const rotX = useTransform(sy, (v) => v * -6);
-  const photoX = useTransform(sx, (v) => v * 16);
-  const photoY = useTransform(sy, (v) => v * 12);
-  const phoneX = useTransform(sx, (v) => v * -36);
-  const phoneY = useTransform(sy, (v) => v * -26);
-  const notifX = useTransform(sx, (v) => v * 48);
-  const notifY = useTransform(sy, (v) => v * 34);
+  const sx = useSpring(mx, { stiffness: 70, damping: 20, mass: 0.7 });
+  const sy = useSpring(my, { stiffness: 70, damping: 20, mass: 0.7 });
+  const tiltY = useTransform(sx, (v) => v * 9);
+  const tiltX = useTransform(sy, (v) => v * -7);
+  const far = useDepth(sx, sy, 16);
+  const mid = useDepth(sx, sy, -26);
+  const near = useDepth(sx, sy, 46);
+  const nearer = useDepth(sx, sy, -40);
   const onMove = (e) => {
     if (!fine) return;
     const r = e.currentTarget.getBoundingClientRect();
-    mx.set((e.clientX - r.left) / r.width - 0.5);
-    my.set((e.clientY - r.top) / r.height - 0.5);
+    const px = (e.clientX - r.left) / r.width;
+    const py = (e.clientY - r.top) / r.height;
+    mx.set(px - 0.5);
+    my.set(py - 0.5);
+    e.currentTarget.style.setProperty('--sx', `${(px * 100).toFixed(1)}%`);
+    e.currentTarget.style.setProperty('--sy', `${(py * 100).toFixed(1)}%`);
   };
   const onLeave = () => { mx.set(0); my.set(0); };
+  const depth = (layer) => (fine ? layer : undefined);
+
   return (
-    <section onMouseMove={onMove} onMouseLeave={onLeave} className="relative overflow-hidden pb-16 pt-28 lg:pb-24 lg:pt-36">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(55%_50%_at_85%_10%,color-mix(in_srgb,_var(--color-brand-500)_12%,_transparent),transparent_70%),radial-gradient(40%_40%_at_0%_100%,rgba(245,158,11,0.08),transparent_70%)]" aria-hidden="true" />
-      {/* Aurores lumineuses qui dérivent lentement (ordinateur) */}
-      <div className="pointer-events-none absolute inset-0 hidden overflow-hidden lg:block" aria-hidden="true">
-        <div className="aurora-blob aurora-1 -right-24 -top-32 h-[34rem] w-[34rem] bg-brand-400/25" />
-        <div className="aurora-blob aurora-2 right-[28%] top-[42%] h-72 w-72 bg-amber-300/30" />
-        <div className="aurora-blob aurora-3 -left-40 bottom-[-8rem] h-[26rem] w-[26rem] bg-brand-200/50" />
+    <section onMouseMove={onMove} onMouseLeave={onLeave} className="relative isolate overflow-hidden bg-[#0a0820] pb-36 pt-28 text-white sm:pb-44 lg:pt-36">
+      {/* Décor : lumières, aurores, sol quadrillé en perspective, grain */}
+      <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
+        <div className="absolute inset-0 bg-[radial-gradient(70%_55%_at_78%_0%,rgba(106,88,232,0.55),transparent_70%),radial-gradient(45%_40%_at_4%_12%,rgba(246,199,104,0.16),transparent_70%),radial-gradient(60%_45%_at_50%_108%,rgba(81,64,218,0.4),transparent_70%)]" />
+        <div className="hero-spot absolute inset-0" />
+        <div className="absolute inset-0 hidden overflow-hidden lg:block">
+          <div className="aurora-blob aurora-1 -right-32 -top-40 h-[36rem] w-[36rem] bg-brand-500/30" />
+          <div className="aurora-blob aurora-2 left-[40%] top-[28%] h-80 w-80 bg-amber-400/15" />
+          <div className="aurora-blob aurora-3 -left-40 bottom-[-10rem] h-[28rem] w-[28rem] bg-brand-700/40" />
+        </div>
+        <div className="absolute inset-x-0 bottom-0 h-[58%] overflow-hidden [mask-image:linear-gradient(to_top,black_20%,transparent)]">
+          <div className="hero-floor absolute -left-1/2 bottom-0 h-[150%] w-[200%]" />
+        </div>
+        <div className="hero-grain absolute inset-0 opacity-[0.07] mix-blend-overlay" />
       </div>
-      <div className="relative mx-auto grid max-w-7xl items-center gap-14 px-5 lg:grid-cols-[1.05fr_1fr] lg:gap-10 lg:px-8">
+
+      <div className="relative mx-auto grid max-w-7xl items-center gap-8 px-5 lg:grid-cols-[1.04fr_1fr] lg:gap-4 lg:px-8">
         <div>
-          <a href="#themes" onClick={(e) => goTo(e, '#themes')} className="mb-6 inline-flex items-center gap-2 rounded-full border border-black/10 bg-white py-1 pl-1 pr-3.5 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:border-brand-700/30">
-            <span className="rounded-full bg-brand-700 px-2.5 py-0.5 text-xs font-bold text-white">Nouveau</span>
-            6 thèmes de vitrine professionnels <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
-          </a>
-          <h1 className="text-balance text-[2.6rem] font-extrabold leading-[1.03] tracking-[-0.035em] text-ink sm:text-6xl lg:text-[4.25rem]">
-            Votre boutique en ligne, <span className="text-shimmer">prête à vendre</span> au Sénégal.
+          <motion.a {...rise3d(0)} href="#parcours" onClick={(e) => goTo(e, '#parcours')} className="group mb-7 inline-flex items-center gap-2.5 rounded-full bg-white/[0.06] py-1 pl-1 pr-3.5 text-sm font-semibold text-white/80 ring-1 ring-white/15 backdrop-blur transition-colors hover:bg-white/10">
+            <span className="btn-gold rounded-full px-2.5 py-0.5 text-xs font-extrabold">Nouveau</span>
+            Suivi des livraisons en direct <ArrowRight className="h-3.5 w-3.5 text-white/50 transition-transform group-hover:translate-x-0.5" />
+          </motion.a>
+          <h1 className="text-[2.45rem] font-extrabold leading-[0.98] tracking-[-0.045em] sm:text-[4rem] lg:text-[4.3rem] xl:text-[5rem]">
+            <span className="sr-only">Votre boutique en ligne, prête à vendre au Sénégal.</span>
+            <span aria-hidden="true" className="block">
+              <motion.span {...rise3d(0.05)} className="block">Votre boutique</motion.span>
+              <motion.span {...rise3d(0.1)} className="block">en ligne,</motion.span>
+              <motion.span {...rise3d(0.15)} className="block"><span className="font-editorial text-white/95">prête à vendre</span></motion.span>
+              <motion.span {...rise3d(0.25)} className="block"><RotatingWords words={HERO_WORDS} /></motion.span>
+            </span>
           </h1>
-          <p className="mt-6 max-w-xl text-lg leading-relaxed text-slate-600 sm:text-xl">
+          <motion.p {...rise3d(0.35)} className="mt-7 max-w-xl text-lg leading-relaxed text-white/65 sm:text-xl">
             Une vitrine à votre image, le paiement par Wave, Orange Money, Free Money, Wizall ou à la livraison, les commandes sur WhatsApp et des livreurs suivis en direct. Tout se gère depuis votre téléphone.
-          </p>
-          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+          </motion.p>
+          <motion.div {...rise3d(0.45)} className="mt-9 flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-start xl:flex-row">
             <Magnetic strength={0.22} className="w-full sm:w-auto">
-            <Link to={registerHref(themeId)} className="shine-btn group inline-flex w-full items-center justify-center gap-2 rounded-full bg-ink px-7 py-4 text-[15px] font-bold text-white shadow-[0_14px_30px_-12px_color-mix(in_srgb,_var(--color-ink)_70%,_transparent)] transition-all hover:-translate-y-0.5 hover:bg-brand-800">
-              Créer ma boutique gratuitement <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </Link>
+              <Link to={registerHref(themeId)} className="btn-gold shine-btn group inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-full px-7 py-4 text-[15px] font-extrabold">
+                Créer ma boutique gratuitement <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
             </Magnetic>
-            <a href="#produit" onClick={(e) => goTo(e, '#produit')} className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-7 py-4 text-[15px] font-bold text-slate-800 transition-colors hover:border-slate-400">
-              <LayoutDashboard className="h-4 w-4 text-brand-700" /> Voir le produit
+            <a href="#produit" onClick={(e) => goTo(e, '#produit')} className="group inline-flex items-center justify-center gap-3 whitespace-nowrap rounded-full bg-white/[0.06] py-2 pl-2 pr-6 text-[15px] font-bold text-white ring-1 ring-white/15 backdrop-blur transition-colors hover:bg-white/10">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink transition-transform group-hover:scale-105"><Play className="h-4 w-4 translate-x-px fill-current" /></span>
+              Voir le produit
             </a>
-          </div>
-          <div className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3">
-            <span className="text-sm font-semibold text-slate-500">Paiements acceptés</span>
-            <img src="/logos/wave.png" alt="Wave" className="h-7 w-auto" />
-            <img src="/logos/orange-money.svg" alt="Orange Money" className="h-5 w-auto" />
-            <span className="text-sm font-bold text-slate-700">Free Money</span>
-            <span className="text-sm font-bold text-slate-700">Wizall</span>
-            <span className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-700"><Banknote className="h-5 w-5 text-brand-600" /> À la livraison</span>
-          </div>
+          </motion.div>
+          <motion.ul {...rise3d(0.55)} className="mt-7 flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-white/70">
+            {['Gratuit pour démarrer', 'Sans carte bancaire', 'Prête en quelques minutes'].map((t) => (
+              <li key={t} className="flex items-center gap-1.5"><span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-400/20 text-emerald-300"><Check className="h-3 w-3" strokeWidth={3} /></span>{t}</li>
+            ))}
+          </motion.ul>
+          <motion.div {...rise3d(0.65)} className="mt-9 flex flex-wrap items-center gap-2">
+            <span className="mr-1.5 text-xs font-bold uppercase tracking-[0.16em] text-white/40">Paiements</span>
+            <span className="flex h-9 items-center rounded-xl bg-white px-3"><img src="/logos/wave.png" alt="Wave" className="h-5 w-auto" /></span>
+            <span className="flex h-9 items-center rounded-xl bg-white px-3"><img src="/logos/orange-money.svg" alt="Orange Money" className="h-4 w-auto" /></span>
+            {['Free Money', 'Wizall'].map((t) => <span key={t} className="flex h-9 items-center rounded-xl bg-white/[0.07] px-3 text-[13px] font-bold text-white/85 ring-1 ring-white/10">{t}</span>)}
+            <span className="flex h-9 items-center gap-1.5 rounded-xl bg-white/[0.07] px-3 text-[13px] font-bold text-white/85 ring-1 ring-white/10"><Banknote className="h-4 w-4 text-[#f6c768]" /> À la livraison</span>
+          </motion.div>
         </div>
 
-        <div className="relative mx-auto w-full max-w-[560px]">
-          <motion.div className="relative" style={fine ? { rotateX: rotX, rotateY: rotY, transformPerspective: 1400 } : undefined}>
-          <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.9, ease: EASE }} style={fine ? { x: photoX, y: photoY } : undefined} className="relative ml-auto aspect-[4/5] w-[86%] overflow-hidden rounded-[2.25rem] bg-brand-950 shadow-[0_40px_80px_-35px_color-mix(in_srgb,_var(--color-ink)_60%,_transparent)]">
-            <img src="/images/landing/hero-commercante-1024.webp" srcSet={photoSet('hero-commercante')} sizes="(min-width: 1024px) 480px, 86vw" alt="Commerçante qui consulte ses commandes sur son téléphone" width="1400" height="2097" fetchPriority="high" decoding="async" className="h-full w-full object-cover object-[50%_18%]" />
-            <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/45 to-transparent" />
-          </motion.div>
-          <motion.div className="pointer-events-none absolute inset-0 z-20" style={fine ? { x: notifX, y: notifY } : undefined}>
-            <LiveNotification />
-          </motion.div>
-          <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, ease: EASE, delay: 0.15 }} className="absolute -bottom-6 left-0 w-[44%] max-w-[230px] sm:left-2">
-            <motion.div style={fine ? { x: phoneX, y: phoneY } : undefined}>
-            <AnimatePresence mode="wait">
-              <motion.div key={theme.id} initial={{ opacity: 0.4 }} animate={{ opacity: 1 }} exit={{ opacity: 0.4 }} transition={{ duration: 0.25 }}>
-                <PhoneFrame src={SCREEN(`vitrine-${theme.id}`)} alt={`Vitrine « ${DEMO_SHOPS[theme.id]} » sur téléphone, thème ${theme.name}`} eager={theme.id === 'emeraude'} />
+        {/* Scène 3D : photo, téléphone (thème au choix) et cartes en direct */}
+        <div className="relative">
+          <div className="relative mx-auto h-[440px] w-full max-w-[600px] [perspective:1400px] sm:h-[590px] lg:h-[630px]">
+            <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+              <div className="hero-halo absolute left-1/2 top-1/2 h-[340px] w-[340px] rounded-full bg-[conic-gradient(from_90deg,#6a58e8,#f6c768,#ef8f5b,#8a7cf1,#6a58e8)] opacity-45 blur-[70px] sm:h-[470px] sm:w-[470px]" />
+              <div className="orbit orbit-slow h-[400px] w-[400px] border border-white/10 sm:h-[540px] sm:w-[540px]">
+                <span className="absolute left-1/2 top-0 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#f6c768] shadow-[0_0_18px_4px_rgba(246,199,104,0.6)]" />
+              </div>
+              <div className="orbit orbit-reverse h-[290px] w-[290px] border border-dashed border-white/[0.12] sm:h-[390px] sm:w-[390px]">
+                <span className="absolute bottom-0 left-1/2 h-2 w-2 -translate-x-1/2 translate-y-1/2 rounded-full bg-brand-300 shadow-[0_0_14px_3px_rgba(174,166,247,0.7)]" />
+              </div>
+              <Sparkle className="twinkle absolute left-[6%] top-[46%] h-4 w-4 text-[#f6c768]" />
+              <Sparkle className="twinkle absolute right-[10%] top-[4%] h-3 w-3 text-brand-200" style={{ animationDelay: '1.2s' }} />
+              <Sparkle className="twinkle absolute bottom-[4%] right-[34%] h-5 w-5 text-white/80" style={{ animationDelay: '2.1s' }} />
+            </div>
+
+            <motion.div className="absolute inset-0" style={fine ? { rotateX: tiltX, rotateY: tiltY, transformStyle: 'preserve-3d' } : undefined}>
+              {/* Commerçante */}
+              <motion.div style={depth(far)} className="absolute right-0 top-[5%] w-[56%] sm:right-[2%] sm:w-[52%]">
+                <motion.div initial={{ opacity: 0, y: 30, rotate: 11 }} animate={{ opacity: 1, y: 0, rotate: 6 }} transition={{ duration: 1.1, ease: EASE }} className="relative aspect-[4/5] overflow-hidden rounded-[2rem] bg-brand-950 shadow-[0_50px_90px_-30px_rgba(0,0,0,0.85)] ring-1 ring-white/15">
+                  <img src="/images/landing/hero-commercante-1024.webp" srcSet={photoSet('hero-commercante')} sizes="(min-width: 1024px) 320px, 56vw" alt="Commerçante qui consulte ses commandes sur son téléphone" width="1400" height="2097" fetchPriority="high" decoding="async" className="h-full w-full object-cover object-[50%_18%]" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0a0820]/70 via-transparent to-transparent" />
+                </motion.div>
               </motion.div>
-            </AnimatePresence>
+
+              {/* Téléphone : vitrine dans le thème choisi */}
+              <motion.div style={depth(mid)} className="absolute left-[3%] top-[9%] w-[47%] max-w-[262px] sm:left-[9%]">
+                <motion.div initial={{ opacity: 0, y: 70, rotate: -10 }} animate={{ opacity: 1, y: 0, rotate: -4 }} transition={{ duration: 1.1, ease: EASE, delay: 0.12 }}>
+                  <AnimatePresence mode="wait">
+                    <motion.div key={theme.id} initial={{ opacity: 0.4, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0.4, scale: 0.98 }} transition={{ duration: 0.25 }}>
+                      <PhoneFrame src={SCREEN(`vitrine-${theme.id}`)} alt={`Vitrine « ${DEMO_SHOPS[theme.id]} » sur téléphone, thème ${theme.name}`} eager={theme.id === 'emeraude'} className="shadow-[0_60px_90px_-30px_rgba(0,0,0,0.9),0_0_0_1px_rgba(255,255,255,0.08)]" />
+                    </motion.div>
+                  </AnimatePresence>
+                </motion.div>
+                <div className="mx-auto mt-3 h-6 w-[70%] rounded-[50%] bg-brand-500/40 blur-xl" aria-hidden="true" />
+              </motion.div>
+
+              {/* Cartes en direct */}
+              <FloatCard style={depth(near)} delay={0.55} className="-left-1 top-[1%] sm:-left-4">
+                <div className="flex items-center gap-3 pr-1" role="img" aria-label="Paiement Wave reçu : 19 500 francs">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50"><img src="/logos/wave.png" alt="" className="h-5 w-auto" /></span>
+                  <span>
+                    <span className="block text-[11px] font-semibold text-slate-500">Paiement Wave reçu</span>
+                    <span className="block text-lg font-extrabold leading-tight tracking-tight text-ink">+19 500 F</span>
+                  </span>
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white"><Check className="h-3.5 w-3.5" strokeWidth={3} /></span>
+                </div>
+              </FloatCard>
+              <FloatCard style={depth(nearer)} delay={0.75} className="right-0 top-[47%] hidden sm:block sm:-right-2">
+                <NotificationCycle />
+              </FloatCard>
+              <FloatCard style={depth(nearer)} delay={0.95} dark className="bottom-[8%] left-0 sm:bottom-[10%] sm:-left-2">
+                <CourierCard />
+              </FloatCard>
+              <FloatCard style={depth(near)} delay={1.15} dark className="bottom-[1%] right-[3%] hidden sm:block">
+                <CashCard />
+              </FloatCard>
             </motion.div>
-          </motion.div>
-          </motion.div>
-          <div className="mt-12 flex flex-col items-center gap-2 sm:ml-[46%] sm:mt-6 sm:items-start">
-            <ThemeDots themeId={themeId} onPick={setThemeId} />
-            <p className="text-sm text-slate-500">Essayez un thème · <span className="font-semibold text-ink">{theme.name}</span></p>
           </div>
+
+          <motion.div {...rise3d(0.9)} className="relative z-30 mt-2 flex flex-col items-center gap-1.5">
+            <div className="rounded-full bg-white/[0.06] px-1.5 ring-1 ring-white/10 backdrop-blur">
+              <ThemeDots dark themeId={themeId} onPick={setThemeId} />
+            </div>
+            <p className="text-sm text-white/55">Essayez un thème · <span className="font-semibold text-white">{theme.name}</span></p>
+          </motion.div>
         </div>
       </div>
     </section>
@@ -384,17 +570,90 @@ function Hero({ themeId, setThemeId }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Moyens de paiement et outils                                         */
+/* Ruban croisé (passage du héros à la suite)                           */
 /* ------------------------------------------------------------------ */
 
-function LogoStrip() {
+const RIBBON_GOLD = ['Wave', 'Orange Money', 'Free Money', 'Wizall', 'Paiement à la livraison', 'Commandes WhatsApp'];
+const RIBBON_INDIGO = ['Livreurs suivis en direct', 'Code de livraison', '6 thèmes de vitrine', 'QR code', 'Statistiques', 'Boutiques près de moi'];
+
+function RibbonBand({ items, reverse = false }) {
   return (
-    <section className="border-y border-black/5 bg-[#f7f6f2] py-8" aria-label="Moyens de paiement et outils intégrés">
-      <div className="mx-auto flex max-w-7xl flex-col items-center gap-6 px-5 lg:flex-row lg:justify-between lg:px-8">
-        <p className="text-sm font-bold text-slate-600">Paiements et outils intégrés, sans rien installer</p>
-        <ul className="flex flex-wrap items-center justify-center gap-x-10 gap-y-5">
-          {PAYMENT_LOGOS.map((l) => <li key={l.name}><img src={l.src} alt={l.name} loading="lazy" decoding="async" className={`${l.className} w-auto opacity-75 grayscale transition hover:opacity-100 hover:grayscale-0`} /></li>)}
+    <div className={`marquee-track ${reverse ? 'marquee-reverse' : ''}`} style={{ animationDuration: '46s' }}>
+      {[0, 1].map((copy) => (
+        <ul key={copy} className="flex shrink-0 items-center" aria-hidden={copy === 1 ? true : undefined}>
+          {items.map((t) => (
+            <li key={t} className="flex items-center gap-7 whitespace-nowrap pl-7 text-lg font-extrabold uppercase tracking-[-0.01em] sm:text-2xl">
+              {t}<Sparkle className="h-4 w-4 shrink-0 opacity-70 sm:h-5 sm:w-5" />
+            </li>
+          ))}
         </ul>
+      ))}
+    </div>
+  );
+}
+
+function Ribbon() {
+  return (
+    <div className="relative z-10 -mt-24 h-[180px] overflow-hidden bg-[linear-gradient(transparent_50%,#f7f6f2_50%)] sm:-mt-28 sm:h-[210px]">
+      <div className="absolute inset-x-[-12%] top-[56px] -rotate-[4deg] bg-gradient-to-r from-[#f9d784] via-[#f3a953] to-[#ec8a5a] py-3 text-[#1a1033] shadow-[0_24px_50px_-24px_rgba(243,169,83,0.7)] sm:top-[66px] sm:py-4">
+        <RibbonBand items={RIBBON_GOLD} />
+      </div>
+      <div className="absolute inset-x-[-12%] top-[66px] rotate-[3deg] bg-brand-700 py-3 text-white shadow-[0_24px_50px_-20px_rgba(42,37,128,0.8)] sm:top-[78px] sm:py-4">
+        <RibbonBand items={RIBBON_INDIGO} reverse />
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Pour chaque commerce                                                 */
+/* ------------------------------------------------------------------ */
+
+const COMMERCES = [
+  { photo: 'couturier', tag: 'Couture', label: 'Ateliers de couture', text: 'Les commandes arrivent avec la taille et le modèle choisis.' },
+  { photo: 'boutique-mode', tag: 'Mode', label: 'Boutiques de mode', text: 'Vos nouveautés en vitrine, partagées sur WhatsApp en un geste.' },
+  { photo: 'epicerie', tag: 'Épicerie', label: 'Épiceries de quartier', text: 'Vos clients commandent, votre livreur apporte.' },
+  { photo: 'marche-fruits', tag: 'Marché', label: 'Fruits et légumes', text: 'Paiement par Wave ou à la livraison, au choix du client.' },
+  { photo: 'artisanat', tag: 'Artisanat', label: 'Artisans et créateurs', text: 'Une belle vitrine pour vos pièces uniques.' },
+  { photo: 'cliente-sacs', tag: 'Prêt-à-porter', label: 'Prêt-à-porter', text: 'Votre stock suivi, avec une alerte avant la rupture.' },
+  { photo: 'commercante-marche', tag: 'Commerce', label: 'Commerçantes', text: 'Toutes vos ventes du jour dans votre téléphone.' },
+  { photo: 'livreur-moto', tag: 'Livraison', label: 'Et vos livreurs', text: 'Suivis en direct, chaque colis validé par le code du client.' },
+];
+
+function Commerces() {
+  return (
+    <section className="relative bg-[#f7f6f2] pb-20 pt-4 lg:pb-28" aria-labelledby="commerces-titre">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 lg:flex-row lg:items-end lg:justify-between lg:px-8">
+        <Reveal>
+          <div className="max-w-2xl">
+            <p className="mb-3 text-sm font-bold uppercase tracking-[0.14em] text-brand-700">Pour chaque commerce</p>
+            <h2 id="commerces-titre" className="text-balance text-[2.1rem] font-extrabold leading-[1.05] tracking-tight text-ink sm:text-5xl">
+              Couturiers, épiceries, créatrices : <Em>tout le monde vend</Em>.
+            </h2>
+          </div>
+        </Reveal>
+        <Reveal delay={0.1}>
+          <p className="max-w-sm text-lg leading-relaxed text-slate-600">Au marché, en atelier ou depuis chez vous : votre vitrine se crée en quelques minutes et se partage partout.</p>
+        </Reveal>
+      </div>
+      <div className="mt-12 [mask-image:linear-gradient(90deg,transparent,black_5%,black_95%,transparent)]">
+        <div className="marquee-track" style={{ animationDuration: '70s' }}>
+          {[0, 1].map((copy) => (
+            <ul key={copy} className="flex shrink-0 gap-4 pr-4" aria-hidden={copy === 1 ? true : undefined}>
+              {COMMERCES.map((c) => (
+                <li key={c.photo} className="group relative aspect-[3/4] w-[228px] shrink-0 overflow-hidden rounded-[1.75rem] bg-ink sm:w-[270px]">
+                  <img src={`/images/landing/${c.photo}-640.webp`} alt={copy === 1 ? '' : c.label} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.07]" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0a0820]/90 via-[#0a0820]/15 to-transparent" />
+                  <div className="absolute inset-x-0 bottom-0 p-4 text-white sm:p-5">
+                    <span className="inline-flex rounded-full bg-white/15 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.12em] ring-1 ring-white/20 backdrop-blur">{c.tag}</span>
+                    <p className="mt-2.5 text-lg font-extrabold leading-tight sm:text-xl">{c.label}</p>
+                    <p className="mt-1 text-[13px] leading-snug text-white/70">{c.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -1634,8 +1893,16 @@ function Pricing({ themeId }) {
         <div className="mx-auto mt-14 grid max-w-5xl gap-5 lg:grid-cols-3 lg:items-center">
           {PLANS.map((p, i) => (
             <Reveal key={p.id} delay={i * 0.08}>
-              <div className={`relative flex flex-col rounded-[2rem] p-7 ${p.popular ? 'bg-ink text-white shadow-[0_40px_80px_-40px_color-mix(in_srgb,_var(--color-ink)_90%,_transparent)] lg:py-10' : 'border border-black/10 bg-white'}`}>
-                {p.popular && <span className="absolute -top-3 left-7 rounded-full bg-amber-300 px-3 py-1 text-xs font-extrabold text-ink">Recommandé</span>}
+              <div className={`relative isolate flex flex-col rounded-[2rem] p-7 ${p.popular ? 'bg-[#0f0c2e] text-white shadow-[0_50px_100px_-40px_rgba(59,47,201,0.85)] ring-1 ring-[#f6c768]/40 lg:py-10' : 'border border-black/10 bg-white'}`}>
+                {p.popular && (
+                  <>
+                    <span className="pointer-events-none absolute inset-0 -z-10 overflow-hidden rounded-[2rem]" aria-hidden="true">
+                      <span className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-brand-500/40 blur-3xl" />
+                      <span className="absolute -bottom-24 -left-10 h-48 w-48 rounded-full bg-amber-400/15 blur-3xl" />
+                    </span>
+                    <span className="btn-gold absolute -top-3 left-7 rounded-full px-3 py-1 text-xs font-extrabold">Recommandé</span>
+                  </>
+                )}
                 <span className={`flex h-11 w-11 items-center justify-center rounded-2xl ${p.popular ? 'bg-brand-400/15 text-brand-300' : 'bg-brand-50 text-brand-700'}`}><p.icon className="h-5 w-5" /></span>
                 <p className="mt-5 text-xl font-bold">{p.name}</p>
                 <p className={`mt-1 text-sm ${p.popular ? 'text-white/65' : 'text-slate-500'}`}>{p.desc}</p>
@@ -1643,7 +1910,7 @@ function Pricing({ themeId }) {
                 <ul className="mt-6 space-y-3 text-sm">
                   {p.features.map((f) => <li key={f} className="flex gap-2.5"><Check className={`mt-0.5 h-4 w-4 shrink-0 ${p.popular ? 'text-brand-300' : 'text-brand-600'}`} /> {f}</li>)}
                 </ul>
-                <Link to={registerHref(themeId, p.plan)} className={`mt-8 inline-flex items-center justify-center gap-2 rounded-full px-5 py-3.5 text-sm font-bold transition-colors ${p.popular ? 'bg-brand-400 text-ink hover:bg-brand-300' : 'bg-ink text-white hover:bg-brand-800'}`}>
+                <Link to={registerHref(themeId, p.plan)} className={`mt-8 inline-flex items-center justify-center gap-2 rounded-full px-5 py-3.5 text-sm font-bold transition-colors ${p.popular ? 'btn-gold font-extrabold' : 'bg-ink text-white hover:bg-brand-800'}`}>
                   {p.cta} <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
@@ -1698,31 +1965,49 @@ function Faq() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Appel final et pied de page                                          */
+/* Appel final et pied de page (fond « nuit de Dakar »)                 */
 /* ------------------------------------------------------------------ */
+
+function NightBackdrop() {
+  return (
+    <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
+      <div className="absolute inset-0 bg-[radial-gradient(60%_50%_at_50%_0%,rgba(106,88,232,0.45),transparent_70%),radial-gradient(40%_35%_at_90%_60%,rgba(246,199,104,0.12),transparent_70%)]" />
+      <div className="hero-halo absolute left-1/2 top-[42%] h-[380px] w-[380px] rounded-full bg-[conic-gradient(from_90deg,#6a58e8,#f6c768,#ef8f5b,#8a7cf1,#6a58e8)] opacity-30 blur-[90px] sm:h-[560px] sm:w-[560px]" />
+      <div className="absolute inset-x-0 bottom-0 h-[55%] overflow-hidden [mask-image:linear-gradient(to_top,black_20%,transparent)]">
+        <div className="hero-floor absolute -left-1/2 bottom-0 h-[150%] w-[200%]" />
+      </div>
+      <div className="hero-grain absolute inset-0 opacity-[0.06] mix-blend-overlay" />
+    </div>
+  );
+}
 
 function FinalCta({ themeId }) {
   return (
-    <section className="px-3 pb-3 sm:px-5 sm:pb-5">
-      <div className="relative mx-auto max-w-[1400px] overflow-hidden rounded-[2rem] bg-ink sm:rounded-[2.5rem]">
-        <img src="/images/landing/rue-dakar-1024.webp" srcSet={photoSet('rue-dakar')} sizes="100vw" alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover object-[50%_40%] opacity-40" />
-        <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/70 to-ink/30" />
-        <div className="relative mx-auto max-w-3xl px-6 py-24 text-center text-white sm:py-32">
-          <Reveal>
-            <h2 className="text-balance text-[2.4rem] font-extrabold leading-[1.05] tracking-tight sm:text-6xl">Votre boutique peut être en ligne <span className="text-shimmer-light">aujourd’hui</span>.</h2>
-            <p className="mx-auto mt-6 max-w-xl text-lg text-white/75">Gratuit pour démarrer, sans carte bancaire. Créez votre vitrine, ajoutez vos produits et partagez le lien à vos clients.</p>
-            <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
-              <Magnetic strength={0.22} className="w-full sm:w-auto">
-              <Link to={registerHref(themeId)} className="shine-btn group inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-400 px-7 py-4 font-bold text-ink transition-colors hover:bg-brand-300">
+    <section className="relative isolate overflow-hidden bg-[#0a0820] px-5 pb-28 pt-28 text-white sm:pb-36 sm:pt-36">
+      <NightBackdrop />
+      <Sparkle className="twinkle absolute left-[12%] top-[22%] h-5 w-5 text-[#f6c768]" />
+      <Sparkle className="twinkle absolute right-[14%] top-[30%] h-4 w-4 text-brand-200" style={{ animationDelay: '1.4s' }} />
+      <Sparkle className="twinkle absolute bottom-[22%] left-[22%] h-3 w-3 text-white/80" style={{ animationDelay: '2.3s' }} />
+      <div className="relative mx-auto max-w-5xl text-center">
+        <Reveal>
+          <span className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] px-4 py-1.5 text-sm font-semibold text-white/80 ring-1 ring-white/15 backdrop-blur">
+            <Sparkle className="h-3.5 w-3.5 text-[#f6c768]" /> Gratuit pour démarrer, sans carte bancaire
+          </span>
+          <h2 className="mt-7 text-balance text-[2.6rem] font-extrabold leading-[0.98] tracking-[-0.045em] sm:text-7xl lg:text-[6rem]">
+            Votre boutique peut être en ligne <span className="font-editorial text-sunrise">aujourd’hui.</span>
+          </h2>
+          <p className="mx-auto mt-7 max-w-xl text-lg leading-relaxed text-white/65 sm:text-xl">Créez votre vitrine, ajoutez vos produits et partagez le lien à vos clients. Ils commandent, vous encaissez, vos livreurs livrent.</p>
+          <div className="mt-11 flex flex-col justify-center gap-3 sm:flex-row">
+            <Magnetic strength={0.22} className="w-full sm:w-auto">
+              <Link to={registerHref(themeId)} className="btn-gold shine-btn group inline-flex w-full items-center justify-center gap-2 rounded-full px-8 py-4 text-base font-extrabold">
                 Créer ma boutique gratuitement <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Link>
-              </Magnetic>
-              <Link to="/boutiques" className="inline-flex items-center justify-center gap-2 rounded-full border border-white/25 bg-white/5 px-7 py-4 font-bold text-white transition-colors hover:bg-white/10">
-                <Store className="h-4 w-4" /> Voir les boutiques
-              </Link>
-            </div>
-          </Reveal>
-        </div>
+            </Magnetic>
+            <Link to="/boutiques" className="inline-flex items-center justify-center gap-2 rounded-full bg-white/[0.06] px-7 py-4 font-bold text-white ring-1 ring-white/15 backdrop-blur transition-colors hover:bg-white/10">
+              <Store className="h-4 w-4" /> Voir les boutiques
+            </Link>
+          </div>
+        </Reveal>
       </div>
     </section>
   );
@@ -1730,24 +2015,27 @@ function FinalCta({ themeId }) {
 
 function Footer() {
   return (
-    <footer className="py-12 text-slate-500">
-      <div className="mx-auto flex max-w-7xl flex-col gap-8 px-5 md:flex-row md:items-center md:justify-between lg:px-8">
-        <div className="flex items-center gap-3">
-          <Logo markClassName="h-9 w-9" textClassName="text-lg" />
-          <span className="text-sm">La boutique en ligne des commerçants du Sénégal.</span>
+    <footer className="relative isolate overflow-hidden bg-[#0a0820] text-white/55">
+      <div className="mx-auto max-w-7xl border-t border-white/10 px-5 lg:px-8">
+        <div className="flex flex-col gap-8 py-12 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-3">
+            <Logo variant="dark" markClassName="h-9 w-9" textClassName="text-lg" />
+            <span className="text-sm">La boutique en ligne des commerçants du Sénégal.</span>
+          </div>
+          <nav className="flex flex-wrap gap-x-6 gap-y-1 text-sm font-semibold [&_a]:inline-flex [&_a]:min-h-9 [&_a]:items-center" aria-label="Liens du pied de page">
+            <Link to="/boutiques" className="transition-colors hover:text-white">Boutiques près de moi</Link>
+            <a href="#tarifs" onClick={(e) => goTo(e, '#tarifs')} className="transition-colors hover:text-white">Tarifs</a>
+            <a href="#faq" onClick={(e) => goTo(e, '#faq')} className="transition-colors hover:text-white">Questions</a>
+            <Link to="/login" className="transition-colors hover:text-white">Se connecter</Link>
+            <Link to="/register" className="transition-colors hover:text-white">Créer ma boutique</Link>
+          </nav>
         </div>
-        <nav className="flex flex-wrap gap-x-6 gap-y-1 text-sm font-semibold [&_a]:inline-flex [&_a]:min-h-9 [&_a]:items-center" aria-label="Liens du pied de page">
-          <Link to="/boutiques" className="hover:text-ink">Boutiques près de moi</Link>
-          <a href="#tarifs" onClick={(e) => goTo(e, '#tarifs')} className="hover:text-ink">Tarifs</a>
-          <a href="#faq" onClick={(e) => goTo(e, '#faq')} className="hover:text-ink">Questions</a>
-          <Link to="/login" className="hover:text-ink">Se connecter</Link>
-          <Link to="/register" className="hover:text-ink">Créer ma boutique</Link>
-        </nav>
+        <div className="flex flex-col gap-2 border-t border-white/10 py-6 text-xs sm:flex-row sm:justify-between">
+          <p>© {new Date().getFullYear()} SamaBoutik. Tous droits réservés.</p>
+          <p className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-brand-300" /> Paiements sécurisés par PayDunya</p>
+        </div>
       </div>
-      <div className="mx-auto mt-8 flex max-w-7xl flex-col gap-2 border-t border-black/5 px-5 pt-6 text-xs sm:flex-row sm:justify-between lg:px-8">
-        <p>© {new Date().getFullYear()} SamaBoutik. Tous droits réservés.</p>
-        <p className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-brand-600" /> Paiements sécurisés par PayDunya</p>
-      </div>
+      <p className="footer-wordmark pointer-events-none -mb-[0.2em] select-none text-center text-[16.5vw] font-extrabold leading-none tracking-[-0.06em] sm:-mt-2" aria-hidden="true">SamaBoutik</p>
     </footer>
   );
 }
@@ -1765,7 +2053,8 @@ export default function Landing() {
         <Navbar />
         <main>
           <Hero themeId={themeId} setThemeId={setThemeId} />
-          <LogoStrip />
+          <Ribbon />
+          <Commerces />
           <Deferred id="produit" minHeight={1300}><ProductShowcase /></Deferred>
           <Deferred id="parcours" minHeight={1150}><HowItWorks /></Deferred>
           <Deferred id="themes" minHeight={900}><Themes themeId={themeId} onPick={setThemeId} /></Deferred>
@@ -1773,7 +2062,7 @@ export default function Landing() {
           <Deferred minHeight={800}><LiveExperience themeId={themeId} /></Deferred>
           <Deferred id="tarifs" minHeight={1000}><Pricing themeId={themeId} /></Deferred>
           <Deferred id="faq" minHeight={700}><Faq /></Deferred>
-          <Deferred minHeight={600}><FinalCta themeId={themeId} /></Deferred>
+          <Deferred minHeight={700}><FinalCta themeId={themeId} /></Deferred>
         </main>
         <Footer />
       </div>
