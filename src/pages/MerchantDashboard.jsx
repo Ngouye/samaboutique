@@ -9,7 +9,7 @@ import {
   Check, Copy, ExternalLink, IdCard, TrendingUp, Rocket, Zap, Gem, LoaderCircle, Eye, Palette, ImagePlus, Upload,
   Mail, Wallet, Globe, Save, Download, Banknote, HandCoins, LocateFixed, House, ArrowUpRight, LayoutGrid, Minus,
   Navigation, Megaphone, Motorcycle, Moped, Bicycle, Facebook, Instagram, TikTok, HouseFill, ShoppingBagFill, PackageFill,
-  TruckFill, UsersFill, SettingsFill, CreditCardFill, LayoutGridFill,
+  TruckFill, UsersFill, SettingsFill, CreditCardFill, LayoutGridFill, PanelLeft,
 } from '../components/dashboard/icons';
 import { parseOrderAddress, orderMapsUrl } from '../utils/orderAddress';
 import LogoutDialog from '../components/LogoutDialog';
@@ -56,6 +56,15 @@ const timestamp = () => Date.now();
 const nameKey = (name) => String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
 const sameDriver = (a, b) => Boolean(nameKey(a)) && nameKey(a) === nameKey(b);
 
+// Barre latérale repliable (tablette et ordinateur). Grand écran : elle pousse la page, et le choix
+// (affichée ou masquée) est mémorisé. Tablette : masquée par défaut, elle s'ouvre par-dessus la page.
+const WIDE_QUERY = '(min-width: 1280px)';
+const SIDEBAR_KEY = 'samaboutik_sidebar';
+const isWideScreen = () => typeof window !== 'undefined' && Boolean(window.matchMedia?.(WIDE_QUERY).matches);
+const sidebarWanted = () => {
+  try { return localStorage.getItem(SIDEBAR_KEY) !== 'closed'; } catch { return true; }
+};
+
 export default function MerchantDashboard() {
   const { user, merchant, logout } = useAuth();
   const navigate = useNavigate();
@@ -73,6 +82,29 @@ export default function MerchantDashboard() {
   const [newProduct, setNewProduct] = useState({ name: '', description: '', price_fcfa: '', stock: '', category: 'Vêtements', features: {}, tags: [], image: null, visibility: 'published', publish_at: '' });
   const [uploading, setUploading] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [wideScreen, setWideScreen] = useState(isWideScreen);
+  const [sidebarOpen, setSidebarOpen] = useState(() => isWideScreen() && sidebarWanted());
+  useEffect(() => {
+    const mq = window.matchMedia?.(WIDE_QUERY);
+    if (!mq) return undefined;
+    // Rotation de la tablette, fenêtre agrandie ou réduite
+    const onChange = (e) => { setWideScreen(e.matches); setSidebarOpen(e.matches && sidebarWanted()); };
+    mq.addEventListener?.('change', onChange);
+    return () => mq.removeEventListener?.('change', onChange);
+  }, []);
+  useEffect(() => {
+    if (wideScreen || !sidebarOpen) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setSidebarOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [wideScreen, sidebarOpen]);
+  const toggleSidebar = () => {
+    const next = !sidebarOpen;
+    setSidebarOpen(next);
+    if (wideScreen) {
+      try { localStorage.setItem(SIDEBAR_KEY, next ? 'open' : 'closed'); } catch { /* mémoire du navigateur indisponible */ }
+    }
+  };
   const [showQRModal, setShowQRModal] = useState(false);
 
   // Team (Drivers) State
@@ -1015,6 +1047,7 @@ Merci de votre confiance ! 🙏`;
     if (filter) setProductFilter(filter);
     setActiveTab(id);
     setIsMobileMenuOpen(false);
+    if (!wideScreen) setSidebarOpen(false); // tablette : le menu se referme après un choix
     window.scrollTo(0, 0);
   };
 
@@ -1043,8 +1076,17 @@ Merci de votre confiance ! 🙏`;
   const sidebar = (
     <div className="flex h-full flex-col overflow-y-auto overscroll-contain border-r border-[#e8e5dc] bg-white [scrollbar-width:thin]">
       {/* Marque */}
-      <div className="flex items-center gap-2.5 px-5 pb-4 pt-5">
+      <div className="flex items-center gap-2.5 pb-4 pl-5 pr-3 pt-5">
         <Logo markClassName="h-9 w-9" textClassName="text-lg" />
+        <button
+          type="button"
+          onClick={toggleSidebar}
+          className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-stone-500 transition-colors hover:bg-[#f3f1eb] hover:text-ink"
+          aria-label="Masquer le menu"
+          title="Masquer le menu"
+        >
+          <PanelLeft className="h-[18px] w-[18px]" />
+        </button>
       </div>
 
       {/* Boutique */}
@@ -1154,8 +1196,27 @@ Merci de votre confiance ! 🙏`;
         </AnimatePresence>
       </div>
 
-      {/* Barre latérale (ordinateur et tablette) */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[252px] md:block">{sidebar}</aside>
+      {/* Barre latérale (ordinateur et tablette) : masquable entièrement à gauche */}
+      <AnimatePresence>
+        {sidebarOpen && !wideScreen && (
+          <motion.div
+            key="sidebar-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 z-40 hidden bg-ink/30 backdrop-blur-[2px] md:block"
+            aria-hidden="true"
+          />
+        )}
+      </AnimatePresence>
+      <aside
+        className={`fixed inset-y-0 left-0 hidden w-[252px] transition-transform duration-300 ease-out md:block ${wideScreen ? 'z-30' : 'z-50'} ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${sidebarOpen && !wideScreen ? 'shadow-2xl' : ''}`}
+        aria-hidden={!sidebarOpen}
+        inert={!sidebarOpen}
+      >
+        {sidebar}
+      </aside>
 
       {/* Téléphone : barre d'onglets en bas de l'écran */}
       <nav aria-label="Navigation principale" className="fixed inset-x-0 bottom-0 z-40 border-t border-[#e8e5dc] bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
@@ -1253,11 +1314,21 @@ Merci de votre confiance ! 🙏`;
         )}
       </AnimatePresence>
 
-      <div className="md:pl-[252px]">
+      <div className={`transition-[padding] duration-300 ease-out ${sidebarOpen && wideScreen ? 'md:pl-[252px]' : ''}`}>
         {/* En-tête */}
         <header className="sticky top-0 z-30 border-b border-[#e8e5dc]/80 bg-[#f7f6f2]/85 backdrop-blur-xl">
           <div className="mx-auto flex max-w-[1240px] items-center gap-3 px-4 py-2.5 md:px-8 md:py-3">
             <span className="md:hidden">{shopAvatar('h-9 w-9 text-sm')}</span>
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className={`hidden h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-colors md:flex ${sidebarOpen ? 'border-[#e8e5dc] bg-white text-stone-500 hover:text-ink' : 'border-brand-200 bg-brand-50 text-brand-800 hover:bg-brand-100'}`}
+              aria-label={sidebarOpen ? 'Masquer le menu' : 'Afficher le menu'}
+              aria-expanded={sidebarOpen}
+              title={sidebarOpen ? 'Masquer le menu' : 'Afficher le menu'}
+            >
+              <PanelLeft className="h-[18px] w-[18px]" />
+            </button>
             <div className="min-w-0 flex-1">
               <p className="truncate text-[11px] font-bold uppercase tracking-[0.14em] text-stone-400">{merchant.shop_name}</p>
               <p className="truncate text-sm font-bold text-ink">{currentNav?.label}</p>

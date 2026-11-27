@@ -35,7 +35,7 @@ const ICONS = [
   ['Trash2', 'Trash', D], ['Eye', 'Eye', D], ['QrCode', 'QrCode', D], ['Bell', 'Bell', D], ['BellOff', 'BellSlash', D],
   ['BellRing', 'BellRinging', D], ['Megaphone', 'MegaphoneSimple', D], ['Sparkles', 'Sparkle', D], ['Wand2', 'MagicWand', D],
   ['Rocket', 'RocketLaunch', D], ['Zap', 'Lightning', D], ['Palette', 'Palette', D], ['Square', 'Square', D],
-  ['CalendarDays', 'CalendarBlank', D],
+  ['CalendarDays', 'CalendarBlank', D], ['PanelLeft', 'SidebarSimple', D],
   ['# Boutique, produits, commandes'],
   ['Store', 'Storefront', D], ['ShoppingBag', 'ShoppingBag', D], ['Package', 'Package', D],
   ['PackageOpen', 'Basket', D, 'commande en préparation'], ['PackageX', 'Prohibit', D, 'produit en rupture'],
