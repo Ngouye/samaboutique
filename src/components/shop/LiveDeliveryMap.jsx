@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { motion } from 'framer-motion';
 import { Radio, Timer, Route, WifiOff } from 'lucide-react';
+import { Basemap, MAP_BG } from '../map/Basemap';
+import { useRoute } from '../../utils/route';
 
 // Distance à vol d'oiseau en km.
 function distanceKm(a, b) {
@@ -89,9 +91,11 @@ export default function LiveDeliveryMap({ position, address, themeColor }) {
   const trail = useMemo(() => (Array.isArray(position?.trail) ? position.trail.map(([lat, lng]) => [Number(lat), Number(lng)]) : []), [position]);
 
   const stale = position ? now - new Date(position.updated_at).getTime() > 2 * 60000 : true;
-  // Estimation : trajet réel ≈ 1,3 × vol d'oiseau, 22 km/h en moyenne en ville (moto).
-  const remainingKm = courier && destination ? distanceKm(courier, destination) * 1.3 : null;
-  const etaMin = remainingKm != null ? Math.max(1, Math.round((remainingKm / 22) * 60)) : null;
+  // Itinéraire par la route depuis la dernière position reçue (rues réelles, temps en scooter).
+  const { route } = useRoute(target, destination);
+  // Sans itinéraire : estimation (trajet réel ≈ 1,3 × vol d'oiseau, 22 km/h en moyenne en ville).
+  const remainingKm = route ? route.km : courier && destination ? distanceKm(courier, destination) * 1.3 : null;
+  const etaMin = route ? route.minutes : remainingKm != null ? Math.max(1, Math.round((remainingKm / 22) * 60)) : null;
 
   if (!position) {
     return (
@@ -107,11 +111,18 @@ export default function LiveDeliveryMap({ position, address, themeColor }) {
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mt-6 overflow-hidden rounded-3xl ring-1 ring-slate-200">
       <div className="relative isolate h-72 md:h-80" style={{ '--shop': themeColor || '#059669' }}>
-        <MapContainer center={target} zoom={15} scrollWheelZoom={false} className="h-full w-full" style={{ background: '#e5eef0' }}>
-          <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={19} />
+        <MapContainer center={target} zoom={15} scrollWheelZoom={false} className="h-full w-full" style={{ background: MAP_BG }}>
+          <Basemap />
           <FollowCourier courier={courier} destination={destination} />
           {trail.length > 1 && <Polyline positions={trail} pathOptions={{ color: themeColor || '#059669', weight: 4, opacity: 0.55, dashArray: '2 8', lineCap: 'round' }} />}
-          {destination && courier && <Polyline positions={[courier, destination]} pathOptions={{ color: '#64748b', weight: 2, opacity: 0.5, dashArray: '6 8' }} />}
+          {route ? (
+            <>
+              <Polyline positions={route.coords} pathOptions={{ color: '#ffffff', weight: 9, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }} />
+              <Polyline positions={route.coords} pathOptions={{ color: themeColor || '#4f3fe0', weight: 5, opacity: 1, lineCap: 'round', lineJoin: 'round' }} />
+            </>
+          ) : destination && courier ? (
+            <Polyline positions={[courier, destination]} pathOptions={{ color: '#64748b', weight: 2, opacity: 0.5, dashArray: '6 8' }} />
+          ) : null}
           {destination && <Marker position={destination} icon={destinationIcon} />}
           {courier && <Marker position={courier} icon={courierIcon(position.heading)} zIndexOffset={1000} />}
         </MapContainer>
@@ -134,7 +145,7 @@ export default function LiveDeliveryMap({ position, address, themeColor }) {
         <div className="flex items-center gap-3 p-4">
           <Route className="h-5 w-5 shrink-0 text-slate-400" />
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Distance</p>
+            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">{route ? 'Par la route' : 'Distance'}</p>
             <p className="text-lg font-extrabold text-slate-900">{remainingKm != null ? `${remainingKm < 1 ? `${Math.round(remainingKm * 1000)} m` : `${remainingKm.toFixed(1).replace('.', ',')} km`}` : 'Adresse sans GPS'}</p>
           </div>
         </div>

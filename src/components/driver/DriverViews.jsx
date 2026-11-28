@@ -166,7 +166,7 @@ export function ActiveDelivery({ order, token, now, courier, onPosition, onSessi
         </div>
 
         {coords ? (
-          <Suspense fallback={<div className="h-44 animate-pulse bg-[#f2f3f0]" />}>
+          <Suspense fallback={<div className="h-80 animate-pulse bg-[#f2efe9]" />}>
             <DeliveryMap destination={coords} courier={courier} directionsUrl={directions} />
           </Suspense>
         ) : (

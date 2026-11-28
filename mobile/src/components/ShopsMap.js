@@ -1,4 +1,5 @@
-// Carte des boutiques : MapLibre et le fond OpenFreeMap « positron » (comme l'annuaire du site), sans clé.
+// Carte des boutiques : MapLibre et le fond OpenFreeMap « liberty » (comme l'annuaire du site), sans clé :
+// routes en couleur avec leur nom, quartiers et lieux, noms en français quand ils existent.
 // La carte est une petite page web intégrée. Les boutiques lui sont envoyées par message (jamais écrites
 // dans son code), et chaque nom est affiché comme du texte : un nom de boutique ne peut rien y injecter.
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
@@ -10,7 +11,7 @@ export const MAP_HTML = `<!doctype html><html><head>
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
-  html, body, #map { margin: 0; height: 100%; background: #eef0f3; font-family: -apple-system, Roboto, sans-serif; }
+  html, body, #map { margin: 0; height: 100%; background: #f2efe9; font-family: -apple-system, Roboto, sans-serif; }
   .pin { display: flex; flex-direction: column; align-items: center; cursor: pointer; transform: translateY(-6px); transition: transform .2s; }
   .pin .bubble { width: 46px; height: 46px; border-radius: 16px; background: #fff; padding: 3px; box-shadow: 0 8px 20px rgba(18,16,58,.28); border: 2px solid #fff; overflow: hidden; display: flex; align-items: center; justify-content: center; }
   .pin img { width: 100%; height: 100%; border-radius: 12px; object-fit: cover; }
@@ -22,8 +23,17 @@ export const MAP_HTML = `<!doctype html><html><head>
   .maplibregl-ctrl-attrib { font-size: 10px; }
 </style></head><body><div id="map"></div><script>
   var send = function (m) { var s = JSON.stringify(m); if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(s); else window.parent.postMessage(s, '*'); };
-  var map = new maplibregl.Map({ container: 'map', style: 'https://tiles.openfreemap.org/styles/positron', center: [-17.45, 14.71], zoom: 11, attributionControl: { compact: true } });
+  var map = new maplibregl.Map({ container: 'map', style: 'https://tiles.openfreemap.org/styles/liberty', center: [-17.45, 14.71], zoom: 11, attributionControl: { compact: true } });
   var markers = {}; var me = null;
+  // Noms en français (rues, quartiers, lieux) quand ils existent
+  map.on('load', function () {
+    try {
+      (map.getStyle().layers || []).forEach(function (l) {
+        var f = l.type === 'symbol' && l.layout && l.layout['text-field'];
+        if (f && JSON.stringify(f).indexOf('name') !== -1) map.setLayoutProperty(l.id, 'text-field', ['coalesce', ['get', 'name:fr'], ['get', 'name:latin'], ['get', 'name']]);
+      });
+    } catch (err) { /* noms d'origine */ }
+  });
   function initials(name) { return String(name || '?').trim().split(/ +/).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase(); }
   window.setShops = function (list) {
     Object.keys(markers).forEach(function (k) { markers[k].remove(); }); markers = {};
