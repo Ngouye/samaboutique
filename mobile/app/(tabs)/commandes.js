@@ -6,13 +6,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { listOrders, removeOrder, sinceLabel, statusInfo, trackOrder } from '../../src/lib/myOrders';
 import { fmt } from '../../src/lib/format';
+import { productsOfOrder, reviewedIn } from '../../src/lib/reviews';
 import { COLORS, RADIUS, SHADOW, sheet, TAB_SPACE } from '../../src/theme';
 
 const TONES = {
   brand: { bg: COLORS.brandSoft, fg: COLORS.brand },
   gold: { bg: COLORS.goldSoft, fg: COLORS.goldInk },
-  green: { bg: '#e8f7ee', fg: '#13723f' },
-  red: { bg: '#fdecea', fg: COLORS.danger },
+  green: { bg: COLORS.greenSoft, fg: COLORS.green },
+  red: { bg: 'rgba(248,113,113,0.14)', fg: COLORS.danger },
 };
 
 export default function MyOrdersScreen() {
@@ -72,6 +73,7 @@ export default function MyOrdersScreen() {
           const live = states[item.id];
           const info = live ? statusInfo(live) : null;
           const tone = info ? TONES[info.tone] : null;
+          const toReview = live?.status === 'DELIVERED' ? productsOfOrder(live).filter((p) => !reviewedIn(item.id).includes(p.id)).length : 0;
           return (
             <Pressable onPress={() => router.push({ pathname: '/suivi/[id]', params: { id: item.id } })} onLongPress={() => forget(item)} style={({ pressed }) => [styles.card, pressed && { opacity: 0.9 }]}>
               <View style={styles.cardTop}>
@@ -86,8 +88,11 @@ export default function MyOrdersScreen() {
               <Text style={styles.meta}>N° {item.id.split('-')[0].toUpperCase()} · {sinceLabel(item.at)} · {item.items} article{item.items > 1 ? 's' : ''}</Text>
               <View style={styles.cardBottom}>
                 <Text style={styles.total}>{fmt(item.total)} F</Text>
+                {toReview ? (
+                  <View style={styles.reviewChip}><Ionicons name="star" size={12} color={COLORS.ctaInk} /><Text style={styles.reviewChipText}>Donnez votre avis</Text></View>
+                ) : null}
                 <View style={styles.trackLink}>
-                  <Text style={styles.trackText}>Suivre</Text>
+                  <Text style={styles.trackText}>{live?.status === 'DELIVERED' ? 'Détails' : 'Suivre'}</Text>
                   <Ionicons name="chevron-forward" size={16} color={COLORS.brand} />
                 </View>
               </View>
@@ -115,11 +120,13 @@ const styles = sheet({
   cardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
   total: { color: COLORS.ink, fontSize: 17, fontWeight: '900' },
   trackLink: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  reviewChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: COLORS.cta, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, marginLeft: 'auto', marginRight: 10 },
+  reviewChipText: { color: COLORS.ctaInk, fontSize: 12, fontWeight: '800' },
   trackText: { color: COLORS.brand, fontWeight: '800', fontSize: 14 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   emptyTitle: { color: COLORS.ink, fontSize: 18, fontWeight: '900', marginTop: 12 },
   emptyText: { color: COLORS.muted, fontSize: 14, textAlign: 'center', marginTop: 6, lineHeight: 20 },
-  emptyButton: { marginTop: 18, backgroundColor: COLORS.ink, paddingHorizontal: 22, paddingVertical: 13, borderRadius: RADIUS.md },
-  emptyButtonText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  emptyButton: { marginTop: 18, backgroundColor: COLORS.cta, paddingHorizontal: 22, paddingVertical: 13, borderRadius: RADIUS.md },
+  emptyButtonText: { color: COLORS.ctaInk, fontWeight: '800', fontSize: 15 },
   hint: { color: COLORS.faint, fontSize: 12, textAlign: 'center', marginTop: 4 },
 });

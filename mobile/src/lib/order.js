@@ -8,6 +8,7 @@ import * as Linking from 'expo-linking';
 import { store } from './storage';
 import { supabase, configError } from './supabase';
 import { canonicalPhone } from './shared';
+import { addressWithGps } from './profile';
 import { COLORS } from '../theme';
 
 const API = process.env.EXPO_PUBLIC_COMMANDES_API_URL;
@@ -57,7 +58,7 @@ async function placeOnDelivery({ merchant, lines, form }) {
     p_merchant_id: merchant.id,
     p_customer_name: form.name.trim(),
     p_customer_phone: canonicalPhone(form.phone),
-    p_customer_address: form.address.trim(),
+    p_customer_address: addressWithGps(form.address, form.gps),
     p_delivery_zone: form.zone,
     p_cart_items: cartItemsOf(lines),
     p_delivery_pin: pin,
@@ -87,7 +88,7 @@ export async function createOrder({ merchant, lines, form, payment, channel }) {
           merchant_id: merchant.id,
           name: form.name.trim(),
           phone: canonicalPhone(form.phone),
-          address: form.address.trim(),
+          address: addressWithGps(form.address, form.gps),
           zone: form.zone,
           cartItems: cartItemsOf(lines),
           channel: useDeposit ? channel : payment,

@@ -9,9 +9,9 @@ export function LogoMark({ size = 40 }) {
     <Svg width={size} height={size} viewBox="0 0 64 64" accessibilityLabel="SamaBoutik">
       <Defs>
         <LinearGradient id="sbBag" x1="12" y1="20" x2="50" y2="62" gradientUnits="userSpaceOnUse">
-          <Stop offset="0" stopColor="#6a58e8" />
-          <Stop offset="0.6" stopColor="#3b2fc9" />
-          <Stop offset="1" stopColor="#2a2580" />
+          <Stop offset="0" stopColor="#aea6f7" />
+          <Stop offset="0.6" stopColor="#8a7cf1" />
+          <Stop offset="1" stopColor="#6a58e8" />
         </LinearGradient>
         <LinearGradient id="sbGold" x1="22" y1="9" x2="42" y2="26" gradientUnits="userSpaceOnUse">
           <Stop offset="0" stopColor="#fde68a" />
@@ -26,13 +26,13 @@ export function LogoMark({ size = 40 }) {
         d="M37.2 31.6c-1.4-1.3-3.2-1.9-5.3-1.9-3.4 0-5.7 1.8-5.7 4.3 0 5.8 11.6 3.1 11.6 8.6 0 2.6-2.5 4.3-6 4.3-2.6 0-4.7-.9-6.1-2.4"
         fill="none" stroke="#fff" strokeWidth={3.3} strokeLinecap="round" strokeLinejoin="round"
       />
-      <Path d="M54.5 5.5l1.5 3.9 3.9 1.5-3.9 1.5-1.5 3.9-1.5-3.9-3.9-1.5 3.9-1.5z" fill="#e8a33d" />
+      <Path d="M54.5 5.5l1.5 3.9 3.9 1.5-3.9 1.5-1.5 3.9-1.5-3.9-3.9-1.5 3.9-1.5z" fill="#fde68a" />
     </Svg>
   );
 }
 
-// Symbole + nom « SamaBoutik » (Sama en bleu nuit, Boutik en indigo), comme sur le site.
-// light : version pour fond sombre ou dégradé (Sama en blanc, Boutik en lavande), avec une pastille blanche.
+// Symbole + nom « SamaBoutik » pour fond nuit (Sama en blanc, Boutik en lavande), comme sur le site.
+// light : ajoute une pastille sombre derrière le symbole (sur une photo ou un dégradé chargé).
 export default function Logo({ size = 40, textSize = 24, light = false }) {
   return (
     <View style={styles.row}>
@@ -47,6 +47,6 @@ export default function Logo({ size = 40, textSize = 24, light = false }) {
 
 const styles = sheet({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  markBox: { backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },
+  markBox: { backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
   text: { fontWeight: '900', letterSpacing: -0.8 },
 });

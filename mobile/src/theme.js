@@ -1,36 +1,47 @@
-// Identité visuelle de l'application : couleurs (mêmes valeurs que le site, src/utils/brand.js et src/index.css),
-// police Plus Jakarta Sans (celle du site), rayons et ombres.
+// Identité visuelle de l'application, style « nuit de Dakar » (le même que le site : accueil, annuaire,
+// tableaux de bord) : fond nuit, surfaces en verre, accents indigo et or, police Plus Jakarta Sans,
+// mots mis en avant en italique Playfair Display.
 import { StyleSheet } from 'react-native';
 
 export const COLORS = {
-  brand: '#3b2fc9', // indigo signature
+  // Accents
+  brand: '#8a7cf1', // indigo lumineux : liens, icônes, pastilles (lisible sur fond nuit)
   brandVivid: '#6a58e8',
-  brandSoft: '#f2f1fe',
-  brandDeep: '#2a2580',
-  ink: '#12103a', // bleu nuit : textes forts
-  night: '#0b0a26',
-  gold: '#e8a33d', // mises en avant
-  goldSoft: '#fdf3e2',
-  goldInk: '#8a5a12',
-  bg: '#f7f6f2', // fond crème de la plateforme
-  card: '#ffffff',
-  line: '#ebe8e1',
-  muted: '#78716c',
-  faint: '#a8a29e',
-  skeleton: '#ebe7df',
-  green: '#13723f',
-  greenSoft: '#e8f7ee',
-  danger: '#b42318',
+  brandSoft: 'rgba(138,124,241,0.16)',
+  brandDeep: '#3b2fc9',
+  gold: '#f6c768', // mises en avant, appels à l'action
+  goldSoft: 'rgba(246,199,104,0.12)',
+  goldInk: '#f9d784', // texte doré sur fond nuit
+  cta: '#f6c768', // fond des boutons principaux
+  ctaInk: '#1a1033', // texte sur fond doré
+  // Fonds et surfaces
+  night: '#07061a',
+  bg: '#0a0820', // fond de l'application
+  card: '#14122f', // cartes, panneaux
+  raised: '#1d1a45', // éléments posés sur une carte (boutons ronds, puces)
+  line: 'rgba(255,255,255,0.09)',
+  skeleton: '#1c1a3e',
+  // Textes
+  ink: '#f5f4ff', // textes forts
+  muted: '#a9a5c8',
+  faint: '#6f6b94',
+  // États
+  green: '#34d399',
+  greenSoft: 'rgba(52,211,153,0.14)',
+  danger: '#f87171',
 };
 
 export const RADIUS = { sm: 10, md: 16, lg: 22, xl: 28 };
 
+// Sur fond nuit, une ombre seule ne se voit pas : un liseré clair dessine le bord des cartes.
 export const SHADOW = {
-  shadowColor: '#12103a',
-  shadowOpacity: 0.08,
-  shadowRadius: 14,
-  shadowOffset: { width: 0, height: 6 },
-  elevation: 3,
+  shadowColor: '#000',
+  shadowOpacity: 0.35,
+  shadowRadius: 18,
+  shadowOffset: { width: 0, height: 10 },
+  elevation: 4,
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.07)',
 };
 
 // Une famille par graisse : sur Android, une police personnalisée ne se met pas en gras toute seule.
@@ -40,6 +51,7 @@ export const FONTS = {
   semibold: 'PlusJakartaSans_600SemiBold',
   bold: 'PlusJakartaSans_700Bold',
   extrabold: 'PlusJakartaSans_800ExtraBold',
+  editorial: 'PlayfairDisplay_600SemiBold_Italic', // mots mis en avant dans les titres
 };
 const BY_WEIGHT = {
   normal: FONTS.regular, 100: FONTS.regular, 200: FONTS.regular, 300: FONTS.regular, 400: FONTS.regular,
@@ -62,24 +74,28 @@ export function sheet(styles) {
   return StyleSheet.create(out);
 }
 
-// Dégradés de la marque (en-têtes, boutons, bannières).
+// Dégradés (en-têtes, boutons, bannières).
 export const GRADIENTS = {
-  brand: ['#5b4bf0', '#3b2fc9', '#2a2580'],
-  hero: ['#4c3de8', '#3b2fc9', '#221d73'],
-  gold: ['#f7cf7a', '#e8a33d'],
-  teal: ['#14b8a6', '#0e7c86'],
-  sunset: ['#f59e0b', '#ea580c'],
-  rose: ['#ec4899', '#9d174d'],
+  brand: ['#8a7cf1', '#6a58e8', '#3b2fc9'],
+  hero: ['#1d1852', '#100d33', '#0a0820'], // en-têtes nuit
+  gold: ['#f9d784', '#f3a953', '#ec8a5a'], // boutons principaux
+  teal: ['#2dd4bf', '#0f766e'],
+  sunset: ['#fbbf24', '#ea580c'],
+  rose: ['#f472b6', '#be185d'],
+  // Bannières sombres teintées (une lueur de couleur sur fond nuit)
+  nightIndigo: ['#2a2380', '#151140', '#0d0b2a'],
+  nightTeal: ['#0f4f55', '#0c2c3a', '#0b1426'],
+  nightGold: ['#5a3d16', '#2a1d22', '#120e26'],
 };
 
-// Couleurs douces des catégories (une par position, dans cet ordre).
+// Couleurs des catégories sur fond nuit (une par position, dans cet ordre).
 export const SOFT = [
-  { bg: '#eef0ff', fg: '#3b2fc9' },
-  { bg: '#fff1e6', fg: '#d4671f' },
-  { bg: '#e8f8f1', fg: '#13895a' },
-  { bg: '#fdeef4', fg: '#c2357a' },
-  { bg: '#e9f6fd', fg: '#1479b8' },
-  { bg: '#fff8e1', fg: '#a57400' },
+  { bg: 'rgba(138,124,241,0.16)', fg: '#b3a9fb' },
+  { bg: 'rgba(251,146,60,0.15)', fg: '#fdba74' },
+  { bg: 'rgba(52,211,153,0.14)', fg: '#6ee7b7' },
+  { bg: 'rgba(244,114,182,0.15)', fg: '#f9a8d4' },
+  { bg: 'rgba(56,189,248,0.15)', fg: '#7dd3fc' },
+  { bg: 'rgba(246,199,104,0.14)', fg: '#f9d784' },
 ];
 
 // Place laissée en bas des onglets pour la barre flottante.

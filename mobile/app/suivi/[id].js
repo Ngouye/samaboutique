@@ -1,14 +1,19 @@
 // Suivi d'une commande : alerte (livreur qui cherche à joindre le client, changement de livreur), étapes,
 // livreur en route (téléphone et position), code de livraison, historique, montants.
+// Une fois livrée : avis sur chaque produit (badge « Achat vérifié »). Toujours : commander à nouveau, partager le reçu.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Linking, Pressable, RefreshControl, ScrollView, Share, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { TRACK_STEPS, clockLabel, findOrder, sinceLabel, statusInfo, trackHistory, trackOrder } from '../../src/lib/myOrders';
-import { cachedMerchant, fetchShop, rememberShop } from '../../src/lib/shop';
+import { TRACK_STEPS, clockLabel, findOrder, receiptText, sinceLabel, statusInfo, trackHistory, trackOrder } from '../../src/lib/myOrders';
+import { cachedMerchant, fetchProductsByIds, fetchShop, isSoldOut, rememberShop, variantFromItem } from '../../src/lib/shop';
+import { productsOfOrder, reviewedIn } from '../../src/lib/reviews';
+import { useCart } from '../../src/lib/cart';
+import ReviewSheet from '../../src/components/ReviewSheet';
+import { GradientButton } from '../../src/components/ui';
 import { MOBILE_CHANNELS, customerTimeline, depositAmount, isDeposit, trackingNotice, whatsappNumber } from '../../src/lib/shared';
-import { buzzWarning } from '../../src/lib/feedback';
+import { buzzSuccess, buzzWarning } from '../../src/lib/feedback';
 import { fmt } from '../../src/lib/format';
 import { COLORS, RADIUS, SHADOW, sheet } from '../../src/theme';
 
@@ -16,8 +21,8 @@ const REFRESH_MS = 15000; // actualisation tant que la commande n'est pas termin
 const TONES = {
   brand: { bg: COLORS.brandSoft, fg: COLORS.brand },
   gold: { bg: COLORS.goldSoft, fg: COLORS.goldInk },
-  green: { bg: '#e8f7ee', fg: '#13723f' },
-  red: { bg: '#fdecea', fg: COLORS.danger },
+  green: { bg: COLORS.greenSoft, fg: COLORS.green },
+  red: { bg: 'rgba(248,113,113,0.14)', fg: COLORS.danger },
 };
 
 // Icône et couleur de chaque étape de l'historique
@@ -51,6 +56,10 @@ export default function TrackScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [merchant, setMerchant] = useState(() => (entry ? cachedMerchant(entry.shop) : null));
   const [now, setNow] = useState(Date.now());
+  const cart = useCart();
+  const [reviewing, setReviewing] = useState(null); // produit en cours de notation
+  const [reviewed, setReviewed] = useState(() => new Set(reviewedIn(orderId)));
+  const [reordering, setReordering] = useState(false);
 
   const load = useCallback(async () => {
     if (!entry) return;
@@ -85,6 +94,41 @@ export default function TrackScreen() {
   }, [noticeKey]);
 
   const refresh = useCallback(async () => { setRefreshing(true); await load(); setRefreshing(false); }, [load]);
+
+  // Commander à nouveau : les mêmes articles (encore en vente) reviennent dans le panier de la boutique.
+  const reorder = async () => {
+    if (!order || reordering) return;
+    setReordering(true);
+    try {
+      const items = order.cart_items || [];
+      const products = await fetchProductsByIds(items.map((it) => it.product_id));
+      const byId = new Map(products.map((p) => [String(p.id), p]));
+      let added = 0;
+      const missing = [];
+      items.forEach((it) => {
+        const product = byId.get(String(it.product_id));
+        if (!product || isSoldOut(product)) { missing.push(it.name); return; }
+        const variant = variantFromItem(it, product);
+        for (let k = 0; k < (Number(it.quantity) || 1); k += 1) {
+          const result = cart.add(entry.shop, product, variant, merchant);
+          if (!result.ok) { if (k === 0) missing.push(it.name); break; }
+          added += 1;
+        }
+      });
+      if (!added) {
+        Alert.alert('Articles indisponibles', 'Les articles de cette commande ne sont plus en vente pour le moment.');
+        return;
+      }
+      buzzSuccess();
+      router.push({ pathname: '/panier/[shop]', params: { shop: entry.shop } });
+      if (missing.length) Alert.alert('Panier prêt', `Ces articles ne sont plus disponibles et n’ont pas été ajoutés : ${missing.join(', ')}.`);
+    } catch {
+      Alert.alert('Pas de connexion', 'Impossible de vérifier les articles. Réessayez dans un instant.');
+    } finally {
+      setReordering(false);
+    }
+  };
+  const shareReceipt = () => { if (order) Share.share({ message: receiptText(order, entry.shop) }).catch(() => {}); };
   const goBack = useCallback(() => (router.canGoBack() ? router.back() : router.replace('/commandes')), [router]);
 
   const header = (
@@ -202,6 +246,32 @@ export default function TrackScreen() {
           <Text style={styles.updated}>Mis à jour {sinceLabel(new Date(now).toISOString(), Date.now()) || 'à l’instant'} · tirez vers le bas pour actualiser</Text>
         </View>
 
+        {/* Avis sur les produits reçus */}
+        {order.status === 'DELIVERED' && productsOfOrder(order).length ? (
+          <View style={[styles.card, styles.reviewCard]}>
+            <View style={styles.reviewHead}>
+              <Ionicons name="star" size={18} color={COLORS.gold} />
+              <Text style={styles.cardTitleInline}>Votre avis compte</Text>
+            </View>
+            <Text style={styles.reviewIntro}>Notez les produits reçus : votre avis portera le badge « Achat vérifié ».</Text>
+            {productsOfOrder(order).map((p) => {
+              const done = reviewed.has(p.id);
+              return (
+                <View key={p.id} style={styles.reviewRow}>
+                  <Text style={styles.reviewName} numberOfLines={2}>{p.name}</Text>
+                  {done ? (
+                    <View style={styles.reviewDone}><Ionicons name="checkmark-circle" size={15} color={COLORS.green} /><Text style={styles.reviewDoneText}>Merci !</Text></View>
+                  ) : (
+                    <Pressable onPress={() => setReviewing(p)} style={styles.reviewButton} accessibilityLabel={`Noter ${p.name}`}>
+                      <Ionicons name="star-outline" size={14} color={COLORS.ctaInk} /><Text style={styles.reviewButtonText}>Noter</Text>
+                    </Pressable>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
+
         {/* Livreur en route */}
         {order.status === 'IN_TRANSIT' ? (
           <View style={styles.card}>
@@ -290,6 +360,12 @@ export default function TrackScreen() {
           </View>
         </View>
 
+        <GradientButton title="Commander à nouveau" icon="repeat" onPress={reorder} loading={reordering} style={{ marginBottom: 10 }} />
+        <Pressable onPress={shareReceipt} style={[styles.secondary, styles.shareButton]} accessibilityLabel="Partager le reçu">
+          <Ionicons name="share-social-outline" size={18} color={COLORS.ink} />
+          <Text style={styles.secondaryText}>Partager le reçu</Text>
+        </Pressable>
+
         {shopPhone ? (
           <Pressable onPress={() => Linking.openURL(`https://wa.me/${shopPhone}?text=${encodeURIComponent(`Bonjour ${entry.shop}, je vous écris au sujet de ma commande n° ${orderId.split('-')[0].toUpperCase()}.`)}`)} style={styles.whatsapp}>
             <Ionicons name="logo-whatsapp" size={19} color="#fff" />
@@ -297,11 +373,28 @@ export default function TrackScreen() {
           </Pressable>
         ) : null}
       </ScrollView>
+      <ReviewSheet
+        product={reviewing}
+        orderId={orderId}
+        onClose={() => setReviewing(null)}
+        onDone={(productId) => setReviewed((prev) => new Set([...prev, String(productId)]))}
+      />
     </View>
   );
 }
 
 const styles = sheet({
+  reviewCard: { borderColor: 'rgba(246,199,104,0.3)' },
+  reviewHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  cardTitleInline: { color: COLORS.ink, fontSize: 16, fontWeight: '800' },
+  reviewIntro: { color: COLORS.muted, fontSize: 13, marginTop: 4, marginBottom: 6, lineHeight: 18 },
+  reviewRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderTopWidth: 1, borderTopColor: COLORS.line },
+  reviewName: { flex: 1, color: COLORS.ink, fontSize: 14, fontWeight: '700' },
+  reviewButton: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: COLORS.cta, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999 },
+  reviewButtonText: { color: COLORS.ctaInk, fontSize: 13, fontWeight: '800' },
+  reviewDone: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  reviewDoneText: { color: COLORS.green, fontSize: 13, fontWeight: '800' },
+  shareButton: { flexDirection: 'row', gap: 8, marginBottom: 10 },
   screen: { flex: 1, backgroundColor: COLORS.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingBottom: 10 },
   round: { width: 42, height: 42, borderRadius: 21, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center', ...SHADOW },

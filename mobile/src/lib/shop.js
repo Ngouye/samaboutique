@@ -116,3 +116,20 @@ export async function fetchProduct(id) {
   productCache.set(String(id), { product, merchant });
   return { product, merchant, reviews: reviews || [] };
 }
+
+// Produits encore en vente parmi une liste d'identifiants (« Commander à nouveau »).
+export async function fetchProductsByIds(ids) {
+  if (configError) throw new Error(configError);
+  const list = [...new Set((ids || []).map(String))].slice(0, 50);
+  if (!list.length) return [];
+  const { data, error } = await supabase.from('products').select('*').in('id', list);
+  if (error) throw error;
+  return (data || []).filter((p) => isLive(p));
+}
+
+// Taille ou couleur d'une ligne de commande : « Robe wax (M) » → « M ».
+export function variantFromItem(item, product) {
+  const name = String(item?.name || '');
+  const prefix = `${product?.name || ''} (`;
+  return name.startsWith(prefix) && name.endsWith(')') ? name.slice(prefix.length, -1) : '';
+}

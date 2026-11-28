@@ -24,6 +24,6 @@ const styles = sheet({
   screen: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, backgroundColor: COLORS.bg },
   title: { color: COLORS.ink, fontSize: 22, fontWeight: '900', marginTop: 14 },
   text: { color: COLORS.muted, fontSize: 14.5, marginTop: 6, textAlign: 'center' },
-  button: { marginTop: 20, backgroundColor: COLORS.ink, paddingHorizontal: 22, paddingVertical: 13, borderRadius: RADIUS.md },
-  buttonText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  button: { marginTop: 20, backgroundColor: COLORS.cta, paddingHorizontal: 22, paddingVertical: 13, borderRadius: RADIUS.md },
+  buttonText: { color: COLORS.ctaInk, fontWeight: '800', fontSize: 15 },
 });

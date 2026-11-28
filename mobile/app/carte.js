@@ -39,7 +39,7 @@ export default function MapScreen() {
   const [locating, setLocating] = useState(false);
   const [locError, setLocError] = useState('');
 
-  useEffect(() => { setStatusBarStyle('dark'); }, []);
+  useEffect(() => { setStatusBarStyle('dark'); return () => setStatusBarStyle('light'); }, []);
   useEffect(() => {
     fetchShops().then((all) => setShops(all.filter((s) => s.latitude != null && s.longitude != null))).catch(() => {}).finally(() => setLoading(false));
   }, []);

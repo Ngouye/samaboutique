@@ -11,10 +11,13 @@ import { useCart } from '../../src/lib/cart';
 import { cachedMerchant, fetchShop, rememberShop, zonesOf } from '../../src/lib/shop';
 import { createOrder, depositAvailable, openPayment } from '../../src/lib/order';
 import { DEPOSIT_PERCENT, MOBILE_CHANNELS, depositFor, isMobileChannel } from '../../src/lib/shared';
-import { accentOf, fmt, onColor, thumbUrl } from '../../src/lib/format';
+import { accentOf, fmt, onColor, swatchOf, thumbUrl } from '../../src/lib/format';
+import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, RADIUS, SHADOW, sheet, FONTS } from '../../src/theme';
 import { store } from '../../src/lib/storage';
 import { GradientButton, gradientOf } from '../../src/components/ui';
+import { addressIcon, defaultAddress, listAddresses, locateMe } from '../../src/lib/profile';
+import { buzzLight } from '../../src/lib/feedback';
 
 // Logos des opérateurs (mêmes images que le site) ; les autres ont une pastille de couleur.
 const LOGOS = {
@@ -23,7 +26,8 @@ const LOGOS = {
 };
 
 // Coordonnées gardées sur le téléphone : pas besoin de les retaper d'une commande à l'autre.
-const EMPTY_FORM = { name: '', phone: '', address: '', zone: '' };
+// gps : position du téléphone jointe à l'adresse (le livreur reçoit l'itinéraire exact).
+const EMPTY_FORM = { name: '', phone: '', address: '', zone: '', gps: null };
 
 function OperatorBadge({ channel, size = 30 }) {
   const logo = LOGOS[channel.id];
@@ -39,8 +43,8 @@ function OperatorBadge({ channel, size = 30 }) {
 function Field({ label, error, ...input }) {
   return (
     <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput placeholderTextColor={COLORS.faint} style={[styles.input, input.multiline && styles.inputMulti, error && styles.inputError]} {...input} />
+      {label ? <Text style={styles.fieldLabel}>{label}</Text> : null}
+      <TextInput keyboardAppearance="dark" placeholderTextColor={COLORS.faint} style={[styles.input, input.multiline && styles.inputMulti, error && styles.inputError]} {...input} />
       {error ? <Text style={styles.fieldError}>{error}</Text> : null}
     </View>
   );
@@ -55,12 +59,21 @@ export default function CartScreen() {
 
   const [merchant, setMerchant] = useState(() => cachedMerchant(shopName));
   const [depositOn, setDepositOn] = useState(true);
-  const [form, setForm] = useState(() => ({ ...EMPTY_FORM, ...store.get('client', {}) }));
+  // Coordonnées gardées ; sans adresse, l'adresse principale de « Mon espace » est proposée.
+  const [form, setForm] = useState(() => {
+    const saved = { ...EMPTY_FORM, ...store.get('client', {}) };
+    const main = defaultAddress();
+    return !saved.address && main ? { ...saved, address: main.address, gps: main.gps || null } : saved;
+  });
+  const [addresses] = useState(listAddresses);
+  const [locating, setLocating] = useState(false);
+  const [locateError, setLocateError] = useState('');
   const [payment, setPayment] = useState('ON_DELIVERY');
   const [channel, setChannel] = useState(MOBILE_CHANNELS[0].id);
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [removing, setRemoving] = useState(null); // article dont on confirme le retrait
 
   useEffect(() => {
     let alive = true;
@@ -79,7 +92,7 @@ export default function CartScreen() {
   useEffect(() => {
     if (zones.length && !zones.some((z) => z.name === form.zone)) setForm((f) => ({ ...f, zone: zones[0].name }));
   }, [zones, form.zone]);
-  useEffect(() => { store.set('client', { name: form.name, phone: form.phone, address: form.address, zone: form.zone }); }, [form]);
+  useEffect(() => { store.set('client', { name: form.name, phone: form.phone, address: form.address, zone: form.zone, gps: form.gps || null }); }, [form]);
 
   const lines = cart.lines(shopName);
   const subtotal = cart.subtotal(shopName);
@@ -88,12 +101,32 @@ export default function CartScreen() {
   const useDeposit = payment === 'ON_DELIVERY' && depositOn;
   const deposit = depositFor(total);
   const accent = accentOf(merchant?.theme_color);
-  const accentText = onColor(accent);
 
   const set = (key) => (value) => {
     setForm((f) => ({ ...f, [key]: value }));
     if (errors[key]) setErrors((e) => ({ ...e, [key]: null }));
     setMessage('');
+  };
+
+  // Adresse enregistrée choisie, ou position du téléphone.
+  const pickAddress = (a) => {
+    buzzLight();
+    setForm((f) => ({ ...f, address: a.address, gps: a.gps || null }));
+    if (errors.address) setErrors((e) => ({ ...e, address: null }));
+  };
+  const fillMyPosition = async () => {
+    buzzLight();
+    setLocateError('');
+    setLocating(true);
+    try {
+      const found = await locateMe();
+      setForm((f) => ({ ...f, gps: found.gps, address: f.address.trim() ? f.address : (found.text || 'Position GPS partagée') }));
+      if (errors.address) setErrors((e) => ({ ...e, address: null }));
+    } catch (e) {
+      setLocateError(e?.message || 'Position introuvable. Vérifiez que la localisation est activée.');
+    } finally {
+      setLocating(false);
+    }
   };
 
   const changeQuantity = (line, quantity) => {
@@ -171,8 +204,8 @@ export default function CartScreen() {
           <Ionicons name="bag-outline" size={48} color={COLORS.faint} />
           <Text style={styles.emptyTitle}>Votre panier est vide</Text>
           <Text style={styles.emptyText}>Ajoutez des articles depuis la boutique pour commander.</Text>
-          <Pressable onPress={() => router.replace({ pathname: '/boutique/[shop]', params: { shop: shopName } })} style={[styles.emptyButton, { backgroundColor: accent }]}>
-            <Text style={[styles.emptyButtonText, { color: accentText }]}>Voir la boutique</Text>
+          <Pressable onPress={() => router.replace({ pathname: '/boutique/[shop]', params: { shop: shopName } })} style={[styles.emptyButton, { backgroundColor: gradientOf(accent)[0] }]}>
+            <Text style={[styles.emptyButtonText, { color: onColor(gradientOf(accent)[0]) }]}>Voir la boutique</Text>
           </Pressable>
         </View>
       </View>
@@ -187,38 +220,94 @@ export default function CartScreen() {
       {header}
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 140 + insets.bottom }} keyboardShouldPersistTaps="handled">
         {stepper}
-        {/* Articles */}
-        <Text style={styles.section}>Articles</Text>
-        <View style={styles.card}>
-          {lines.map((line, i) => (
-            <View key={line.key} style={[styles.line, i > 0 && styles.lineBorder]}>
-              <View style={styles.thumb}>
-                {line.product.image_url ? <Image source={thumbUrl(line.product.image_url)} style={StyleSheet.absoluteFill} contentFit="cover" /> : <Ionicons name="image-outline" size={20} color={COLORS.faint} />}
+        {/* Articles : une carte par article, retrait confirmé */}
+        <Text style={styles.section}>Articles · {cart.count(shopName)}</Text>
+        {lines.map((line) => {
+          const parts = String(line.variant || '').split(' - ').filter(Boolean);
+          return (
+            <View key={line.key} style={styles.item}>
+              <View style={styles.itemPhoto}>
+                {line.product.image_url ? <Image source={thumbUrl(line.product.image_url)} style={StyleSheet.absoluteFill} contentFit="cover" /> : <Ionicons name="image-outline" size={22} color={COLORS.faint} />}
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.lineName} numberOfLines={2}>{line.product.name}</Text>
-                {line.variant ? <Text style={styles.lineVariant}>{line.variant}</Text> : null}
-                <Text style={styles.linePrice}>{fmt(line.product.price_fcfa * line.quantity)} F</Text>
-              </View>
-              <View style={styles.stepper}>
-                <Pressable onPress={() => changeQuantity(line, line.quantity - 1)} style={styles.stepButton} accessibilityLabel={line.quantity === 1 ? 'Retirer' : 'Un de moins'} hitSlop={6}>
-                  <Ionicons name={line.quantity === 1 ? 'trash-outline' : 'remove'} size={17} color={COLORS.ink} />
-                </Pressable>
-                <Text style={styles.stepValue}>{line.quantity}</Text>
-                <Pressable onPress={() => changeQuantity(line, line.quantity + 1)} style={styles.stepButton} accessibilityLabel="Un de plus" hitSlop={6}>
-                  <Ionicons name="add" size={17} color={COLORS.ink} />
-                </Pressable>
+                <View style={styles.itemTop}>
+                  <Text style={styles.itemName} numberOfLines={2}>{line.product.name}</Text>
+                  <Pressable onPress={() => setRemoving(removing === line.key ? null : line.key)} style={styles.trash} accessibilityLabel={`Retirer ${line.product.name}`} hitSlop={6}>
+                    <Ionicons name="trash-outline" size={16} color={COLORS.muted} />
+                  </Pressable>
+                </View>
+                {parts.length ? (
+                  <View style={styles.variants}>
+                    {parts.map((v) => {
+                      const hex = swatchOf(v);
+                      return (
+                        <View key={v} style={styles.variantChip}>
+                          {hex === 'multi' ? <LinearGradient colors={['#f472b6', '#f6c768', '#2dd4bf', '#8a7cf1']} style={styles.variantDot} /> : hex ? <View style={[styles.variantDot, { backgroundColor: hex }]} /> : null}
+                          <Text style={styles.variantText}>{hex || v.length > 4 ? v : `Taille ${v}`}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                ) : null}
+                {removing === line.key ? (
+                  <View style={styles.confirm}>
+                    <Text style={styles.confirmText}>Retirer cet article ?</Text>
+                    <Pressable onPress={() => setRemoving(null)} style={styles.confirmNo}><Text style={styles.confirmNoText}>Non</Text></Pressable>
+                    <Pressable onPress={() => { changeQuantity(line, 0); setRemoving(null); }} style={styles.confirmYes}><Text style={styles.confirmYesText}>Oui</Text></Pressable>
+                  </View>
+                ) : (
+                  <View style={styles.itemBottom}>
+                    <Text style={styles.itemPrice}>{fmt(line.product.price_fcfa * line.quantity)}<Text style={styles.itemCurrency}> F</Text></Text>
+                    <View style={styles.stepper}>
+                      <Pressable onPress={() => (line.quantity === 1 ? setRemoving(line.key) : changeQuantity(line, line.quantity - 1))} style={styles.stepButton} accessibilityLabel="Un de moins" hitSlop={6}>
+                        <Ionicons name="remove" size={16} color={COLORS.ink} />
+                      </Pressable>
+                      <Text style={styles.stepValue}>{line.quantity}</Text>
+                      <Pressable onPress={() => changeQuantity(line, line.quantity + 1)} style={[styles.stepButton, styles.stepPlus]} accessibilityLabel="Un de plus" hitSlop={6}>
+                        <Ionicons name="add" size={16} color={COLORS.ctaInk} />
+                      </Pressable>
+                    </View>
+                  </View>
+                )}
               </View>
             </View>
-          ))}
-        </View>
+          );
+        })}
 
         {/* Coordonnées */}
         <Text style={styles.section}>Livraison</Text>
         <View style={styles.card}>
           <Field label="Nom complet" value={form.name} onChangeText={set('name')} placeholder="Ex. Fatou Diop" autoComplete="name" error={errors.name} />
           <Field label="Téléphone" value={form.phone} onChangeText={set('phone')} placeholder="77 123 45 67" keyboardType="phone-pad" autoComplete="tel" error={errors.phone} />
-          <Field label="Adresse de livraison" value={form.address} onChangeText={set('address')} placeholder="Quartier, rue, point de repère…" multiline error={errors.address} />
+          <Text style={styles.fieldLabel}>Adresse de livraison</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quick} keyboardShouldPersistTaps="handled">
+            <Pressable onPress={fillMyPosition} disabled={locating} style={[styles.quickChip, styles.quickGps, form.gps && styles.quickGpsOn]} accessibilityLabel="Utiliser ma position">
+              {locating ? <ActivityIndicator size="small" color={COLORS.goldInk} /> : <Ionicons name={form.gps ? 'checkmark-circle' : 'navigate'} size={15} color={form.gps ? COLORS.green : COLORS.goldInk} />}
+              <Text style={[styles.quickText, { color: form.gps ? COLORS.green : COLORS.goldInk }]}>{form.gps ? 'Position jointe' : 'Ma position'}</Text>
+            </Pressable>
+            {addresses.map((a) => {
+              const on = form.address === a.address;
+              return (
+                <Pressable key={a.id} onPress={() => pickAddress(a)} style={[styles.quickChip, on && { borderColor: accent, backgroundColor: COLORS.brandSoft }]} accessibilityState={{ selected: on }}>
+                  <Ionicons name={addressIcon(a.label)} size={14} color={on ? COLORS.ink : COLORS.muted} />
+                  <Text style={[styles.quickText, on && { color: COLORS.ink }]}>{a.label}</Text>
+                </Pressable>
+              );
+            })}
+            <Pressable onPress={() => router.push('/compte')} style={styles.quickChip} accessibilityLabel="Gérer mes adresses">
+              <Ionicons name="add" size={15} color={COLORS.muted} />
+              <Text style={styles.quickText}>{addresses.length ? 'Gérer' : 'Enregistrer mes adresses'}</Text>
+            </Pressable>
+          </ScrollView>
+          <Field label="" value={form.address} onChangeText={set('address')} placeholder="Quartier, rue, point de repère…" multiline error={errors.address} />
+          {locateError ? <Text style={styles.fieldError}>{locateError}</Text> : null}
+          {form.gps ? (
+            <View style={styles.gpsNote}>
+              <Ionicons name="navigate" size={13} color={COLORS.green} />
+              <Text style={styles.gpsNoteText}>Position GPS jointe : le livreur aura l’itinéraire exact.</Text>
+              <Pressable onPress={() => set('gps')(null)} hitSlop={8}><Text style={styles.gpsRemove}>Retirer</Text></Pressable>
+            </View>
+          ) : null}
           <Text style={styles.fieldLabel}>Zone de livraison</Text>
           <View style={styles.zones}>
             {zones.map((z) => {
@@ -335,14 +424,8 @@ const styles = sheet({
   secure: { color: COLORS.muted, fontSize: 11.5, textAlign: 'center', marginTop: 8 },
   section: { color: COLORS.ink, fontSize: 16.5, fontWeight: '900', marginTop: 8, marginBottom: 10 },
   card: { backgroundColor: COLORS.card, borderRadius: RADIUS.lg, padding: 14, marginBottom: 8, ...SHADOW, shadowOpacity: 0.05 },
-  line: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
-  lineBorder: { borderTopWidth: 1, borderTopColor: COLORS.line },
-  thumb: { width: 58, height: 58, borderRadius: 12, overflow: 'hidden', backgroundColor: '#efece6', alignItems: 'center', justifyContent: 'center' },
-  lineName: { color: COLORS.ink, fontSize: 14, fontWeight: '700' },
-  lineVariant: { color: COLORS.muted, fontSize: 12.5, marginTop: 1 },
-  linePrice: { color: COLORS.ink, fontSize: 14.5, fontWeight: '900', marginTop: 3 },
   stepper: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.bg, borderRadius: 999, padding: 3 },
-  stepButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center' },
+  stepButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.raised, alignItems: 'center', justifyContent: 'center' },
   stepValue: { minWidth: 26, textAlign: 'center', color: COLORS.ink, fontWeight: '900', fontSize: 15 },
   field: { marginBottom: 12 },
   fieldLabel: { color: COLORS.ink, fontSize: 13, fontWeight: '800', marginBottom: 6 },
@@ -361,7 +444,7 @@ const styles = sheet({
   payGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   payTile: { width: '48.5%', flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1.5, borderColor: COLORS.line, borderRadius: RADIUS.md, padding: 9 },
   payTileText: { flex: 1, color: COLORS.ink, fontSize: 13.5, fontWeight: '800' },
-  opLogo: { borderRadius: 9, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)', overflow: 'hidden' },
+  opLogo: { borderRadius: 9, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', overflow: 'hidden' },
   depositBox: { marginTop: 14, borderTopWidth: 1, borderTopColor: COLORS.line, paddingTop: 14 },
   depositIntro: { color: COLORS.muted, fontSize: 13, lineHeight: 19 },
   depositSplit: { flexDirection: 'row', gap: 8, marginVertical: 12 },
@@ -385,4 +468,34 @@ const styles = sheet({
   emptyText: { color: COLORS.muted, fontSize: 14, textAlign: 'center', marginTop: 6 },
   emptyButton: { marginTop: 18, paddingHorizontal: 22, paddingVertical: 13, borderRadius: RADIUS.md },
   emptyButtonText: { fontWeight: '900', fontSize: 15 },
+  quick: { gap: 8, paddingBottom: 8 },
+  quickChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999,
+    backgroundColor: COLORS.raised, borderWidth: 1, borderColor: COLORS.line,
+  },
+  quickGps: { backgroundColor: COLORS.goldSoft, borderColor: 'rgba(246,199,104,0.35)' },
+  quickGpsOn: { backgroundColor: COLORS.greenSoft, borderColor: 'rgba(52,211,153,0.35)' },
+  quickText: { color: COLORS.muted, fontSize: 13, fontWeight: '700' },
+  gpsNote: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -6, marginBottom: 12 },
+  gpsNoteText: { flex: 1, color: COLORS.green, fontSize: 12, fontWeight: '600' },
+  gpsRemove: { color: COLORS.danger, fontSize: 12.5, fontWeight: '800' },
+  item: { flexDirection: 'row', gap: 12, padding: 10, marginBottom: 10, borderRadius: RADIUS.lg, backgroundColor: COLORS.card, ...SHADOW },
+  itemPhoto: { width: 82, height: 96, borderRadius: 16, overflow: 'hidden', backgroundColor: COLORS.raised, alignItems: 'center', justifyContent: 'center' },
+  itemTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  itemName: { flex: 1, color: COLORS.ink, fontSize: 15, fontWeight: '800', lineHeight: 20 },
+  trash: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.raised, alignItems: 'center', justifyContent: 'center' },
+  variants: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  variantChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, backgroundColor: COLORS.raised },
+  variantDot: { width: 11, height: 11, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)' },
+  variantText: { color: COLORS.muted, fontSize: 11.5, fontWeight: '700' },
+  itemBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: 8 },
+  itemPrice: { color: COLORS.ink, fontSize: 17, fontWeight: '900', letterSpacing: -0.3 },
+  itemCurrency: { fontSize: 12, color: COLORS.goldInk },
+  stepPlus: { backgroundColor: COLORS.cta },
+  confirm: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 'auto', paddingTop: 8 },
+  confirmText: { flex: 1, color: COLORS.ink, fontSize: 13, fontWeight: '700' },
+  confirmNo: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: COLORS.raised },
+  confirmNoText: { color: COLORS.ink, fontSize: 13, fontWeight: '800' },
+  confirmYes: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: 'rgba(248,113,113,0.18)', borderWidth: 1, borderColor: 'rgba(248,113,113,0.5)' },
+  confirmYesText: { color: COLORS.danger, fontSize: 13, fontWeight: '800' },
 });

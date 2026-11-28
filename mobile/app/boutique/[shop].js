@@ -18,6 +18,8 @@ import { COLORS, RADIUS, SHADOW, sheet } from '../../src/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { setStatusBarStyle } from 'expo-status-bar';
 import { FadeIn, Glass, GradientButton, gradientOf } from '../../src/components/ui';
+import LayoutToggle from '../../src/components/LayoutToggle';
+import { useProductLayout } from '../../src/lib/layout';
 
 const SITE_URL = process.env.EXPO_PUBLIC_SITE_URL || 'https://samaboutik-nine.vercel.app';
 const GAP = 12;
@@ -31,6 +33,7 @@ export default function ShopScreen() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const cardWidth = Math.floor((width - SIDE * 2 - GAP) / 2);
+  const [layout, setLayout] = useProductLayout();
 
   const [shop, setShop] = useState(null);
   const [status, setStatus] = useState('loading'); // loading | ready | missing | error
@@ -39,7 +42,7 @@ export default function ShopScreen() {
   const [category, setCategory] = useState(null);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
-  useEffect(() => { setStatusBarStyle('light'); return () => setStatusBarStyle('dark'); }, []);
+  useEffect(() => { setStatusBarStyle('light'); }, []);
 
   const load = useCallback(async () => {
     try {
@@ -235,6 +238,7 @@ export default function ShopScreen() {
           <Ionicons name="bag-handle-outline" size={18} color={COLORS.ink} />
           <Text style={styles.sectionTitle}>Produits</Text>
           <Text style={styles.sectionHint}>{visible.length}</Text>
+          <LayoutToggle value={layout} onChange={setLayout} style={{ marginLeft: 10 }} />
         </View>
         {categories.length > 1 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
@@ -260,11 +264,14 @@ export default function ShopScreen() {
         scrollEventThrottle={16}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
         keyExtractor={(p) => String(p.id)}
-        numColumns={2}
-        columnWrapperStyle={styles.row}
+        key={`produits-${layout}`}
+        numColumns={layout === 'list' ? 1 : 2}
+        {...(layout === 'list' ? {} : { columnWrapperStyle: styles.row })}
         renderItem={({ item, index }) => (
           <FadeIn delay={Math.min(index, 5) * 60}>
-            <ProductCard product={item} rating={shop.ratings[item.id]} width={cardWidth} shop={merchant} onPress={() => openProduct(item)} />
+            <View style={layout === 'list' ? { paddingHorizontal: SIDE } : null}>
+              <ProductCard product={item} rating={shop.ratings[item.id]} layout={layout} width={layout === 'list' ? width - SIDE * 2 : cardWidth} shop={merchant} onPress={() => openProduct(item)} />
+            </View>
           </FadeIn>
         )}
         ListHeaderComponent={header}
@@ -304,9 +311,9 @@ export default function ShopScreen() {
 const styles = sheet({
   screen: { flex: 1, backgroundColor: COLORS.bg },
   topBar: { position: 'absolute', left: SIDE, right: SIDE, flexDirection: 'row', justifyContent: 'space-between' },
-  roundButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.94)', alignItems: 'center', justifyContent: 'center', ...SHADOW },
+  roundButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(10,8,32,0.6)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center', ...SHADOW },
   roundLight: { backgroundColor: COLORS.card },
-  cartBar: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 10, backgroundColor: 'rgba(247,246,242,0.96)' },
+  cartBar: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 10, backgroundColor: 'rgba(10,8,32,0.96)', borderTopWidth: 1, borderTopColor: COLORS.line },
   glassHeader: { position: 'absolute', top: 0, left: 0, right: 0, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.06)' },
   glassTitle: { color: COLORS.ink, fontSize: 16, fontWeight: '800' },
   cartBarButton: { height: 54, borderRadius: RADIUS.md, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, ...SHADOW },
@@ -350,7 +357,7 @@ const styles = sheet({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, backgroundColor: COLORS.bg },
   centerTitle: { color: COLORS.ink, fontSize: 17, fontWeight: '800', marginTop: 12, textAlign: 'center' },
   centerText: { color: COLORS.muted, fontSize: 14, marginTop: 8, textAlign: 'center', lineHeight: 20 },
-  retry: { marginTop: 18, backgroundColor: COLORS.ink, paddingHorizontal: 22, paddingVertical: 12, borderRadius: RADIUS.md },
-  retryText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  retry: { marginTop: 18, backgroundColor: COLORS.cta, paddingHorizontal: 22, paddingVertical: 12, borderRadius: RADIUS.md },
+  retryText: { color: COLORS.ctaInk, fontWeight: '800', fontSize: 15 },
   empty: { alignItems: 'center', paddingVertical: 40, paddingHorizontal: 24 },
 });

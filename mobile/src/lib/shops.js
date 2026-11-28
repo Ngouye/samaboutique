@@ -55,9 +55,45 @@ export async function fetchCatalog(shops, { refresh = false } = {}) {
     .order('created_at', { ascending: false })
     .limit(300);
   if (productsError) throw productsError;
-  catalogCache = (rows || []).filter((p) => isLive(p)).map((p) => ({ ...p, shop: byId.get(p.merchant_id) }));
+  const live = (rows || []).filter((p) => isLive(p));
+  // Notes des clients (moyenne et nombre d'avis), pour l'affichage et le tri « Mieux notés ».
+  const ratings = {};
+  try {
+    const { data: reviews } = await supabase.from('reviews').select('product_id, rating').in('product_id', live.slice(0, 300).map((p) => p.id));
+    (reviews || []).forEach((r) => {
+      const key = String(r.product_id);
+      const cur = ratings[key] || { sum: 0, count: 0 };
+      ratings[key] = { sum: cur.sum + (Number(r.rating) || 0), count: cur.count + 1 };
+    });
+  } catch { /* notes facultatives : le catalogue s'affiche sans elles */ }
+  catalogCache = live.map((p) => {
+    const r = ratings[String(p.id)];
+    return { ...p, shop: byId.get(p.merchant_id), ratingInfo: r ? { average: r.sum / r.count, count: r.count } : null };
+  });
   return catalogCache;
 }
+
+// Tri et filtres de la recherche (écran Explorer).
+export const SORTS = [['recent', 'Nouveautés', 'sparkles-outline'], ['price_asc', 'Prix croissant', 'trending-up-outline'], ['price_desc', 'Prix décroissant', 'trending-down-outline'], ['rating', 'Mieux notés', 'star-outline']];
+export const PRICES = [['all', 'Tous les prix', 0, Infinity], ['lt5', 'Moins de 5 000 F', 0, 5000], ['5to15', '5 000 à 15 000 F', 5000, 15000], ['gt15', 'Plus de 15 000 F', 15000, Infinity]];
+export const DEFAULT_REFINE = { sort: 'recent', price: 'all', inStock: false };
+
+export function refineProducts(products, { sort = 'recent', price = 'all', inStock = false } = {}) {
+  const [, , min, max] = PRICES.find(([id]) => id === price) || PRICES[0];
+  const list = (products || []).filter((p) => {
+    const value = Number(p.price_fcfa) || 0;
+    if (value < min || value >= max) return false;
+    if (inStock && typeof p.stock === 'number' && p.stock <= 0) return false;
+    return true;
+  });
+  if (sort === 'price_asc') return [...list].sort((a, b) => n(a.price_fcfa) - n(b.price_fcfa));
+  if (sort === 'price_desc') return [...list].sort((a, b) => n(b.price_fcfa) - n(a.price_fcfa));
+  if (sort === 'rating') return [...list].sort((a, b) => n(b.ratingInfo?.average) - n(a.ratingInfo?.average) || n(b.ratingInfo?.count) - n(a.ratingInfo?.count));
+  return list; // Nouveautés : ordre du catalogue (plus récents d'abord)
+}
+
+// Nombre de réglages différents de ceux par défaut (pastille du bouton « Filtres »).
+export const refineCount = (r) => Number(r.sort !== 'recent') + Number(r.price !== 'all') + Number(Boolean(r.inStock));
 
 export function filterProducts(products, { query = '', category = null } = {}) {
   const q = plain(query.trim());

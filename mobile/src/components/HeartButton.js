@@ -26,7 +26,7 @@ export default function HeartButton({ active, onToggle, size = 34, label = 'Ajou
       accessibilityRole={native ? 'button' : undefined}
       accessibilityLabel={active ? 'Retirer des favoris' : label}
       accessibilityState={{ selected: active }}
-      style={[{ width: size, height: size, borderRadius: size / 2, backgroundColor: 'rgba(255,255,255,0.95)', alignItems: 'center', justifyContent: 'center', ...SHADOW, shadowOpacity: 0.1 }, style]}
+      style={[{ width: size, height: size, borderRadius: size / 2, backgroundColor: 'rgba(10,8,32,0.6)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center', ...SHADOW, shadowOpacity: 0.1 }, style]}
     >
       <Animated.View style={{ transform: [{ scale }] }}>
         <Ionicons name={active ? 'heart' : 'heart-outline'} size={Math.round(size * 0.55)} color={active ? HEART_RED : COLORS.ink} />

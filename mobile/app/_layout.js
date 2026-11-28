@@ -8,6 +8,7 @@ import {
   useFonts, PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold,
   PlusJakartaSans_700Bold, PlusJakartaSans_800ExtraBold,
 } from '@expo-google-fonts/plus-jakarta-sans';
+import { PlayfairDisplay_600SemiBold_Italic } from '@expo-google-fonts/playfair-display';
 import { COLORS } from '../src/theme';
 import { CartProvider } from '../src/lib/cart';
 import { FavoritesProvider } from '../src/lib/favorites';
@@ -18,6 +19,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold, PlusJakartaSans_800ExtraBold,
+    PlayfairDisplay_600SemiBold_Italic,
   });
   useEffect(() => { if (loaded || error) SplashScreen.hideAsync().catch(() => {}); }, [loaded, error]);
   if (!loaded && !error) return null;
@@ -25,7 +27,7 @@ export default function RootLayout() {
   return (
     <CartProvider>
       <FavoritesProvider>
-        <StatusBar style="dark" />
+        <StatusBar style="light" />
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.bg }, animation: 'slide_from_right' }}>
           <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
         </Stack>

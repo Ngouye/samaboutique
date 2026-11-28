@@ -101,3 +101,24 @@ export function sinceLabel(iso, now = Date.now()) {
   const d = Math.floor(h / 24);
   return d === 1 ? 'hier' : `il y a ${d} j`;
 }
+
+// Reçu à partager (WhatsApp, SMS…) : boutique, numéro, articles, total et statut.
+// Jamais le code secret de livraison, ni le téléphone ou l'adresse du client.
+export function receiptText(order, shopName) {
+  const ref = String(order?.id || '').split('-')[0].toUpperCase();
+  const items = order?.cart_items || [];
+  const itemsTotal = items.reduce((n, it) => n + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0);
+  const total = Number(order?.total_amount_fcfa) || 0;
+  const fmtF = (v) => `${String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} F`;
+  const date = new Date(order?.created_at || Date.now()).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  return [
+    `🧾 Commande SamaBoutik · ${shopName}`,
+    `N° ${ref} · ${date}`,
+    '',
+    ...items.map((it) => `• ${it.quantity} × ${it.name} — ${fmtF(it.price * it.quantity)}`),
+    `• Livraison${order?.delivery_zone ? ` (${order.delivery_zone})` : ''} — ${fmtF(Math.max(0, total - itemsTotal))}`,
+    '',
+    `Total : ${fmtF(total)}`,
+    `Statut : ${statusInfo(order).label}`,
+  ].join('\n');
+}

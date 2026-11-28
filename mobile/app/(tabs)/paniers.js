@@ -102,7 +102,7 @@ const styles = sheet({
   shop: { color: COLORS.ink, fontSize: 16, fontWeight: '800' },
   meta: { color: COLORS.muted, fontSize: 12.5 },
   line: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 12 },
-  thumb: { width: 46, height: 46, borderRadius: 11, overflow: 'hidden', backgroundColor: '#efece6' },
+  thumb: { width: 46, height: 46, borderRadius: 11, overflow: 'hidden', backgroundColor: COLORS.raised },
   lineName: { color: COLORS.ink, fontSize: 14, fontWeight: '600' },
   lineMeta: { color: COLORS.muted, fontSize: 12.5, marginTop: 1 },
   linePrice: { color: COLORS.ink, fontSize: 14, fontWeight: '800' },
@@ -116,6 +116,6 @@ const styles = sheet({
   emptyIcon: { width: 86, height: 86, borderRadius: 30, backgroundColor: COLORS.brandSoft, alignItems: 'center', justifyContent: 'center' },
   emptyTitle: { color: COLORS.ink, fontSize: 19, fontWeight: '800', marginTop: 16 },
   emptyText: { color: COLORS.muted, fontSize: 14, textAlign: 'center', marginTop: 6, lineHeight: 20 },
-  emptyButton: { marginTop: 20, backgroundColor: COLORS.ink, paddingHorizontal: 22, paddingVertical: 13, borderRadius: RADIUS.md },
-  emptyButtonText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  emptyButton: { marginTop: 20, backgroundColor: COLORS.cta, paddingHorizontal: 22, paddingVertical: 13, borderRadius: RADIUS.md },
+  emptyButtonText: { color: COLORS.ctaInk, fontWeight: '800', fontSize: 15 },
 });
